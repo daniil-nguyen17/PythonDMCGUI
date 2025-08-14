@@ -1,0 +1,4 @@
+-need kivy
+-need python 3.13
+-need glib from galil.com
+-

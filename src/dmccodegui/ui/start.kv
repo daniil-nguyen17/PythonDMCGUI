@@ -1,0 +1,107 @@
+<StartScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: '8dp'
+        spacing: '8dp'
+        BoxLayout:
+            size_hint_y: None
+            height: '44dp'
+            spacing: '8dp'
+            Label:
+                text: 'Step'
+                size_hint_x: None
+                width: '60dp'
+            ToggleButton:
+                id: step1
+                text: '1'
+                group: 'step'
+                state: 'down'
+            ToggleButton:
+                id: step10
+                text: '10'
+                group: 'step'
+            ToggleButton:
+                id: step100
+                text: '100'
+                group: 'step'
+        BoxLayout:
+            size_hint_y: None
+            height: '36dp'
+            spacing: '8dp'
+            Button:
+                text: 'Teach from current'
+                on_release: root.teach_from_current()
+            Button:
+                text: 'Save values'
+                on_release: root.save_values()
+        GridLayout:
+            cols: 2
+            size_hint_y: None
+            height: self.minimum_height
+            row_default_height: '36dp'
+            row_force_default: True
+            Label:
+                text: 'A'
+            TextInput:
+                id: a_inp
+                multiline: False
+                input_filter: 'float'
+            BoxLayout:
+                size_hint_y: None
+                height: '36dp'
+                spacing: '4dp'
+                Button:
+                    text: '-'
+                    on_release: root.adjust_axis('A', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                Button:
+                    text: '+'
+                    on_release: root.adjust_axis('A', (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+            Label:
+                text: 'B'
+            TextInput:
+                id: b_inp
+                multiline: False
+                input_filter: 'float'
+            BoxLayout:
+                size_hint_y: None
+                height: '36dp'
+                spacing: '4dp'
+                Button:
+                    text: '-'
+                    on_release: root.adjust_axis('B', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                Button:
+                    text: '+'
+                    on_release: root.adjust_axis('B', (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+            Label:
+                text: 'C'
+            TextInput:
+                id: c_inp
+                multiline: False
+                input_filter: 'float'
+            BoxLayout:
+                size_hint_y: None
+                height: '36dp'
+                spacing: '4dp'
+                Button:
+                    text: '-'
+                    on_release: root.adjust_axis('C', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                Button:
+                    text: '+'
+                    on_release: root.adjust_axis('C', (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+            Label:
+                text: 'D'
+            TextInput:
+                id: d_inp
+                multiline: False
+                input_filter: 'float'
+            BoxLayout:
+                size_hint_y: None
+                height: '36dp'
+                spacing: '4dp'
+                Button:
+                    text: '-'
+                    on_release: root.adjust_axis('D', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                Button:
+                    text: '+'
+                    on_release: root.adjust_axis('D', (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+

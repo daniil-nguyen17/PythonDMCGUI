@@ -1,0 +1,93 @@
+# Root layout and ScreenManager
+
+<RootLayout@BoxLayout>:
+    orientation: 'vertical'
+    SomeMenu_ActionBar:
+        id: actionbar
+    # Log ticker area
+    BoxLayout:
+        size_hint_y: None
+        height: '28dp'
+        padding: '6dp'
+        spacing: '6dp'
+        Label:
+            text: (app.state.messages and app.state.messages[-1]) if app and app.state and app.state.messages else ''
+            color: [1, 0.95, 0.2, 1]
+            text_size: self.size
+            halign: 'left'
+            valign: 'middle'
+    ScreenManager:
+        id: sm
+        SetupScreen:
+            name: 'setup'
+        RestScreen:
+            name: 'rest'
+        StartScreen:
+            name: 'start'
+        EdgePointBScreen:
+            name: 'edge_b'
+        EdgePointCScreen:
+            name: 'edge_c'
+        SettingsScreen:
+            name: 'settings'
+
+<SomeMenu_ActionBar@BoxLayout>:
+    size_hint_y: None
+    height: '48dp'
+    padding: '6dp'
+    spacing: '6dp'
+    # Left cluster: Setup + Actions + App
+    BoxLayout:
+        size_hint_x: None
+        width: self.minimum_width
+        spacing: '6dp'
+        Button:
+            text: 'Setup'
+            size_hint_x: None
+            width: self.texture_size[0] + dp(24)
+            height: '36dp'
+            on_release: app.root.ids.sm.current = 'setup'
+        Spinner:
+            id: actions_spinner
+            text: 'Actions'
+            values: ['RestPoint', 'StartPoint', 'EdgePointB', 'EdgePointC']
+            size_hint_x: None
+            width: '140dp'
+            height: '36dp'
+            on_text:
+                self.text=='RestPoint' and app.open_rest();\
+                self.text=='StartPoint' and app.open_start();\
+                self.text=='EdgePointB' and setattr(app.root.ids.sm, 'current', 'edge_b');\
+                self.text=='EdgePointC' and setattr(app.root.ids.sm, 'current', 'edge_c');\
+                self.text!='Actions' and setattr(self, 'text', 'Actions')
+        Spinner:
+            id: app_spinner
+            text: 'App'
+            values: ['Settings', 'Disconnect', 'Quit']
+            size_hint_x: None
+            width: '140dp'
+            height: '36dp'
+            on_text:
+                self.text=='Settings' and setattr(app.root.ids.sm, 'current', 'settings');\
+                self.text=='Disconnect' and app.disconnect_and_refresh();\
+                self.text=='Quit' and app.stop();\
+                self.text!='App' and setattr(self, 'text', 'App')
+    # Spacer
+    Widget:
+        size_hint_x: 1
+    # Right E-STOP
+    BoxLayout:
+        size_hint_x: None
+        width: self.minimum_width
+        spacing: '6dp'
+        Button:
+            text: '  E-STOP  '
+            size_hint_x: None
+            width: self.texture_size[0] + dp(24)
+            height: '36dp'
+            background_normal: ''
+            background_down: ''
+            background_color: [.88, .06, .06, 1]
+            color: [1, 1, 1, 1]
+            on_release: app.e_stop()
+

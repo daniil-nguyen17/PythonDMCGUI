@@ -1,0 +1,30 @@
+# Disable pycache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+eggs/
+*.egg-info/
+.eggs/
+*.egg
+
+# IDEs / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Kivy / SDL specific
+*.kivy
+*.kv~
+.kivy/
+*.pyo
+
+# Logs & debug
+*.log
+*.tmp
+*.bak

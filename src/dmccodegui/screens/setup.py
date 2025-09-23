@@ -15,6 +15,8 @@ class SetupScreen(Screen):
     address: str = StringProperty("")
     addresses: list = []
     _autoconnect: bool = False
+    connection_status: str = StringProperty("Not connected")
+    _unsubscribe = None
 
     def on_kv_post(self, *_):
         # initial discovery similar to prior populateControllers in on_kv_post/start
@@ -26,10 +28,26 @@ class SetupScreen(Screen):
             # Try to learn/display current address if known
             if not self.state.connected_address and self.address:
                 self.state.connected_address = self.address
+        # subscribe to state changes to drive UI label
+        try:
+            if hasattr(self.state, 'subscribe') and self._unsubscribe is None:
+                self._unsubscribe = self.state.subscribe(lambda *_: Clock.schedule_once(lambda __: self._sync_connection_status()))
+        except Exception:
+            pass
+        self._sync_connection_status()
 
     def on_pre_enter(self, *_):
         # refresh when returning to this page
         self.refresh_addresses()
+        self._sync_connection_status()
+
+    def on_leave(self, *_):
+        if self._unsubscribe:
+            try:
+                self._unsubscribe()
+            except Exception:
+                pass
+            self._unsubscribe = None
 
     def start(self) -> None:
         # parity with old API: kick off discovery
@@ -51,6 +69,7 @@ class SetupScreen(Screen):
                     self._alert(f"Connected to: {addr}")
                 else:
                     self._alert("Connect failed")
+                self._sync_connection_status()
             Clock.schedule_once(lambda *_: on_ui())
 
         jobs.submit(do_connect)
@@ -60,6 +79,7 @@ class SetupScreen(Screen):
             self.controller.disconnect()
             Clock.schedule_once(lambda *_: (self.state.set_connected(False), self._alert("Disconnected")))
             Clock.schedule_once(lambda *_: self.refresh_addresses())
+            Clock.schedule_once(lambda *_: self._sync_connection_status())
         jobs.submit(do_disc)
 
     def teach_point(self, name: str) -> None:
@@ -117,6 +137,18 @@ class SetupScreen(Screen):
         """Public helper to trigger refresh and auto-connect from app on boot."""
         self._autoconnect = True
         self.refresh_addresses()
+
+    def _sync_connection_status(self) -> None:
+        try:
+            if self.state and self.state.connected:
+                if getattr(self.state, 'connected_address', ''):
+                    self.connection_status = f"Connected to {self.state.connected_address}"
+                else:
+                    self.connection_status = "Connected"
+            else:
+                self.connection_status = "Not connected"
+        except Exception:
+            self.connection_status = "Not connected"
 
     def select_address(self, addr: str) -> None:
         self.address = addr

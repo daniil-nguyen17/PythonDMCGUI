@@ -1,0 +1,54 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\Danny\\Desktop\\demo layout\\Demo layout\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{3D1F83A5-876A-4757-A235-C3F77C5AFA20}|Demo layout\\Demo layout.pyproj|C:\\Users\\Danny\\Desktop\\demo layout\\Demo layout\\Demo layout\\DMCCodeGUI.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{3D1F83A5-876A-4757-A235-C3F77C5AFA20}|Demo layout\\Demo layout.pyproj|solutionrelative:Demo layout\\DMCCodeGUI.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{3D1F83A5-876A-4757-A235-C3F77C5AFA20}|Demo layout\\Demo layout.pyproj|C:\\Users\\Danny\\Desktop\\demo layout\\Demo layout\\Demo layout\\dmccodegui.kv||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{3D1F83A5-876A-4757-A235-C3F77C5AFA20}|Demo layout\\Demo layout.pyproj|solutionrelative:Demo layout\\dmccodegui.kv||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 1,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "dmccodegui.kv",
+              "DocumentMoniker": "C:\\Users\\Danny\\Desktop\\demo layout\\Demo layout\\Demo layout\\dmccodegui.kv",
+              "RelativeDocumentMoniker": "Demo layout\\dmccodegui.kv",
+              "ToolTip": "C:\\Users\\Danny\\Desktop\\demo layout\\Demo layout\\Demo layout\\dmccodegui.kv",
+              "RelativeToolTip": "Demo layout\\dmccodegui.kv",
+              "ViewState": "AgIAAEsAAAAAAAAAAAAAAFcAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2025-09-19T19:01:11.632Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "DMCCodeGUI.py",
+              "DocumentMoniker": "C:\\Users\\Danny\\Desktop\\demo layout\\Demo layout\\Demo layout\\DMCCodeGUI.py",
+              "RelativeDocumentMoniker": "Demo layout\\DMCCodeGUI.py",
+              "ToolTip": "C:\\Users\\Danny\\Desktop\\demo layout\\Demo layout\\Demo layout\\DMCCodeGUI.py",
+              "RelativeToolTip": "Demo layout\\DMCCodeGUI.py",
+              "ViewState": "AgIAAEQBAAAAAAAAAAA3wHQBAABJAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002457|",
+              "WhenOpened": "2025-09-19T18:59:03.604Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

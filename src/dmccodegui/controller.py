@@ -73,6 +73,11 @@ class GalilController:
         try:
             self._driver.GOpen(address + " -d")
             self._connected = True
+            if self._logger:
+                try:
+                    self._logger(f"Connected to: {address}")
+                except Exception:
+                    pass
             return True
         except Exception as e:
             log.error("connect error: %s", e)
@@ -88,6 +93,11 @@ class GalilController:
             pass
         finally:
             self._connected = False
+            if self._logger:
+                try:
+                    self._logger("Disconnected")
+                except Exception:
+                    pass
 
     def is_connected(self) -> bool:
         return self._connected

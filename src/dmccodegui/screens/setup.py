@@ -14,9 +14,6 @@ class SetupScreen(Screen):
     state: MachineState = ObjectProperty(None)  # type: ignore
     address: str = StringProperty("")
     addresses: list = []
-    _refresh_in_flight: bool = False
-    _last_refresh_ts: float = 0.0
-    _auto_connect_attempted: bool = False
 
     def on_kv_post(self, *_):
         # initial discovery similar to prior populateControllers in on_kv_post/start
@@ -48,7 +45,8 @@ class SetupScreen(Screen):
                 self.state.set_connected(ok)
                 if ok:
                     self.state.connected_address = addr
-                    self.state.log(f"Connected to: {addr}")
+                    # Mirror old title update and banner
+                    self._alert(f"Connected to: {addr}")
                 else:
                     self._alert("Connect failed")
             Clock.schedule_once(lambda *_: on_ui())
@@ -84,22 +82,12 @@ class SetupScreen(Screen):
 
     # Discovery
     def refresh_addresses(self) -> None:
-        # Debounce to avoid repeated refresh on rapid navigation/resize
-        import time
-        now = time.monotonic()
-        if self._refresh_in_flight:
-            return
-        if now - self._last_refresh_ts < 1.0:
-            return
-        self._refresh_in_flight = True
         def do_list() -> None:
             items = self.controller.list_addresses()
             def on_ui() -> None:
                 self.addresses = [(k, v) for k, v in items.items()]
                 grid = self.ids.get('addr_list')
                 if not grid:
-                    self._refresh_in_flight = False
-                    self._last_refresh_ts = time.monotonic()
                     return
                 grid.clear_widgets()
                 from kivy.uix.button import Button
@@ -108,18 +96,6 @@ class SetupScreen(Screen):
                     btn = Button(text=f"{label} | {addr}", size_hint_y=None, height='32dp')
                     btn.bind(on_release=lambda *_ , a=addr: self.select_address(a))
                     grid.add_widget(btn)
-                # Auto-connect strategy: try env var, then typed address, else first discovered
-                if (not self.state.connected) and (not self._auto_connect_attempted):
-                    import os
-                    candidate = os.environ.get('DMC_ADDRESS') or (self.ids.get('address').text if self.ids.get('address') else '') or (self.addresses[0][0] if self.addresses else '')
-                    if candidate:
-                        self._auto_connect_attempted = True
-                        self.address = candidate
-                        if self.ids.get('address'):
-                            self.ids['address'].text = candidate
-                        self.connect()
-                self._refresh_in_flight = False
-                self._last_refresh_ts = time.monotonic()
             Clock.schedule_once(lambda *_: on_ui())
         jobs.submit(do_list)
 

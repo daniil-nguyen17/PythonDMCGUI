@@ -55,14 +55,7 @@ class GalilController:
             result = addrs()
             # result may be dict-like
             items: Dict[str, str] = dict(result) if result else {}
-            # Filter out serial/parallel device names like COM1 unless explicitly desired
-            filtered: Dict[str, str] = {}
-            for addr, desc in items.items():
-                a_up = str(addr).upper()
-                if a_up.startswith("COM") or a_up.startswith("LPT"):
-                    continue
-                filtered[addr] = desc
-            return filtered
+            return items
         except Exception as e:
             log.error("list_addresses error: %s", e)
             return {}

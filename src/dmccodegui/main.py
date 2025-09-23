@@ -70,6 +70,21 @@ class DMCApp(App):
         # Detect pre-existing connection (e.g., controller opened by previous run)
         if self.controller.verify_connection():
             self.state.set_connected(True)
+        else:
+            # Optional auto-connect via env var
+            addr = os.environ.get('DMC_ADDRESS', '').strip()
+            if addr:
+                def do_auto():
+                    ok = self.controller.connect(addr)
+                    def on_ui():
+                        self.state.set_connected(ok)
+                        if ok:
+                            self.state.connected_address = addr
+                            self._log_message(f"Connected to: {addr}")
+                        else:
+                            self._log_message("Auto-connect failed")
+                    Clock.schedule_once(lambda *_: on_ui())
+                jobs.submit(do_auto)
         return root
 
     def _poll_controller(self) -> None:

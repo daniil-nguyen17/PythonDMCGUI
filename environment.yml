@@ -1,0 +1,23 @@
+name: dmc
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+  - setuptools
+  - wheel
+  - sqlite
+  - tk
+  - pip:
+      # Core GUI libs
+      - kivy==2.3.1
+      - "kivy_deps.sdl2; platform_system == 'Windows'"
+      - "kivy_deps.glew; platform_system == 'Windows'"
+      - "kivy_deps.gstreamer; platform_system == 'Windows'"
+      - "kivy_deps.angle; platform_system == 'Windows'"
+
+      # Galil driver (Python wheel)
+      - https://www.galil.com/sw/pub/python/gclib-1.0.0-py3-none-any.whl
+
+      # Windows helpers (safe to ignore elsewhere)
+      - "pywin32; platform_system == 'Windows'"

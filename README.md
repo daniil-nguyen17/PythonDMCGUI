@@ -8,8 +8,8 @@ This is a custom solution python GUI that serves to control a Galil machine usin
 
 ##Setup instructions
 - Set up conda
-    - conda env create -f environment.yml - this is root directory
-    - conda activate my_new_environment
+    - conda env create -f environment.yml - this is ran in root directory
+    - conda activate dmc
 - Install GCLib .exe installer - make sure it sets your path for x64 versions
 - Run python "PythonDMCGUI\Demo layout\DMCCodeGUI.py"
 

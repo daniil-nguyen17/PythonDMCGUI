@@ -101,8 +101,14 @@ class GalilController:
 
     # Commands
     def cmd(self, command: str) -> str:
-        if not self._driver:
-            raise RuntimeError("No driver")
+        if not self._driver or not self._connected:
+            # Surface a clear message to UI when called while disconnected
+            if self._logger:
+                try:
+                    self._logger("No controller connected")
+                except Exception:
+                    pass
+            raise RuntimeError("No controller connected")
         try:
             resp = self._driver.GCommand(command)
             if self._logger:
@@ -124,9 +130,45 @@ class GalilController:
                     pass
             raise RuntimeError(tc1)
 
+    def _raw_cmd(self, command: str) -> str:
+        """Internal command without logger side-effects.
+
+        Used for high-frequency polling to avoid UI spam.
+        """
+        if not self._driver:
+            raise RuntimeError("No driver")
+        try:
+            return self._driver.GCommand(command)
+        except Exception as e:
+            try:
+                tc1 = self._driver.GCommand("TC1")
+            except Exception:
+                tc1 = str(e)
+            raise RuntimeError(tc1)
+
+    def verify_connection(self) -> bool:
+        """Try a benign command to determine if a working connection exists.
+
+        If successful, marks controller as connected.
+        """
+        if not self._driver:
+            return False
+        try:
+            _ = self._driver.GCommand("MG{Z10.0} _SPA")
+            self._connected = True
+            if self._logger:
+                try:
+                    self._logger("Verified existing connection")
+                except Exception:
+                    pass
+            return True
+        except Exception:
+            self._connected = False
+            return False
+
     # Status
     def read_status(self) -> Dict[str, Any]:
-        resp = self.cmd("MG{Z10.0} _RPA, _RPB, _RPC, _RPD, _TSA")
+        resp = self._raw_cmd("MG{Z10.0} _RPA, _RPB, _RPC, _RPD, _TSA")
         nums = parse_number_list(resp)
         pos = {"A": nums[0] if len(nums) > 0 else 0.0,
                "B": nums[1] if len(nums) > 1 else 0.0,
@@ -136,7 +178,7 @@ class GalilController:
         # Speed reading as example; adapt as needed
         sp = 0.0
         try:
-            sp = float(self.cmd("MG{Z10.0} _SPA"))
+            sp = float(self._raw_cmd("MG{Z10.0} _SPA"))
         except Exception:
             pass
         return {"pos": pos, "inputs": inputs_faults, "faults": inputs_faults, "speeds": sp}

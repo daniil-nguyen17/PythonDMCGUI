@@ -8,6 +8,7 @@ from kivy.app import App
 from kivy.lang import Builder
 from kivy.clock import Clock
 from kivy.factory import Factory
+from kivy.properties import StringProperty
 
 try:
     from .app_state import MachineState
@@ -34,6 +35,8 @@ KV_FILES = [
 
 
 class DMCApp(App):
+    # Top-of-app banner text for alerts/logs
+    banner_text = StringProperty("")
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.state = MachineState()
@@ -57,6 +60,9 @@ class DMCApp(App):
         self._poll_cancel = jobs.schedule(0.1, self._poll_controller)
         # Hook controller logger to push messages into state and show banner
         self.controller.set_logger(lambda msg: Clock.schedule_once(lambda *_: self._log_message(msg)))
+        # Detect pre-existing connection (e.g., controller opened by previous run)
+        if self.controller.verify_connection():
+            self.state.set_connected(True)
         return root
 
     def _poll_controller(self) -> None:
@@ -126,15 +132,11 @@ class DMCApp(App):
 
     # Messaging helpers
     def _log_message(self, message: str) -> None:
-        self.state.log(message)
-        try:
-            from kivy.uix.label import Label
-            from kivy.uix.popup import Popup
-            pop = Popup(title='Controller Message', content=Label(text=message), size_hint=(0.5, 0.25))
-            pop.open()
-            Clock.schedule_once(lambda *_: pop.dismiss(), 2.5)
-        except Exception:
-            pass
+        # Push to ticker only; avoid spammy popups
+        # Filter duplicate consecutive messages
+        if message and message != self.banner_text:
+            self.banner_text = message
+            self.state.log(message)
 
 
 def main() -> None:

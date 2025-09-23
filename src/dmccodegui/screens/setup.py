@@ -18,6 +18,9 @@ class SetupScreen(Screen):
     def on_kv_post(self, *_):
         # initial discovery similar to prior populateControllers in on_kv_post/start
         self.refresh_addresses()
+        # reflect current connection immediately
+        if self.controller and self.controller.verify_connection():
+            self.state.set_connected(True)
 
     def on_pre_enter(self, *_):
         # refresh when returning to this page

@@ -11,7 +11,7 @@
         padding: '6dp'
         spacing: '6dp'
         Label:
-            text: (app.state.messages and app.state.messages[-1]) if app and app.state and app.state.messages else ''
+            text: app.banner_text if app else ''
             color: [1, 0.95, 0.2, 1]
             text_size: self.size
             halign: 'left'

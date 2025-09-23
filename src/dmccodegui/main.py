@@ -9,6 +9,13 @@ from kivy.lang import Builder
 from kivy.clock import Clock
 from kivy.factory import Factory
 from kivy.properties import StringProperty
+from kivy.config import Config
+Config.set('graphics', 'fullscreen', '0')   # disable fullscreen
+Config.set('graphics', 'maximized', '0')    # start not maximized
+Config.set('graphics', 'borderless', '0')   # keep window borders
+
+from kivy.core.window import Window
+Window.size = (1280, 800)                   # pick a window size you want
 
 try:
     from .app_state import MachineState

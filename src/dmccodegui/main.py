@@ -85,6 +85,13 @@ class DMCApp(App):
                             self._log_message("Auto-connect failed")
                     Clock.schedule_once(lambda *_: on_ui())
                 jobs.submit(do_auto)
+        # Trigger the setup screen to refresh and (optionally) auto-connect
+        try:
+            setup = next((s for s in root.ids.sm.screens if getattr(s, 'name', '') == 'setup'), None)
+            if setup and hasattr(setup, 'initial_refresh'):
+                setup.initial_refresh()
+        except Exception:
+            pass
         return root
 
     def _poll_controller(self) -> None:

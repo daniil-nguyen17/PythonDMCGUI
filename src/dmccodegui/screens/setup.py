@@ -14,9 +14,11 @@ class SetupScreen(Screen):
     state: MachineState = ObjectProperty(None)  # type: ignore
     address: str = StringProperty("")
     addresses: list = []
+    _autoconnect: bool = False
 
     def on_kv_post(self, *_):
         # initial discovery similar to prior populateControllers in on_kv_post/start
+        self._autoconnect = True
         self.refresh_addresses()
         # reflect current connection immediately
         if self.controller and self.controller.verify_connection():
@@ -96,8 +98,25 @@ class SetupScreen(Screen):
                     btn = Button(text=f"{label} | {addr}", size_hint_y=None, height='32dp')
                     btn.bind(on_release=lambda *_ , a=addr: self.select_address(a))
                     grid.add_widget(btn)
+                # Attempt auto-connect once on startup if requested
+                if self._autoconnect and not (self.state and self.state.connected):
+                    import os
+                    candidate = os.environ.get('DMC_ADDRESS') or (self.ids.get('address').text if self.ids.get('address') else '') or (self.addresses[0][0] if self.addresses else '')
+                    if candidate:
+                        self._autoconnect = False
+                        self.address = candidate
+                        if self.ids.get('address'):
+                            self.ids['address'].text = candidate
+                        self.connect()
+                    else:
+                        self._autoconnect = False
             Clock.schedule_once(lambda *_: on_ui())
         jobs.submit(do_list)
+
+    def initial_refresh(self) -> None:
+        """Public helper to trigger refresh and auto-connect from app on boot."""
+        self._autoconnect = True
+        self.refresh_addresses()
 
     def select_address(self, addr: str) -> None:
         self.address = addr

@@ -28,8 +28,6 @@
             name: 'edge_b'
         EdgePointCScreen:
             name: 'edge_c'
-        SettingsScreen:
-            name: 'settings'
 
 <SomeMenu_ActionBar@BoxLayout>:
     size_hint_y: None
@@ -68,7 +66,7 @@
             width: '140dp'
             height: '36dp'
             on_text:
-                self.text=='Settings' and setattr(app.root.ids.sm, 'current', 'settings');\
+                self.text=='Settings' and app.open_settings();\
                 self.text=='Disconnect' and app.disconnect_and_refresh();\
                 self.text=='Quit' and app.stop();\
                 self.text!='App' and setattr(self, 'text', 'App')

@@ -36,7 +36,6 @@ KV_FILES = [
     "ui/rest.kv",
     "ui/start.kv",
     "ui/setup.kv",
-    "ui/settings.kv",
     "ui/base.kv",    # load last so classes are registered first
 ]
 

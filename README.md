@@ -26,25 +26,19 @@ Layered structure keeps UI responsive and testable:
 
 - `src/dmccodegui/main.py`
   - Loads KV files, builds root, injects `GalilController` and `MachineState` into all screens
-  - Starts 10 Hz poll via background worker
   - Hooks controller logging to popup alerts and the message ticker
 
 - `src/dmccodegui/controller.py`
-  - `GalilController` API: `connect`, `disconnect`, `is_connected`, `cmd`, `read_status`, `jog`, `stop_jog`, `teach_point`, `read_array`, `write_array`, `list_addresses`
-  - No Kivy imports; safe chunked array IO; TC1 error parsing; pluggable logger
+  - `GalilController` API with functions to interface w controller
 
 - `src/dmccodegui/app_state.py`
   - `MachineState` dataclass with pub/sub and a rotating `messages` list for alerts
 
 - `src/dmccodegui/utils/jobs.py`
   - Single worker thread + interval scheduler
-  - `submit(fn, ...)` for one-shot tasks; `schedule(interval_s, fn)` for periodic jobs
 
 - `src/dmccodegui/screens/`
-  - `setup.py`: discovery, connect/disconnect, teach helpers with robust alerting
-  - `arrays.py`: generic chunked array editor with validation; base for edge screens
-  - `rest.py`, `start.py`: 4-axis teach screens with +/- step controls and manual entry
-  - `__init__.py`: imports Python-defined screens so Kivy registers them
+  - This directory holds python logic for each screen
 
 - `src/dmccodegui/ui/`
   - `base.kv`: root layout; custom toolbar; global message ticker row
@@ -52,9 +46,7 @@ Layered structure keeps UI responsive and testable:
   - `edges.kv`: KV-only subclasses `EdgePointBScreen`/`EdgePointCScreen` using different arrays
   - `theme.kv`: shared styles
 
-## Alerts and Error Handling
-- All controller calls run off the UI thread; screens guard with `controller.is_connected()` and use a local `_alert("No controller connected")` helper.
-- The app’s `_log_message` surfaces messages as a short popup and in the ticker; `MachineState.messages` retains recent entries.
+
 
 ## Tests
 ```bash

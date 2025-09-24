@@ -1,14 +1,27 @@
 from __future__ import annotations
 
 import logging
-import time
 from typing import Any, Dict, List, Optional, Sequence
 
 from .utils.fmt import clamp, parse_number_list
-from .transport import GalilTransport, CommError
-
-
+#get logger for messages
 log = logging.getLogger(__name__)
+# Try to import gclib at module level, but don't fail if it's not available
+try:
+    import gclib  # type: ignore
+    GCLIB_AVAILABLE = True
+except ImportError:
+    gclib = None  # type: ignore
+    GCLIB_AVAILABLE = False
+# Create the global handle lazily/safely
+if GCLIB_AVAILABLE:
+    try:
+        globalDMC = gclib.py()
+    except Exception as e:  # pragma: no cover
+        log.error("Failed to create gclib handle: %s", e)
+        globalDMC = None  # type: ignore
+else:
+    globalDMC = None  # type: ignore
 
 
 class GalilDriverProtocol:
@@ -63,6 +76,7 @@ MAX_EDGES_DEFAULT = 150
 
 
 class GalilController:
+    
     def __init__(self, driver: Optional[GalilDriverProtocol] = None) -> None:
         self._driver = driver
         self._connected = False
@@ -81,8 +95,10 @@ class GalilController:
         """
         drv = self._driver
         if drv is None:
+            if not GCLIB_AVAILABLE:
+                log.error("GAddresses unavailable: gclib not installed")
+                return {}
             try:
-                import gclib  # type: ignore
                 drv = gclib.py()
             except Exception as e:  # pragma: no cover
                 log.error("GAddresses unavailable: %s", e)
@@ -101,13 +117,18 @@ class GalilController:
 
     # Connection
     def connect(self, address: str) -> bool:
-        # Prefer transport abstraction; fall back to direct driver if user injects one
+        if self._driver is None:
+            if not GCLIB_AVAILABLE:
+                log.error("Failed to connect: gclib not installed")
+                return False
+            try:
+                self._driver = gclib.py()
+            except Exception as e:  # pragma: no cover
+                log.error("Failed to create gclib driver: %s", e)
+                return False
         try:
-            if self._transport is None:
-                self._transport = GalilTransport(self._driver) if self._driver else GalilTransport()
-            self._transport.open(address)
+            self._driver.GOpen(address + " -d")
             self._connected = True
-            print(f"[CTRL] Connected to {address}")
             if self._logger:
                 try:
                     self._logger(f"Connected to: {address}")
@@ -116,17 +137,18 @@ class GalilController:
             return True
         except Exception as e:
             log.error("connect error: %s", e)
-            print(f"[CTRL] Connect error: {e}")
             self._connected = False
             return False
 
     def disconnect(self) -> None:
+        if self._driver is None:
+            return
         try:
-            if self._transport:
-                self._transport.close()
+            self._driver.GClose()
+        except Exception:
+            pass
         finally:
             self._connected = False
-            print("[CTRL] Disconnected")
             if self._logger:
                 try:
                     self._logger("Disconnected")
@@ -138,7 +160,7 @@ class GalilController:
 
     # Commands
     def cmd(self, command: str) -> str:
-        if not self._connected or not self._transport:
+        if not self._driver or not self._connected:
             # Surface a clear message to UI when called while disconnected
             if self._logger:
                 try:
@@ -147,21 +169,19 @@ class GalilController:
                     pass
             raise RuntimeError("No controller connected")
         try:
-            resp = self._transport.command(command, retries=2, backoff_s=0.05)
-            print(f"[CTRL] CMD: {command} -> {resp.strip()}")
+            resp = self._driver.GCommand(command)
             if self._logger:
                 try:
                     self._logger(f"CMD {command} -> {resp.strip()}")
                 except Exception:
                     pass
             return resp
-        except CommError as e:
+        except Exception as e:
             # Try to fetch error string
             try:
-                tc1 = self._transport.command("TC1") if self._transport else str(e)
+                tc1 = self._driver.GCommand("TC1")
             except Exception:
                 tc1 = str(e)
-            print(f"[CTRL] CMD ERROR: {command} -> {tc1}")
             if self._logger:
                 try:
                     self._logger(f"Error: {tc1}")
@@ -174,13 +194,13 @@ class GalilController:
 
         Used for high-frequency polling to avoid UI spam.
         """
-        if not self._transport:
+        if not self._driver:
             raise RuntimeError("No driver")
         try:
-            return self._transport.command(command, retries=0)
+            return self._driver.GCommand(command)
         except Exception as e:
             try:
-                tc1 = self._transport.command("TC1") if self._transport else str(e)
+                tc1 = self._driver.GCommand("TC1")
             except Exception:
                 tc1 = str(e)
             raise RuntimeError(tc1)
@@ -345,6 +365,99 @@ class GalilController:
         count = min(preferred, n)
         return self.read_array_slice(var_name, 0, count)
 
+       
+    #used to get the array from controller to the GUI
+    def upload_array(self, name: str, first: int, last: int) -> List[float]:
+        # """Read controller array [first..last] as floats.
+
+        # Prefers gclib GArrayUpload when available; falls back to chunked MG reads.
+        # """
+        if first > last:
+            return []
+        if not self._driver or not self._connected:
+            raise RuntimeError("No controller connected")
+
+        # Prefer GArrayUpload if available on the driver
+        if hasattr(self._driver, "GArrayUpload"):
+            try:
+                text = getattr(self._driver, "GArrayUpload")(name, first, last, 1)
+                tokens = [tok.strip() for tok in str(text).replace("\r", " ").replace("\n", " ").split(",") if tok.strip()]
+                return [float(tok) for tok in tokens][: (last - first + 1)]
+            except Exception:
+                # Fall through to MG-based approach
+                pass
+
+        # Fallback: use MG in safe chunks
+        out: List[float] = []
+        i = first
+        while i <= last:
+            count = min(32, last - i + 1)
+            refs = ", ".join(f"{name}[{j}]" for j in range(i, i + count))
+            resp = self.cmd("MG " + refs).strip()
+            parts = resp.replace("\r", " ").replace("\n", " ").split()
+            out.extend(float(p) for p in parts)
+            i += count
+        return out[: (last - first + 1)]
+    
+    #used to get the array from GUI to controller
+    def download_array(self, name: str, first: int, values: Sequence[float]) -> int:
+        # """
+        # Write Python values → controller array starting at index `first`.
+
+        # Prefers gclib GArrayDownload when available; falls back to chunked assignments.
+        # Returns the number of elements written.
+        # """
+        if not values:
+            return 0
+        if not self._driver or not self._connected:
+            raise RuntimeError("No controller connected")
+
+        n = len(values)
+        last = first + n - 1
+
+        # --- Fast path: try GArrayDownload on the driver ----------------------
+        fn = getattr(self._driver, "GArrayDownload", None)
+        if callable(fn):
+            ascii_payload = ",".join(str(v) for v in values)
+            # Try common Python wrapper variants in order:
+            #  - Some wrappers accept ASCII directly: (name, first, last, ascii_payload)
+            #  - Some accept a delimiter flag too:     (name, first, last, 1, ascii_payload)
+            #  - Some want raw binary doubles buffer:  (name, first, last, bytes)
+            # We attempt these patterns; if all fail, we fall back to GCommand.
+            try:
+                fn(name, first, last, ascii_payload)  # ASCII, no delimiter arg
+                return n
+            except Exception:
+                try:
+                    fn(name, first, last, 1, ascii_payload)  # ASCII with delimiter flag
+                    return n
+                except Exception:
+                    try:
+                        import struct
+                        buf = struct.pack("<" + "d" * n, *values)  # little-endian doubles
+                        fn(name, first, last, buf)  # binary buffer
+                        return n
+                    except Exception:
+                        pass  # fall through to MG-based approach
+
+        # --- Fallback: send assignments via GCommand in safe chunks ----------
+        # Build assignments like:  Arr[0]=1.23;Arr[1]=4.56;...
+        written = 0
+        line = ""
+        for i, v in enumerate(values):
+            cmd = f"{name}[{first + i}]={v}"
+            # keep command lines comfortably short for the DMC parser
+            if len(line) + len(cmd) + 1 < 300:
+                line = f"{line};{cmd}" if line else cmd
+            else:
+                self.cmd(line)
+                written += line.count("=")  # number of assignments we just sent
+                line = cmd
+        if line:
+            self.cmd(line)
+            written += line.count("=")
+        return written    
+
 
 if __name__ == "__main__":  # Minimal integration demo
     import os
@@ -370,13 +483,16 @@ if __name__ == "__main__":  # Minimal integration demo
         # Chunk to approximately 300 chars per command line
         items = sorted((idx, val) for idx, val in updates.items())
         line = ""
-        for idx, val in items:
-            cmd = f"{name}[{idx}]={val}"
+        for i, v in enumerate(values):
+            cmd = f"{name}[{first + i}]={v}"
+            # keep command lines comfortably short for the DMC parser
             if len(line) + len(cmd) + 1 < 300:
-                line = (line + ";" + cmd) if line else cmd
+                line = f"{line};{cmd}" if line else cmd
             else:
                 self.cmd(line)
+                written += line.count("=")  # number of assignments we just sent
                 line = cmd
         if line:
             self.cmd(line)
-
+            written += line.count("=")
+        return written 

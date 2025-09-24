@@ -15,50 +15,69 @@ from ..utils.fmt import try_float
 class StartScreen(Screen):
     controller: GalilController = ObjectProperty(None)  # type: ignore
     state: MachineState = ObjectProperty(None)  # type: ignore
+    start_vals = ([0.0, 0.0, 0.0, 0.0])
 
     def on_pre_enter(self, *args):  # noqa: ANN001
-        self._load_from_state()
-
-    def _load_from_state(self) -> None:
-        data = (self.state.taught_points.get("Start") or {}).get("pos", {}) if self.state else {}
-        a = str(data.get("A", 0.0))
-        b = str(data.get("B", 0.0))
-        c = str(data.get("C", 0.0))
-        d = str(data.get("D", 0.0))
+        #"""Called right before the screen is shown."""
+        try:
+            vals = self.controller.upload_array("StartPnt", 0, 3)
+        except Exception as e:
+            print("StartPnt read failed:", e)
+            return
+        self.start_vals = (vals + [0,0,0,0])[:4]
+        self._fill_inputs_from_vals(self.start_vals)
+        
+    def _fill_inputs_from_vals(self, vals):
         ids = self.ids
-        if ids.get("a_inp"): ids["a_inp"].text = a
-        if ids.get("b_inp"): ids["b_inp"].text = b
-        if ids.get("c_inp"): ids["c_inp"].text = c
-        if ids.get("d_inp"): ids["d_inp"].text = d
+        mapping = [
+            ("a_inp", 0),
+            ("b_inp", 1),
+            ("c_inp", 2),
+            ("d_inp", 3),
+        ]
+        for wid, idx in mapping:
+            ti = ids.get(wid)
+            if ti is not None and idx < len(vals):
+                ti.text = str(vals[idx])
+
 
     def save_values(self) -> None:
         ids = self.ids
-        vals: Dict[str, float] = {
-            "A": try_float(ids.get("a_inp").text if ids.get("a_inp") else "0"),
-            "B": try_float(ids.get("b_inp").text if ids.get("b_inp") else "0"),
-            "C": try_float(ids.get("c_inp").text if ids.get("c_inp") else "0"),
-            "D": try_float(ids.get("d_inp").text if ids.get("d_inp") else "0"),
-        }
-        self.state.taught_points["Start"] = {"pos": vals}
-        self.state.notify()
 
-    def teach_from_current(self) -> None:
-        if not self.controller or not self.controller.is_connected():
-            Clock.schedule_once(lambda *_: self._alert("No controller connected"))
-            return
-        def do_teach() -> None:
+        def get_num(wid: str) -> float:
+            ti = ids.get(wid)
+            s = ti.text.strip() if ti and ti.text is not None else "0"
             try:
-                st = self.controller.read_status()
-                pos = st.get("pos", {})
-                def on_ui() -> None:
-                    self.state.taught_points["Start"] = {"pos": pos}
-                    self.state.notify()
-                    self._load_from_state()
-                Clock.schedule_once(lambda *_: on_ui())
-            except Exception as e:
-                msg = f"Teach Start error: {e}"
-                Clock.schedule_once(lambda *_: self._alert(msg))
-        jobs.submit(do_teach)
+                return float(s)
+            except ValueError:
+                # optional: visually flag bad input
+                if ti: ti.background_color = (1, 0.6, 0.6, 1)
+                return 0.0
+
+        # A, B, C, D in order → local array
+        new_vals = [
+            get_num("a_inp"),
+            get_num("b_inp"),
+            get_num("c_inp"),
+            get_num("d_inp"),
+        ]
+
+        # 1) Save to your local array on the screen
+        self.start_vals = new_vals
+
+        # 2) (Optional) keep your app-wide state in sync
+        self.state.taught_points["Start"] = {
+            "pos": {"A": new_vals[0], "B": new_vals[1], "C": new_vals[2], "D": new_vals[3]}
+        }
+        self.state.notify()
+        try:
+            if not self.controller or not self.controller.is_connected():
+                raise RuntimeError("No controller connected")
+            self.controller.download_array("StartPnt", 0, self.start_vals)
+        except Exception as e:
+            print("StartPnt send to controller failed:", e)
+            return
+
 
     def adjust_axis(self, axis: str, delta: float) -> None:
         ids = self.ids
@@ -83,4 +102,25 @@ class StartScreen(Screen):
             pass
         if self.state:
             self.state.log(message)
+    def loadArrayToPage(self, *args):
+        try:
+            vals = self.controller.upload_array("StartPnt", 0, 3)
+        except Exception as e:
+            print("StartPnt read failed:", e)
+            return
+        self.start_vals = (vals + [0,0,0,0])[:4]
+        self._fill_inputs_from_vals(self.start_vals)
+        
+    def _fill_inputs_from_vals(self, vals):
+        ids = self.ids
+        mapping = [
+            ("a_inp", 0),
+            ("b_inp", 1),
+            ("c_inp", 2),
+            ("d_inp", 3),
+        ]
+        for wid, idx in mapping:
+            ti = ids.get(wid)
+            if ti is not None and idx < len(vals):
+                ti.text = str(vals[idx])       
 

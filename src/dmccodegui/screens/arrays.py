@@ -61,13 +61,19 @@ class ArraysScreen(Screen):
 
         def do_read() -> None:
             try:
-                vals = self.controller.read_array(name, n)
+                # Ensure controller is ready (arrays declared and numeric)
+                self.controller.wait_for_ready()
+                # Discover actual length up to configured max
+                length = self.controller.discover_length(name, probe_max=n)
+                if length <= 0:
+                    vals = []
+                else:
+                    vals = self.controller.read_array_slice(name, 0, length)
                 def on_ui() -> None:
                     self.state.arrays[name] = vals
-                    # update labels
-                    for i, v in enumerate(vals):
-                        if i < len(self._value_labels):
-                            self._value_labels[i].text = f"{v}"
+                    # update labels (clear beyond length)
+                    for i, lbl in enumerate(self._value_labels):
+                        lbl.text = f"{vals[i]}" if i < len(vals) else ""
                     self.state.notify()
                 Clock.schedule_once(lambda *_: on_ui())
             except Exception as e:

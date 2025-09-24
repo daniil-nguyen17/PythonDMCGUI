@@ -1,107 +1,378 @@
+<ImageButton@ButtonBehavior+Image>:
+    mipmap: True
+    allow_stretch: True
+    keep_ratio: True
+
+<CenteredTextInput@TextInput>:
+    multiline: False
+    input_filter: 'float'
+    size_hint: None, None
+    width: '120dp'
+    height: '56dp'
+    font_size: '22sp'
+    halign: 'center'
+    valign: 'middle'
+    padding: [0, (self.height - self.line_height) / 2]
+
+<VDivider@Widget>:
+    size_hint_x: None
+    width: '2dp'
+    canvas:
+        Color:
+            rgba: .35, .35, .35, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+<CardFrame@BoxLayout>:
+    orientation: 'vertical'
+    padding: '10dp'
+    spacing: '10dp'
+    canvas.before:
+        Color:
+            rgba: .95, .95, .95, 0.12
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [8,]
+        Color:
+            rgba: 1, 0.84, 0, 0.45
+        Line:
+            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+            width: 1.2
+
+# ---------- HORIZONTAL CONTROL ----------
+<HControl@AnchorLayout>:
+    left_cb: None
+    right_cb: None
+    left_src: ''
+    right_src: ''
+    left_w: '72dp'
+    right_w: '72dp'
+    size_hint_y: None
+    height: '80dp'
+    anchor_x: 'center'
+    anchor_y: 'center'
+
+    BoxLayout:
+        orientation: 'horizontal'
+        size_hint: None, None
+        width: self.minimum_width
+        height: root.height
+        spacing: '3dp'
+        pos_hint: {'center_x': .5}
+
+        AnchorLayout:
+            size_hint: None, None
+            width: root.left_w
+            height: root.height
+            anchor_x: 'center'
+            anchor_y: 'center'
+            ImageButton:
+                size_hint: None, None
+                width: root.left_w
+                height: root.left_w
+                source: root.left_src or 'data/logo/kivy-icon-64.png'
+                on_release: root.left_cb() if root.left_cb else None
+
+        CenteredTextInput:
+            id: ctrl_input
+            size_hint: None, None
+            width: '120dp'
+            height: root.height   # 80dp to match side sections
+
+        AnchorLayout:
+            size_hint: None, None
+            width: root.right_w
+            height: root.height
+            anchor_x: 'center'
+            anchor_y: 'center'
+            ImageButton:
+                size_hint: None, None
+                width: root.right_w
+                height: root.right_w
+                source: root.right_src or 'data/logo/kivy-icon-64.png'
+                on_release: root.right_cb() if root.right_cb else None
+
+# ---------- VERTICAL CONTROL ----------
+<VControl@AnchorLayout>:
+    up_cb: None
+    down_cb: None
+    up_src: ''
+    down_src: ''
+    up_w: '74dp'     # +2dp so the green up matches the red down visually
+    down_w: '72dp'
+    size_hint_y: None
+    height: '240dp'
+    anchor_x: 'center'
+    anchor_y: 'center'
+
+    AnchorLayout:
+        size_hint: None, None
+        width: '160dp'
+        height: '240dp'
+        anchor_x: 'center'
+        anchor_y: 'center'
+
+        BoxLayout:
+            orientation: 'vertical'
+            size_hint: None, None
+            width: '160dp'
+            height: self.minimum_height
+            spacing: '3dp'
+            pos_hint: {'center_x': .5}
+
+            AnchorLayout:
+                size_hint: None, None
+                width: '160dp'
+                height: '76dp'
+                anchor_x: 'center'
+                anchor_y: 'center'
+                ImageButton:
+                    size_hint: None, None
+                    width: root.up_w
+                    height: root.up_w
+                    source: root.up_src or 'data/logo/kivy-icon-64.png'
+                    on_release: root.up_cb() if root.up_cb else None
+
+            CenteredTextInput:
+                id: ctrl_input
+                size_hint: None, None
+                width: '120dp'
+                height: '80dp'   # was 56dp; match side sections
+                pos_hint: {'center_x': .5}
+
+            AnchorLayout:
+                size_hint: None, None
+                width: '160dp'
+                height: '76dp'
+                anchor_x: 'center'
+                anchor_y: 'center'
+                ImageButton:
+                    size_hint: None, None
+                    width: root.down_w
+                    height: root.down_w
+                    source: root.down_src or 'data/logo/kivy-icon-64.png'
+                    on_release: root.down_cb() if root.down_cb else None
+
 <StartScreen>:
     BoxLayout:
         orientation: 'vertical'
         padding: '8dp'
         spacing: '8dp'
+
         BoxLayout:
             size_hint_y: None
-            height: '44dp'
+            height: '52dp'
             spacing: '8dp'
             Label:
                 text: 'Step'
                 size_hint_x: None
-                width: '60dp'
+                width: '70dp'
             ToggleButton:
                 id: step1
-                text: '1'
+                text: 'X1'
                 group: 'step'
                 state: 'down'
             ToggleButton:
                 id: step10
-                text: '10'
+                text: 'X10'
                 group: 'step'
             ToggleButton:
                 id: step100
-                text: '100'
+                text: 'X100'
                 group: 'step'
-        BoxLayout:
-            size_hint_y: None
-            height: '36dp'
-            spacing: '8dp'
+            Widget:
             Button:
-                text: 'Teach from current'
+                text: 'Load Startpoints for Axis'
+                size_hint_x: None
+                width: '280dp'
                 on_release: root.teach_from_current()
             Button:
-                text: 'Save values'
+                text: 'OK'
+                size_hint_x: None
+                width: '120dp'
                 on_release: root.save_values()
-        GridLayout:
-            cols: 2
-            size_hint_y: None
-            height: self.minimum_height
-            row_default_height: '36dp'
-            row_force_default: True
-            Label:
-                text: 'A'
-            TextInput:
-                id: a_inp
-                multiline: False
-                input_filter: 'float'
-            BoxLayout:
-                size_hint_y: None
-                height: '36dp'
-                spacing: '4dp'
-                Button:
-                    text: '-'
-                    on_release: root.adjust_axis('A', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-                Button:
-                    text: '+'
-                    on_release: root.adjust_axis('A', (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-            Label:
-                text: 'B'
-            TextInput:
-                id: b_inp
-                multiline: False
-                input_filter: 'float'
-            BoxLayout:
-                size_hint_y: None
-                height: '36dp'
-                spacing: '4dp'
-                Button:
-                    text: '-'
-                    on_release: root.adjust_axis('B', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-                Button:
-                    text: '+'
-                    on_release: root.adjust_axis('B', (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-            Label:
-                text: 'C'
-            TextInput:
-                id: c_inp
-                multiline: False
-                input_filter: 'float'
-            BoxLayout:
-                size_hint_y: None
-                height: '36dp'
-                spacing: '4dp'
-                Button:
-                    text: '-'
-                    on_release: root.adjust_axis('C', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-                Button:
-                    text: '+'
-                    on_release: root.adjust_axis('C', (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-            Label:
-                text: 'D'
-            TextInput:
-                id: d_inp
-                multiline: False
-                input_filter: 'float'
-            BoxLayout:
-                size_hint_y: None
-                height: '36dp'
-                spacing: '4dp'
-                Button:
-                    text: '-'
-                    on_release: root.adjust_axis('D', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-                Button:
-                    text: '+'
-                    on_release: root.adjust_axis('D', (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
 
+        Label:
+            size_hint_y: None
+            height: '28dp'
+            text: "[b]Start Point Set up for A B C D AXIS[/b]"
+            markup: True
+
+        BoxLayout:
+            spacing: '14dp'
+
+            # A (horizontal)
+            CardFrame:
+                BoxLayout:
+                    size_hint_y: None
+                    height: '36dp'
+                    padding: '6dp'
+                    canvas.before:
+                        Color:
+                            rgba: .95, .95, .95, 0.18
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [6,]
+                    Label:
+                        text: "[b]A Axis[/b]"
+                        markup: True
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_y: 1
+                    spacing: '12dp'
+                    Widget:
+                        size_hint_y: 1
+                    Label:
+                        size_hint_y: None
+                        height: '60dp'
+                        text: "Startpoint[1]\nvalue from\nDMC"
+                        halign: 'center'
+                        valign: 'middle'
+                        on_size: self.text_size = self.size
+                    HControl:
+                        left_src:  'dmccodegui/assets/images/arrow-left-red.png'
+                        right_src: 'dmccodegui/assets/images/arrow-right-green.png'
+                        left_w:  '72dp'
+                        right_w: '78dp'
+                        left_cb:  lambda: root.adjust_axis('A', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                        right_cb: lambda: root.adjust_axis('A',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                    Widget:
+                        size_hint_y: 1
+                    Label:
+                        text: "Startpoint[1]"
+                        size_hint_y: None
+                        height: '24dp'
+
+            VDivider:
+
+            # B (vertical)
+            CardFrame:
+                BoxLayout:
+                    size_hint_y: None
+                    height: '36dp'
+                    padding: '6dp'
+                    canvas.before:
+                        Color:
+                            rgba: .95, .95, .95, 0.18
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [6,]
+                    Label:
+                        text: "[b]B Axis[/b]"
+                        markup: True
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_y: 1
+                    spacing: '12dp'
+                    Widget:
+                        size_hint_y: 1
+                    Label:
+                        size_hint_y: None
+                        height: '60dp'
+                        text: "Startpoint[2]\nvalue from\nDMC"
+                        halign: 'center'
+                        valign: 'middle'
+                        on_size: self.text_size = self.size
+                    VControl:
+                        up_src:   'dmccodegui/assets/images/arrow-up-green.png'
+                        down_src: 'dmccodegui/assets/images/arrow-down-red.png'
+                        up_cb:   lambda: root.adjust_axis('B',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                        down_cb: lambda: root.adjust_axis('B', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                    Widget:
+                        size_hint_y: 1
+                    Label:
+                        text: "Startpoint[2]"
+                        size_hint_y: None
+                        height: '24dp'
+
+            VDivider:
+
+            # C (vertical)
+            CardFrame:
+                BoxLayout:
+                    size_hint_y: None
+                    height: '36dp'
+                    padding: '6dp'
+                    canvas.before:
+                        Color:
+                            rgba: .95, .95, .95, 0.18
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [6,]
+                    Label:
+                        text: "[b]C Axis[/b]"
+                        markup: True
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_y: 1
+                    spacing: '12dp'
+                    Widget:
+                        size_hint_y: 1
+                    Label:
+                        size_hint_y: None
+                        height: '60dp'
+                        text: "Startpoint[3]\nvalue from\nDMC"
+                        halign: 'center'
+                        valign: 'middle'
+                        on_size: self.text_size = self.size
+                    VControl:
+                        up_src:   'dmccodegui/assets/images/arrow-up-green.png'
+                        down_src: 'dmccodegui/assets/images/arrow-down-red.png'
+                        up_cb:   lambda: root.adjust_axis('C',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                        down_cb: lambda: root.adjust_axis('C', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                    Widget:
+                        size_hint_y: 1
+                    Label:
+                        text: "Startpoint[3]"
+                        size_hint_y: None
+                        height: '24dp'
+
+            VDivider:
+
+            # D (horizontal – rotation)
+            CardFrame:
+                BoxLayout:
+                    size_hint_y: None
+                    height: '36dp'
+                    padding: '6dp'
+                    canvas.before:
+                        Color:
+                            rgba: .95, .95, .95, 0.18
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [6,]
+                    Label:
+                        text: "[b]D Axis[/b]"
+                        markup: True
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_y: 1
+                    spacing: '12dp'
+                    Widget:
+                        size_hint_y: 1
+                    Label:
+                        size_hint_y: None
+                        height: '60dp'
+                        text: "Startpoint[4]\nvalue from\nDMC"
+                        halign: 'center'
+                        valign: 'middle'
+                        on_size: self.text_size = self.size
+                    HControl:
+                        left_src:  'dmccodegui/assets/images/arrow-left-orange.png'
+                        right_src: 'dmccodegui/assets/images/arrow-right-blue.png'
+                        left_w:  '72dp'
+                        right_w: '76dp'
+                        left_cb:  lambda: root.adjust_axis('D', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                        right_cb: lambda: root.adjust_axis('D',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                    Widget:
+                        size_hint_y: 1
+                    Label:
+                        text: "Startpoint[4]"
+                        size_hint_y: None
+                        height: '24dp'

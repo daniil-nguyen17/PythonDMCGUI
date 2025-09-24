@@ -3,105 +3,224 @@
         orientation: 'vertical'
         padding: '8dp'
         spacing: '8dp'
+
+        # Step controls row
         BoxLayout:
             size_hint_y: None
-            height: '44dp'
+            height: '52dp'
             spacing: '8dp'
             Label:
                 text: 'Step'
                 size_hint_x: None
-                width: '60dp'
+                width: '70dp'
             ToggleButton:
                 id: step1
-                text: '1'
+                text: 'X1'
                 group: 'step'
                 state: 'down'
             ToggleButton:
                 id: step10
-                text: '10'
+                text: 'X10'
                 group: 'step'
             ToggleButton:
                 id: step100
-                text: '100'
+                text: 'X100'
                 group: 'step'
-        BoxLayout:
-            size_hint_y: None
-            height: '36dp'
-            spacing: '8dp'
+            Widget:
             Button:
-                text: 'Teach from current'
+                text: 'Load Startpoints for Axis'
+                size_hint_x: None
+                width: '280dp'
                 on_release: root.teach_from_current()
             Button:
-                text: 'Save values'
+                text: 'OK'
+                size_hint_x: None
+                width: '120dp'
                 on_release: root.save_values()
-        GridLayout:
-            cols: 2
-            size_hint_y: None
-            height: self.minimum_height
-            row_default_height: '36dp'
-            row_force_default: True
-            Label:
-                text: 'A'
-            TextInput:
-                id: a_inp
-                multiline: False
-                input_filter: 'float'
-            BoxLayout:
-                size_hint_y: None
-                height: '36dp'
-                spacing: '4dp'
-                Button:
-                    text: '-'
-                    on_release: root.adjust_axis('A', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-                Button:
-                    text: '+'
-                    on_release: root.adjust_axis('A', (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-            Label:
-                text: 'B'
-            TextInput:
-                id: b_inp
-                multiline: False
-                input_filter: 'float'
-            BoxLayout:
-                size_hint_y: None
-                height: '36dp'
-                spacing: '4dp'
-                Button:
-                    text: '-'
-                    on_release: root.adjust_axis('B', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-                Button:
-                    text: '+'
-                    on_release: root.adjust_axis('B', (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-            Label:
-                text: 'C'
-            TextInput:
-                id: c_inp
-                multiline: False
-                input_filter: 'float'
-            BoxLayout:
-                size_hint_y: None
-                height: '36dp'
-                spacing: '4dp'
-                Button:
-                    text: '-'
-                    on_release: root.adjust_axis('C', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-                Button:
-                    text: '+'
-                    on_release: root.adjust_axis('C', (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-            Label:
-                text: 'D'
-            TextInput:
-                id: d_inp
-                multiline: False
-                input_filter: 'float'
-            BoxLayout:
-                size_hint_y: None
-                height: '36dp'
-                spacing: '4dp'
-                Button:
-                    text: '-'
-                    on_release: root.adjust_axis('D', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-                Button:
-                    text: '+'
-                    on_release: root.adjust_axis('D', (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
 
+        # Title
+        Label:
+            size_hint_y: None
+            height: '28dp'
+            text: "[b]Rest Point Set up for A B C D AXIS[/b]"
+            markup: True
+
+        # Four-axis panel row
+        BoxLayout:
+            spacing: '14dp'
+
+            # A Axis (horizontal – left red, right green)
+            CardFrame:
+                # Header
+                BoxLayout:
+                    size_hint_y: None
+                    height: '36dp'
+                    padding: '6dp'
+                    canvas.before:
+                        Color:
+                            rgba: .95, .95, .95, 0.18
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [6,]
+                    Label:
+                        text: "[b]A Axis[/b]"
+                        markup: True
+
+                # Body (even vertical distribution)
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_y: 1
+                    spacing: '12dp'
+                    Widget:
+                        size_hint_y: 1
+                    Label:
+                        size_hint_y: None
+                        height: '60dp'
+                        text: "Restpoint[1]\nvalue from\nDMC"
+                        halign: 'center'
+                        valign: 'middle'
+                        on_size: self.text_size = self.size
+                    HControl:
+                        left_src:  'dmccodegui/assets/images/arrow-left-red.png'
+                        right_src: 'dmccodegui/assets/images/arrow-right-green.png'
+                        left_cb:  lambda: root.adjust_axis('A', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                        right_cb: lambda: root.adjust_axis('A',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                    Widget:
+                        size_hint_y: 1
+                    Label:
+                        text: "Restpoint[1]"
+                        size_hint_y: None
+                        height: '24dp'
+
+            VDivider:
+
+            # B Axis (vertical – up green, down red)
+            CardFrame:
+                BoxLayout:
+                    size_hint_y: None
+                    height: '36dp'
+                    padding: '6dp'
+                    canvas.before:
+                        Color:
+                            rgba: .95, .95, .95, 0.18
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [6,]
+                    Label:
+                        text: "[b]B Axis[/b]"
+                        markup: True
+
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_y: 1
+                    spacing: '12dp'
+                    Widget:
+                        size_hint_y: 1
+                    Label:
+                        size_hint_y: None
+                        height: '60dp'
+                        text: "Restpoint[2]\nvalue from\nDMC"
+                        halign: 'center'
+                        valign: 'middle'
+                        on_size: self.text_size = self.size
+                    VControl:
+                        up_src:   'dmccodegui/assets/images/arrow-up-green.png'
+                        down_src: 'dmccodegui/assets/images/arrow-down-red.png'
+                        up_cb:   lambda: root.adjust_axis('B',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                        down_cb: lambda: root.adjust_axis('B', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                    Widget:
+                        size_hint_y: 1
+                    Label:
+                        text: "Restpoint[2]"
+                        size_hint_y: None
+                        height: '24dp'
+
+            VDivider:
+
+            # C Axis (vertical – up green, down red)
+            CardFrame:
+                BoxLayout:
+                    size_hint_y: None
+                    height: '36dp'
+                    padding: '6dp'
+                    canvas.before:
+                        Color:
+                            rgba: .95, .95, .95, 0.18
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [6,]
+                    Label:
+                        text: "[b]C Axis[/b]"
+                        markup: True
+
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_y: 1
+                    spacing: '12dp'
+                    Widget:
+                        size_hint_y: 1
+                    Label:
+                        size_hint_y: None
+                        height: '60dp'
+                        text: "Restpoint[3]\nvalue from\nDMC"
+                        halign: 'center'
+                        valign: 'middle'
+                        on_size: self.text_size = self.size
+                    VControl:
+                        up_src:   'dmccodegui/assets/images/arrow-up-green.png'
+                        down_src: 'dmccodegui/assets/images/arrow-down-red.png'
+                        up_cb:   lambda: root.adjust_axis('C',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                        down_cb: lambda: root.adjust_axis('C', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                    Widget:
+                        size_hint_y: 1
+                    Label:
+                        text: "Restpoint[3]"
+                        size_hint_y: None
+                        height: '24dp'
+
+            VDivider:
+
+            # D Axis (horizontal – rotation: left orange, right blue)
+            CardFrame:
+                BoxLayout:
+                    size_hint_y: None
+                    height: '36dp'
+                    padding: '6dp'
+                    canvas.before:
+                        Color:
+                            rgba: .95, .95, .95, 0.18
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [6,]
+                    Label:
+                        text: "[b]D Axis[/b]"
+                        markup: True
+
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_y: 1
+                    spacing: '12dp'
+                    Widget:
+                        size_hint_y: 1
+                    Label:
+                        size_hint_y: None
+                        height: '60dp'
+                        text: "Restpoint[4]\nvalue from\nDMC"
+                        halign: 'center'
+                        valign: 'middle'
+                        on_size: self.text_size = self.size
+                    HControl:
+                        left_src:  'dmccodegui/assets/images/arrow-left-orange.png'
+                        right_src: 'dmccodegui/assets/images/arrow-right-blue.png'
+                        left_cb:  lambda: root.adjust_axis('D', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                        right_cb: lambda: root.adjust_axis('D',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                    Widget:
+                        size_hint_y: 1
+                    Label:
+                        text: "Restpoint[4]"
+                        size_hint_y: None
+                        height: '24dp'

@@ -9,7 +9,7 @@ from typing import Any, Callable, Optional
 
 JobFn = Callable[..., Any]
 
-
+# This file is used to run tasks asynchronously as to not freeze the app
 class JobThread:
     """Single worker thread processing FIFO jobs.
 

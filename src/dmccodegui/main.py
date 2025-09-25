@@ -145,19 +145,6 @@ class DMCApp(App):
             Clock.schedule_once(lambda *_: on_ui())
         jobs.submit(do_estop)
 
-    # Actions helpers: switch Arrays screen with presets
-    def open_rest(self) -> None:
-        try:
-            self.root.ids.sm.current = 'rest'
-        except Exception:
-            pass
-
-    def open_start(self) -> None:
-        try:
-            self.root.ids.sm.current = 'start'
-        except Exception:
-            pass
-
     # Messaging helpers
     def _log_message(self, message: str) -> None:
         # Push to ticker only; avoid spammy popups

@@ -9,8 +9,6 @@ from kivy.clock import Clock
 from ..app_state import MachineState
 from ..controller import GalilController
 from ..utils import jobs
-from ..utils.fmt import try_float
-
 
 class RestScreen(Screen):
     controller: GalilController = ObjectProperty(None)  # type: ignore

@@ -53,8 +53,8 @@
             width: '140dp'
             height: '36dp'
             on_text:
-                self.text=='RestPoint' and app.open_rest();\
-                self.text=='StartPoint' and app.open_start();\
+                self.text=='RestPoint' and setattr(app.root.ids.sm, 'current', 'rest');\
+                self.text=='StartPoint' and setattr(app.root.ids.sm, 'current', 'start');\
                 self.text=='EdgePointB' and setattr(app.root.ids.sm, 'current', 'edge_b');\
                 self.text=='EdgePointC' and setattr(app.root.ids.sm, 'current', 'edge_c');\
                 self.text!='Actions' and setattr(self, 'text', 'Actions')

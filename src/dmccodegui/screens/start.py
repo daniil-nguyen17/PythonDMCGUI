@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Dict
-
 from kivy.properties import ObjectProperty
 from kivy.uix.screenmanager import Screen
 from kivy.clock import Clock
@@ -100,6 +98,7 @@ class StartScreen(Screen):
             pass
         if self.state:
             self.state.log(message)
+            
     def loadArrayToPage(self, *args):
         try:
             vals = self.controller.upload_array("StartPnt", 0, 3)

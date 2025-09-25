@@ -13,9 +13,18 @@ from ..utils import jobs
 class RestScreen(Screen):
     controller: GalilController = ObjectProperty(None)  # type: ignore
     state: MachineState = ObjectProperty(None)  # type: ignore
+    rest_vals = ([0.0, 0.0, 0.0, 0.0])
 
     def on_pre_enter(self, *args):  # noqa: ANN001
-        self._load_from_state()
+        try:
+            if not self.controller or not self.controller.is_connected():
+                raise RuntimeError("No controller connected")
+            vals = self.controller.upload_array("RestPnt", 0, 3)
+            self.rest_vals = (vals + [0,0,0,0])[:4]
+            self._fill_inputs_from_vals(self.rest_vals)
+        except Exception as e:
+            print("RestPnt read failed:", e)
+            self._load_from_state()
 
     def _get_axis_input(self, axis: str):
         try:
@@ -67,27 +76,33 @@ class RestScreen(Screen):
         try:
             if not self.controller or not self.controller.is_connected():
                 raise RuntimeError("No controller connected")
-            self.controller.download_array("RestPnt", 0, self.start_vals)
+            # Push the Rest values we just collected
+            self.controller.download_array("RestPnt", 0, self.rest_vals)
         except Exception as e:
             print("RestPnt send to controller failed:", e)
             return
 
     def loadArrayToPage(self, *args):
         try:
-            vals = self.controller.upload_array("StartPnt", 0, 3)
+            # Read Rest array from controller, not Start
+            vals = self.controller.upload_array("RestPnt", 0, 3)
         except Exception as e:
-            print("StartPnt read failed:", e)
+            print("RestPnt read failed:", e)
             return
-        self.start_vals = (vals + [0,0,0,0])[:4]
-        self._fill_inputs_from_vals(self.start_vals)
+        self.rest_vals = (vals + [0,0,0,0])[:4]
+        self._fill_inputs_from_vals(self.rest_vals)
 
-        try:
-            if not self.controller or not self.controller.is_connected():
-                raise RuntimeError("No controller connected")
-            self.controller.download_array("RestPnt", 0, new_vals)
-        except Exception as e:
-            print("RestPnt send to controller failed:", e)
-            return
+    def _fill_inputs_from_vals(self, vals):
+        mapping = [
+            ("A", 0),
+            ("B", 1),
+            ("C", 2),
+            ("D", 3),
+        ]
+        for axis, idx in mapping:
+            ti = self._get_axis_input(axis)
+            if ti is not None and idx < len(vals):
+                ti.text = str(vals[idx])
 
     # This lets us adjust the array values for array
     def adjust_axis(self, axis: str, delta: float) -> None:

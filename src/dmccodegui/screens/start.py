@@ -14,14 +14,15 @@ class StartScreen(Screen):
     start_vals = ([0.0, 0.0, 0.0, 0.0])
 
     def on_pre_enter(self, *args):  # noqa: ANN001
-        #"""Called right before the screen is shown."""
         try:
+            if not self.controller or not self.controller.is_connected():
+                raise RuntimeError("No controller connected")
             vals = self.controller.upload_array("StartPnt", 0, 3)
+            self.start_vals = (vals + [0,0,0,0])[:4]
+            self._fill_inputs_from_vals(self.start_vals)
         except Exception as e:
             print("StartPnt read failed:", e)
-            return
-        self.start_vals = (vals + [0,0,0,0])[:4]
-        self._fill_inputs_from_vals(self.start_vals)
+            self._load_from_state()
         
     def _get_axis_input(self, axis: str):
         try:
@@ -112,16 +113,15 @@ class StartScreen(Screen):
         self.start_vals = (vals + [0,0,0,0])[:4]
         self._fill_inputs_from_vals(self.start_vals)
         
-    def _fill_inputs_from_vals(self, vals):
-        ids = self.ids
-        mapping = [
-            ("a_inp", 0),
-            ("b_inp", 1),
-            ("c_inp", 2),
-            ("d_inp", 3),
-        ]
-        for wid, idx in mapping:
-            ti = ids.get(wid)
-            if ti is not None and idx < len(vals):
-                ti.text = str(vals[idx])       
+    # removed duplicate helper; rely on _get_axis_input mapping
+    def _load_from_state(self) -> None:
+        data = (self.state.taught_points.get("Start") or {}).get("pos", {}) if self.state else {}
+        a = str(data.get("A", 0.0))
+        b = str(data.get("B", 0.0))
+        c = str(data.get("C", 0.0))
+        d = str(data.get("D", 0.0))
+        if (ti := self._get_axis_input("A")): ti.text = a
+        if (ti := self._get_axis_input("B")): ti.text = b
+        if (ti := self._get_axis_input("C")): ti.text = c
+        if (ti := self._get_axis_input("D")): ti.text = d
 

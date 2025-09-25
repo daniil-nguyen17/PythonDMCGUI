@@ -100,11 +100,11 @@ class DMCApp(App):
             st = self.controller.read_status()
             pos = cast(dict, st.get("pos", {}))
             speed = cast(float, st.get("speeds", 0.0))
-            def on_ui():
-                self.state.update_status(pos=pos, interlocks_ok=True, speed=speed)
-            Clock.schedule_once(lambda *_: on_ui())
+            st = self.controller.read_status()
+            Clock.schedule_once(lambda *_: self.state.update_status(pos=pos, interlocks_ok=True, speed=speed))
         except Exception as e:
-            Clock.schedule_once(lambda *_: self.state.log(f"poll error: {e}"))
+            msg = f"poll error: {e}"             # capture here
+            Clock.schedule_once(lambda *_: self.state.log(msg))
 
     def on_stop(self):
         if self._poll_cancel:

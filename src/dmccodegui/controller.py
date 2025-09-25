@@ -206,9 +206,13 @@ class GalilController:
 
         # Prefers gclib GArrayUpload when available; falls back to chunked MG reads.
         # """
+        print(f"[CTRL] upload_array called: name={name}, first={first}, last={last}")
+        
         if first > last:
+            print(f"[CTRL] first > last, returning empty list")
             return []
         if not self._driver or not self._connected:
+            print(f"[CTRL] Not connected: driver={self._driver is not None}, connected={self._connected}")
             raise RuntimeError("No controller connected")
 
         # Prefer GArrayUpload if available on the driver
@@ -222,16 +226,29 @@ class GalilController:
                 pass
 
         # Fallback: use MG in safe chunks
+        print(f"[CTRL] Using MG fallback method")
         out: List[float] = []
         i = first
         while i <= last:
             count = min(32, last - i + 1)
             refs = ", ".join(f"{name}[{j}]" for j in range(i, i + count))
-            resp = self.cmd("MG " + refs).strip()
+            cmd = "MG " + refs
+            print(f"[CTRL] Sending command: {cmd}")
+            resp = self.cmd(cmd).strip()
+            print(f"[CTRL] Response: '{resp}'")
+            
+            if resp == "?":
+                print(f"[CTRL] Got '?' response - array {name} not available")
+                raise ControllerNotReady(f"Array {name} not available")
+            
             parts = resp.replace("\r", " ").replace("\n", " ").split()
+            print(f"[CTRL] Parsed parts: {parts}")
             out.extend(float(p) for p in parts)
             i += count
-        return out[: (last - first + 1)]
+        
+        result = out[: (last - first + 1)]
+        print(f"[CTRL] Returning {len(result)} values: {result}")
+        return result
     
     #used to get the array from GUI to controller
     def download_array(self, name: str, first: int, values: Sequence[float]) -> int:
@@ -376,89 +393,101 @@ def wait_for_ready(self, *, timeout_s: float = 5.0, poll_s: float = 0.1) -> None
         time.sleep(poll_s)
         raise ControllerNotReady(f"Controller arrays not ready within {timeout_s}s: {last_err}")
 
-def _validate_index(self, idx: int) -> None:
-    if idx < 0 or idx >= self._max_edges:
-        raise IndexOutOfRange(f"index {idx} out of range (0..{self._max_edges-1})")
+    def _validate_index(self, idx: int) -> None:
+        if idx < 0 or idx >= self._max_edges:
+            raise IndexOutOfRange(f"index {idx} out of range (0..{self._max_edges-1})")
 
-def read_array_elem(self, var_name: str, idx: int) -> float:
-    self.ensure_connected()
-    self._validate_index(idx)
-    cmd = f"MG {var_name}[{idx}]"
-    resp = self.cmd(cmd)
-    if resp.strip() == "?":
-        print(f"[CTRL] READ ELEM '?' for {cmd}")
-        raise ControllerNotReady(f"Array {var_name} not available")
-    return _parse_float_str(resp)
+    def read_array_elem(self, var_name: str, idx: int) -> float:
+        self.ensure_connected()
+        self._validate_index(idx)
+        cmd = f"MG {var_name}[{idx}]"
+        resp = self.cmd(cmd)
+        if resp.strip() == "?":
+            print(f"[CTRL] READ ELEM '?' for {cmd}")
+            raise ControllerNotReady(f"Array {var_name} not available")
+        return _parse_float_str(resp)
 
-def read_array_slice(self, var_name: str, start: int, count: int) -> List[float]:
-    self.ensure_connected()
-    if start < 0 or count <= 0:
-        raise IndexOutOfRange("start/count must be non-negative and count>0")
-    if start + count > self._max_edges:
-        raise IndexOutOfRange(f"slice {start}+{count} exceeds max {self._max_edges}")
-    out: List[float] = []
-    print(f"[CTRL] Reading slice {var_name}[{start}:{start+count}]")
-    for i in range(start, start + count):
-        out.append(self.read_array_elem(var_name, i))
+    def read_array_slice(self, var_name: str, start: int, count: int) -> List[float]:
+        self.ensure_connected()
+        if start < 0 or count <= 0:
+            raise IndexOutOfRange("start/count must be non-negative and count>0")
+        if start + count > self._max_edges:
+            raise IndexOutOfRange(f"slice {start}+{count} exceeds max {self._max_edges}")
+        out: List[float] = []
+        print(f"[CTRL] Reading slice {var_name}[{start}:{start+count}]")
+        for i in range(start, start + count):
+            out.append(self.read_array_elem(var_name, i))
         return out
 
-def read_edge_b(self, idx: int) -> float:
-    return self.read_array_elem("EdgeB", idx)
+    def read_edge_b(self, idx: int) -> float:
+        return self.read_array_elem("EdgeB", idx)
 
-def read_edge_c(self, idx: int) -> float:
-    return self.read_array_elem("EdgeC", idx)
+    def read_edge_c(self, idx: int) -> float:
+        return self.read_array_elem("EdgeC", idx)
 
-def discover_length(self, var_name: str, probe_max: Optional[int] = None, zero_run: int = 5) -> int:
-    self.ensure_connected()
-    limit = min(self._max_edges, probe_max or self._max_edges)
-    last_nonzero = -1
-    zeros = 0
-    for i in range(0, limit):
-        try:
-            val = self.read_array_elem(var_name, i)
-        except ControllerNotReady:
-            break
-        if abs(val) < 1e-9:
-            zeros += 1
-            if zeros >= zero_run and i > 0:
-                print(f"[CTRL] discover_length: hit {zero_run} zeros at {i}")
+    def discover_length(self, var_name: str, probe_max: Optional[int] = None, zero_run: int = 5) -> int:
+        self.ensure_connected()
+        limit = min(self._max_edges, probe_max or self._max_edges)
+        last_nonzero = -1
+        zeros = 0
+        for i in range(0, limit):
+            try:
+                val = self.read_array_elem(var_name, i)
+            except ControllerNotReady:
                 break
-        else:
-            last_nonzero = i
-            zeros = 0
-    length = max(0, last_nonzero + 1)
-    print(f"[CTRL] discover_length({var_name}) -> {length}")
-    return length
+            if abs(val) < 1e-9:
+                zeros += 1
+                if zeros >= zero_run and i > 0:
+                    print(f"[CTRL] discover_length: hit {zero_run} zeros at {i}")
+                    break
+            else:
+                last_nonzero = i
+                zeros = 0
+        length = max(0, last_nonzero + 1)
+        print(f"[CTRL] discover_length({var_name}) -> {length}")
+        return length
 
-def get_edges_window(self, var_name: str, start: int, count: int) -> List[float]:
-    self.wait_for_ready()
-    return self.read_array_slice(var_name, start, count)
+    def get_edges_window(self, var_name: str, start: int, count: int) -> List[float]:
+        self.wait_for_ready()
+        return self.read_array_slice(var_name, start, count)
 
-def get_edges_default_window(self, var_name: str = "EdgeB", preferred: int = 10) -> List[float]:
-    self.wait_for_ready()
-    n = self.discover_length(var_name)
-    if n == 0:
-        return []
-    count = min(preferred, n)
-    return self.read_array_slice(var_name, 0, count)
+    def get_edges_default_window(self, var_name: str = "EdgeB", preferred: int = 10) -> List[float]:
+        self.wait_for_ready()
+        n = self.discover_length(var_name)
+        if n == 0:
+            return []
+        count = min(preferred, n)
+        return self.read_array_slice(var_name, 0, count)
 
-def initialize_array(self, array_name: str, size: int = 150, default_value: float = 0.0) -> bool:
-    """Initialize an array on the controller with default values.
-    
-    Returns True if successful, False otherwise.
-    """
-    try:
-        if not self.is_connected():
-            return False
+    def initialize_array(self, array_name: str, size: int = 150, default_value: float = 0.0) -> bool:
+        """Initialize an array on the controller with default values.
         
-        # Initialize array by setting first few elements to default value
-        values = [default_value] * min(size, 10)  # Initialize first 10 elements
-        self.download_array(array_name, 0, values)
-        print(f"[CTRL] Initialized array {array_name} with {len(values)} elements")
-        return True
-    except Exception as e:
-        print(f"[CTRL] Failed to initialize array {array_name}: {e}")
-        return False
+        Returns True if successful, False otherwise.
+        """
+        print(f"[CTRL] initialize_array called: array_name={array_name}, size={size}, default_value={default_value}")
+        
+        try:
+            print(f"[CTRL] Checking connection status...")
+            if not self.is_connected():
+                print(f"[CTRL] Not connected - initialization failed")
+                return False
+            print(f"[CTRL] Connection OK, proceeding with initialization")
+            
+            # Initialize array by setting first few elements to default value
+            values = [default_value] * min(size, 10)  # Initialize first 10 elements
+            print(f"[CTRL] Created values list: {values}")
+            
+            print(f"[CTRL] Calling download_array({array_name}, 0, {values})")
+            result = self.download_array(array_name, 0, values)
+            print(f"[CTRL] download_array returned: {result}")
+            
+            print(f"[CTRL] Successfully initialized array {array_name} with {len(values)} elements")
+            return True
+        except Exception as e:
+            print(f"[CTRL] Exception in initialize_array: {type(e).__name__}: {e}")
+            import traceback
+            print(f"[CTRL] Traceback: {traceback.format_exc()}")
+            return False
 
 
 if __name__ == "__main__":  # Minimal integration demo

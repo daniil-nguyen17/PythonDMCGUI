@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Dict, List, Optional, Sequence
 
 #get logger for messages
@@ -51,6 +52,8 @@ class ParseError(Exception):
     pass
 
 MAX_EDGES_DEFAULT = 150
+
+FLOAT_CHARS = set("0123456789+-.eE")
 
 
 class GalilController:
@@ -282,7 +285,49 @@ class GalilController:
             self.cmd(line)
             written += line.count("=")
         return written    
+    
+    def wait_for_ready(self, *, timeout_s: float = 5.0, poll_s: float = 0.1) -> None:
+        """Wait until controller is responsive and arrays declared.
 
+        1) Probe a cheap numeric like _TPA
+        2) Probe EdgeB[0] and EdgeC[0]
+        """
+        self.ensure_connected()
+        end = (time.monotonic() + timeout_s)
+        last_err: Optional[Exception] = None
+        print("[CTRL] Waiting for controller ready...")
+        while time.monotonic() < end:
+            try:
+                _ = _parse_float_str(self.cmd("MG{Z10.0} _TPA"))
+                # If _TPA is ok, try arrays
+                b0 = self.cmd("MG EdgeB[0]").strip()
+                c0 = self.cmd("MG EdgeC[0]").strip()
+                if b0 != "?" and c0 != "?":
+                    # parse to confirm numeric
+                    _ = _parse_float_str(b0)
+                    _ = _parse_float_str(c0)
+                    print("[CTRL] Ready: arrays declared and numeric")
+                    return
+            except Exception as e:
+                last_err = e
+            time.sleep(poll_s)
+        raise ControllerNotReady(f"Controller arrays not ready within {timeout_s}s: {last_err}")
+
+def _parse_float_str(s: str) -> float:
+    t = s.strip()
+    if not t or any(ch not in FLOAT_CHARS for ch in t):
+        # Fall back to robust list parsing if there are commas/spaces
+        try:
+            nums = parse_number_list(t)
+            if not nums:
+                raise ValueError("no numbers found")
+            return float(nums[0])
+        except Exception as e:
+            raise ParseError(f"Non-numeric: '{s}' ({e})")
+    try:
+        return float(t)
+    except Exception as e:
+        raise ParseError(f"Parse error for '{s}': {e}")
 
 if __name__ == "__main__":  # Minimal integration demo
     import os

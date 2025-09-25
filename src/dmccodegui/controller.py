@@ -319,121 +319,146 @@ class GalilController:
             time.sleep(poll_s)
         raise ControllerNotReady(f"Controller arrays not ready within {timeout_s}s: {last_err}")
 
-    def _parse_float_str(s: str) -> float:
-        t = s.strip()
-        if not t or any(ch not in FLOAT_CHARS for ch in t):
-            # Fall back to robust list parsing if there are commas/spaces
-            try:
-                nums = parse_number_list(t)
-                if not nums:
-                    raise ValueError("no numbers found")
-                return float(nums[0])
-            except Exception as e:
-                raise ParseError(f"Non-numeric: '{s}' ({e})")
+def _parse_float_str(s: str) -> float:
+    t = s.strip()
+    if not t:
+        raise ParseError(f"Empty string: '{s}'")
+    
+    # Try direct float conversion first
+    try:
+        return float(t)
+    except ValueError:
+        pass
+    
+    # Fall back to parsing comma/space separated values and take first
+    try:
+        # Split on common delimiters and take first numeric value
+        parts = t.replace(',', ' ').split()
+        for part in parts:
+            part = part.strip()
+            if part and all(ch in FLOAT_CHARS for ch in part):
+                return float(part)
+        raise ValueError("no numeric values found")
+    except Exception as e:
+        raise ParseError(f"Parse error for '{s}': {e}")
+
+    # ===================== Robust Edge array APIs =====================
+def set_max_edges(self, n: int) -> None:
+    self._max_edges = max(1, n)
+
+def ensure_connected(self) -> None:
+    if not self._connected or not self._transport or not self._transport.is_connected():
+        raise CommError("Not connected")
+
+def wait_for_ready(self, *, timeout_s: float = 5.0, poll_s: float = 0.1) -> None:
+    """Wait until controller is responsive and arrays declared.
+    1) Probe a cheap numeric like _TPA
+    2) Probe EdgeB[0] and EdgeC[0]
+    """
+    self.ensure_connected()
+    end = (time.monotonic() + timeout_s)
+    last_err: Optional[Exception] = None
+    print("[CTRL] Waiting for controller ready...")
+    while time.monotonic() < end:
         try:
-            return float(t)
+            _ = _parse_float_str(self.cmd("MG{Z10.0} _TPA"))
+            # If _TPA is ok, try arrays
+            b0 = self.cmd("MG EdgeB[0]").strip()
+            c0 = self.cmd("MG EdgeC[0]").strip()
+            if b0 != "?" and c0 != "?":
+                # parse to confirm numeric
+                _ = _parse_float_str(b0)
+                _ = _parse_float_str(c0)
+                print("[CTRL] Ready: arrays declared and numeric")
+                return
         except Exception as e:
-            raise ParseError(f"Parse error for '{s}': {e}")
-
-        # ===================== Robust Edge array APIs =====================
-    def set_max_edges(self, n: int) -> None:
-        self._max_edges = max(1, n)
-
-    def ensure_connected(self) -> None:
-        if not self._connected or not self._transport or not self._transport.is_connected():
-            raise CommError("Not connected")
-
-    def wait_for_ready(self, *, timeout_s: float = 5.0, poll_s: float = 0.1) -> None:
-        """Wait until controller is responsive and arrays declared.
-        1) Probe a cheap numeric like _TPA
-        2) Probe EdgeB[0] and EdgeC[0]
-        """
-        self.ensure_connected()
-        end = (time.monotonic() + timeout_s)
-        last_err: Optional[Exception] = None
-        print("[CTRL] Waiting for controller ready...")
-        while time.monotonic() < end:
-            try:
-                _ = _parse_float_str(self.cmd("MG{Z10.0} _TPA"))
-                # If _TPA is ok, try arrays
-                b0 = self.cmd("MG EdgeB[0]").strip()
-                c0 = self.cmd("MG EdgeC[0]").strip()
-                if b0 != "?" and c0 != "?":
-                    # parse to confirm numeric
-                    _ = _parse_float_str(b0)
-                    _ = _parse_float_str(c0)
-                    print("[CTRL] Ready: arrays declared and numeric")
-                    return
-            except Exception as e:
-                last_err = e
-            time.sleep(poll_s)
+            last_err = e
+        time.sleep(poll_s)
         raise ControllerNotReady(f"Controller arrays not ready within {timeout_s}s: {last_err}")
 
-    def _validate_index(self, idx: int) -> None:
-        if idx < 0 or idx >= self._max_edges:
-            raise IndexOutOfRange(f"index {idx} out of range (0..{self._max_edges-1})")
+def _validate_index(self, idx: int) -> None:
+    if idx < 0 or idx >= self._max_edges:
+        raise IndexOutOfRange(f"index {idx} out of range (0..{self._max_edges-1})")
 
-    def read_array_elem(self, var_name: str, idx: int) -> float:
-        self.ensure_connected()
-        self._validate_index(idx)
-        cmd = f"MG {var_name}[{idx}]"
-        resp = self.cmd(cmd)
-        if resp.strip() == "?":
-            print(f"[CTRL] READ ELEM '?' for {cmd}")
-            raise ControllerNotReady(f"Array {var_name} not available")
-        return _parse_float_str(resp)
+def read_array_elem(self, var_name: str, idx: int) -> float:
+    self.ensure_connected()
+    self._validate_index(idx)
+    cmd = f"MG {var_name}[{idx}]"
+    resp = self.cmd(cmd)
+    if resp.strip() == "?":
+        print(f"[CTRL] READ ELEM '?' for {cmd}")
+        raise ControllerNotReady(f"Array {var_name} not available")
+    return _parse_float_str(resp)
 
-    def read_array_slice(self, var_name: str, start: int, count: int) -> List[float]:
-        self.ensure_connected()
-        if start < 0 or count <= 0:
-            raise IndexOutOfRange("start/count must be non-negative and count>0")
-        if start + count > self._max_edges:
-            raise IndexOutOfRange(f"slice {start}+{count} exceeds max {self._max_edges}")
-        out: List[float] = []
-        print(f"[CTRL] Reading slice {var_name}[{start}:{start+count}]")
-        for i in range(start, start + count):
-            out.append(self.read_array_elem(var_name, i))
+def read_array_slice(self, var_name: str, start: int, count: int) -> List[float]:
+    self.ensure_connected()
+    if start < 0 or count <= 0:
+        raise IndexOutOfRange("start/count must be non-negative and count>0")
+    if start + count > self._max_edges:
+        raise IndexOutOfRange(f"slice {start}+{count} exceeds max {self._max_edges}")
+    out: List[float] = []
+    print(f"[CTRL] Reading slice {var_name}[{start}:{start+count}]")
+    for i in range(start, start + count):
+        out.append(self.read_array_elem(var_name, i))
         return out
 
-    def read_edge_b(self, idx: int) -> float:
-        return self.read_array_elem("EdgeB", idx)
+def read_edge_b(self, idx: int) -> float:
+    return self.read_array_elem("EdgeB", idx)
 
-    def read_edge_c(self, idx: int) -> float:
-        return self.read_array_elem("EdgeC", idx)
+def read_edge_c(self, idx: int) -> float:
+    return self.read_array_elem("EdgeC", idx)
 
-    def discover_length(self, var_name: str, probe_max: Optional[int] = None, zero_run: int = 5) -> int:
-        self.ensure_connected()
-        limit = min(self._max_edges, probe_max or self._max_edges)
-        last_nonzero = -1
-        zeros = 0
-        for i in range(0, limit):
-            try:
-                val = self.read_array_elem(var_name, i)
-            except ControllerNotReady:
+def discover_length(self, var_name: str, probe_max: Optional[int] = None, zero_run: int = 5) -> int:
+    self.ensure_connected()
+    limit = min(self._max_edges, probe_max or self._max_edges)
+    last_nonzero = -1
+    zeros = 0
+    for i in range(0, limit):
+        try:
+            val = self.read_array_elem(var_name, i)
+        except ControllerNotReady:
+            break
+        if abs(val) < 1e-9:
+            zeros += 1
+            if zeros >= zero_run and i > 0:
+                print(f"[CTRL] discover_length: hit {zero_run} zeros at {i}")
                 break
-            if abs(val) < 1e-9:
-                zeros += 1
-                if zeros >= zero_run and i > 0:
-                    print(f"[CTRL] discover_length: hit {zero_run} zeros at {i}")
-                    break
-            else:
-                last_nonzero = i
-                zeros = 0
-        length = max(0, last_nonzero + 1)
-        print(f"[CTRL] discover_length({var_name}) -> {length}")
-        return length
+        else:
+            last_nonzero = i
+            zeros = 0
+    length = max(0, last_nonzero + 1)
+    print(f"[CTRL] discover_length({var_name}) -> {length}")
+    return length
 
-    def get_edges_window(self, var_name: str, start: int, count: int) -> List[float]:
-        self.wait_for_ready()
-        return self.read_array_slice(var_name, start, count)
+def get_edges_window(self, var_name: str, start: int, count: int) -> List[float]:
+    self.wait_for_ready()
+    return self.read_array_slice(var_name, start, count)
 
-    def get_edges_default_window(self, var_name: str = "EdgeB", preferred: int = 10) -> List[float]:
-        self.wait_for_ready()
-        n = self.discover_length(var_name)
-        if n == 0:
-            return []
-        count = min(preferred, n)
-        return self.read_array_slice(var_name, 0, count)
+def get_edges_default_window(self, var_name: str = "EdgeB", preferred: int = 10) -> List[float]:
+    self.wait_for_ready()
+    n = self.discover_length(var_name)
+    if n == 0:
+        return []
+    count = min(preferred, n)
+    return self.read_array_slice(var_name, 0, count)
+
+def initialize_array(self, array_name: str, size: int = 150, default_value: float = 0.0) -> bool:
+    """Initialize an array on the controller with default values.
+    
+    Returns True if successful, False otherwise.
+    """
+    try:
+        if not self.is_connected():
+            return False
+        
+        # Initialize array by setting first few elements to default value
+        values = [default_value] * min(size, 10)  # Initialize first 10 elements
+        self.download_array(array_name, 0, values)
+        print(f"[CTRL] Initialized array {array_name} with {len(values)} elements")
+        return True
+    except Exception as e:
+        print(f"[CTRL] Failed to initialize array {array_name}: {e}")
+        return False
 
 
 if __name__ == "__main__":  # Minimal integration demo

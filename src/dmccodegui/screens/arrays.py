@@ -51,11 +51,30 @@ class ArraysScreen(Screen):
             self._value_inputs.append(ti)
 
     def on_pre_enter(self, *args):  # noqa: ANN001
+        #"""Called right before the screen is shown."""
         try:
             vals = self.controller.upload_array(self.array_name, 0, int(self.array_len)-1)
         except Exception as e:
+            error_msg = str(e).lower()
             print(f"{self.array_name} read failed:", e)
-            return
+            
+            # If array not available (question mark), try to initialize it
+            if "not available" in error_msg or "?" in error_msg:
+                print(f"Attempting to initialize {self.array_name} array...")
+                if self.controller and self.controller.initialize_array(self.array_name, int(self.array_len)):
+                    # Try reading again after initialization
+                    try:
+                        vals = self.controller.upload_array(self.array_name, 0, int(self.array_len)-1)
+                        print(f"Successfully initialized and read {self.array_name}")
+                    except Exception as e2:
+                        print(f"Still failed to read {self.array_name} after initialization:", e2)
+                        return
+                else:
+                    print(f"Failed to initialize {self.array_name}")
+                    return
+            else:
+                return
+        
         # Update the labels with the loaded values
         for i, val in enumerate(vals):
             if i < len(self._value_labels):

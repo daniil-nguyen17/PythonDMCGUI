@@ -15,7 +15,7 @@ class ArraysScreen(Screen):
     controller: GalilController = ObjectProperty(None)  # type: ignore
     state: MachineState = ObjectProperty(None)  # type: ignore
     array_name = StringProperty("arr")
-    array_len = NumericProperty(150)
+    array_len = NumericProperty(250)
     _built: bool = False
     _value_labels: list = []
     _value_inputs: list = []
@@ -51,23 +51,38 @@ class ArraysScreen(Screen):
             self._value_inputs.append(ti)
 
     def on_pre_enter(self, *args):  # noqa: ANN001
-        """Called right before the screen is shown - similar to start/rest screens."""
         try:
             if not self.controller or not self.controller.is_connected():
                 raise RuntimeError("No controller connected")
-            
-            # Try to read the full array - if it fails, fall back to state
-            vals = self.controller.upload_array(self.array_name, 0, int(self.array_len)-1)
-            
-            # Update the labels with the loaded values
+
+            vals = []
+            for i in range(int(self.array_len)):
+                try:
+                    resp = self.controller.cmd(f"MG {self.array_name}[{i}]").strip()
+                    if resp == "?":
+                        # Element doesn't exist, stop reading here
+                        print(f"Array {self.array_name} has {i} elements (stopped at uninitialized element)")
+                        break
+                    vals.append(float(resp))
+                except Exception:
+                    # Error reading this element, stop here
+                    print(f"Array {self.array_name} has {i} elements (stopped at error)")
+                    break
+
+            print(f"Successfully read {len(vals)} elements from {self.array_name}")
+
             for i, val in enumerate(vals):
                 if i < len(self._value_labels):
                     self._value_labels[i].text = str(val)
-                    
+
+            for i in range(len(vals), len(self._value_labels)):
+                self._value_labels[i].text = ""
+
         except Exception as e:
             print(f"{self.array_name} read failed:", e)
             # Fall back to app state like start/rest screens do
             self._load_from_state()
+    
 
     def _load_from_state(self) -> None:
         """Load array values from app state when controller read fails."""

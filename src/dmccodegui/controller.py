@@ -57,7 +57,7 @@ class ParseError(Exception):
 
 
 
-MAX_EDGES_DEFAULT = 150
+MAX_EDGES_DEFAULT = 250
 
 FLOAT_CHARS = set("0123456789+-.eE")
 
@@ -499,7 +499,71 @@ class GalilController:
             
         except Exception as e:
             print(f"[CTRL] Diagnostics failed: {e}")
+    def get_array_len(self, name: str) -> int:
+        #"""Return the DM-defined length of array `name` (MG name[-1])."""
+        if not self._driver or not self._connected:
+            raise RuntimeError("No controller connected")
+        raw = self._driver.GCommand(f"MG {name}[-1]").strip()
+        # MG returns a float-formatted string (e.g., "150.0000")
+        try:
+            return int(float(raw))
+        except Exception as e:
+            raise RuntimeError(f"Failed to read length of {name}: {raw!r}") from e
 
+    def upload_array_auto(self, name: str) -> List[float]:
+        #"""Upload the entire array without knowing its size in advance."""
+        if not self._driver or not self._connected:
+            raise RuntimeError("No controller connected")
+
+        # Fast path: try GArrayUpload(name, -1, -1) if wrapper supports it
+        fn = getattr(self._driver, "GArrayUpload", None)
+        if callable(fn):
+            try:
+                # Some wrappers return a list already; others return a CSV/text
+                data = fn(name, -1, -1)
+                if isinstance(data, list):
+                    return [float(x) for x in data]
+                text = str(data).replace("\r", " ").replace("\n", " ")
+                toks = [t for t in (tok.strip() for tok in text.split(",")) if t]
+                return [float(t) for t in toks]
+            except Exception:
+                pass  # fall back to length+MG
+
+        # Fallback: query length, then read 0..len-1 in chunks
+        n = self.get_array_len(name)
+        if n <= 0:
+            return []
+        return self.upload_array(name, 0, n - 1)  # your working method
+    
+    def download_array_full(self, name: str, values: Sequence[float]) -> int:
+        #"""Write `values` into name[0..len(values)-1] without passing indices."""
+        if not self._driver or not self._connected:
+            raise RuntimeError("No controller connected")
+        if not values:
+            return 0
+
+        # Prefer native GArrayDownload if available
+        fn = getattr(self._driver, "GArrayDownload", None)
+        if callable(fn):
+            ascii_payload = ",".join(str(v) for v in values)
+            try:
+                fn(name, ascii_payload)                 # (name, data)
+                return len(values)
+            except Exception:
+                try:
+                    fn(name, 0, len(values) - 1, 1, ascii_payload)  # (name, first,last,delim,data)
+                    return len(values)
+                except Exception:
+                    try:
+                        import struct
+                        buf = struct.pack("<" + "d"*len(values), *values)
+                        fn(name, 0, len(values) - 1, buf)  # (name, first,last,bytes)
+                        return len(values)
+                    except Exception:
+                        pass  # fall through to command-assignments
+
+        # Fallback: chunked assignments via command line
+        return self.download_array(name, 0, values)  # reuse your existing writer
 
 if __name__ == "__main__":  # Minimal integration demo
     import os

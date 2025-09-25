@@ -19,7 +19,6 @@ class ArraysScreen(Screen):
     _built: bool = False
     _value_labels: list = []
     _value_inputs: list = []
-    vals
     def on_kv_post(self, *_):
         if self._built:
             return

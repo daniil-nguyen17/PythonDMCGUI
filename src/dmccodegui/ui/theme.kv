@@ -7,3 +7,161 @@
 <Label>:
     font_size: '14sp'
 
+
+# Shared composite widgets used across screens
+<ImageButton@ButtonBehavior+Image>:
+    mipmap: True
+    allow_stretch: True
+    keep_ratio: True
+
+<CenteredTextInput@TextInput>:
+    multiline: False
+    input_filter: 'float'
+    size_hint: None, None
+    width: '120dp'
+    height: '56dp'
+    font_size: '22sp'
+    halign: 'center'
+    valign: 'middle'
+    padding: [0, (self.height - self.line_height) / 2]
+
+<VDivider@Widget>:
+    size_hint_x: None
+    width: '2dp'
+    canvas:
+        Color:
+            rgba: .35, .35, .35, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+<CardFrame@BoxLayout>:
+    orientation: 'vertical'
+    padding: '10dp'
+    spacing: '10dp'
+    canvas.before:
+        Color:
+            rgba: .95, .95, .95, 0.12
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [8,]
+        Color:
+            rgba: 1, 0.84, 0, 0.45
+        Line:
+            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+            width: 1.2
+
+# ---------- HORIZONTAL CONTROL ----------
+<HControl@AnchorLayout>:
+    left_cb: None
+    right_cb: None
+    left_src: ''
+    right_src: ''
+    left_w: '72dp'
+    right_w: '72dp'
+    size_hint_y: None
+    height: '80dp'
+    anchor_x: 'center'
+    anchor_y: 'center'
+
+    BoxLayout:
+        orientation: 'horizontal'
+        size_hint: None, None
+        width: self.minimum_width
+        height: root.height
+        spacing: '3dp'
+        pos_hint: {'center_x': .5}
+
+        AnchorLayout:
+            size_hint: None, None
+            width: root.left_w
+            height: root.height
+            anchor_x: 'center'
+            anchor_y: 'center'
+            ImageButton:
+                size_hint: None, None
+                width: root.left_w
+                height: root.left_w
+                source: root.left_src or 'data/logo/kivy-icon-64.png'
+                on_release: root.left_cb() if root.left_cb else None
+
+        CenteredTextInput:
+            id: ctrl_input
+            size_hint: None, None
+            width: '120dp'
+            height: root.height   # 80dp to match side sections
+
+        AnchorLayout:
+            size_hint: None, None
+            width: root.right_w
+            height: root.height
+            anchor_x: 'center'
+            anchor_y: 'center'
+            ImageButton:
+                size_hint: None, None
+                width: root.right_w
+                height: root.right_w
+                source: root.right_src or 'data/logo/kivy-icon-64.png'
+                on_release: root.right_cb() if root.right_cb else None
+
+# ---------- VERTICAL CONTROL ----------
+<VControl@AnchorLayout>:
+    up_cb: None
+    down_cb: None
+    up_src: ''
+    down_src: ''
+    up_w: '74dp'     # +2dp so the green up matches the red down visually
+    down_w: '72dp'
+    size_hint_y: None
+    height: '240dp'
+    anchor_x: 'center'
+    anchor_y: 'center'
+
+    AnchorLayout:
+        size_hint: None, None
+        width: '160dp'
+        height: '240dp'
+        anchor_x: 'center'
+        anchor_y: 'center'
+
+        BoxLayout:
+            orientation: 'vertical'
+            size_hint: None, None
+            width: '160dp'
+            height: self.minimum_height
+            spacing: '3dp'
+            pos_hint: {'center_x': .5}
+
+            AnchorLayout:
+                size_hint: None, None
+                width: '160dp'
+                height: '76dp'
+                anchor_x: 'center'
+                anchor_y: 'center'
+                ImageButton:
+                    size_hint: None, None
+                    width: root.up_w
+                    height: root.up_w
+                    source: root.up_src or 'data/logo/kivy-icon-64.png'
+                    on_release: root.up_cb() if root.up_cb else None
+
+            CenteredTextInput:
+                id: ctrl_input
+                size_hint: None, None
+                width: '120dp'
+                height: '80dp'   # was 56dp; match side sections
+                pos_hint: {'center_x': .5}
+
+            AnchorLayout:
+                size_hint: None, None
+                width: '160dp'
+                height: '76dp'
+                anchor_x: 'center'
+                anchor_y: 'center'
+                ImageButton:
+                    size_hint: None, None
+                    width: root.down_w
+                    height: root.down_w
+                    source: root.down_src or 'data/logo/kivy-icon-64.png'
+                    on_release: root.down_cb() if root.down_cb else None

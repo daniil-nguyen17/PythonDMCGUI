@@ -189,7 +189,7 @@
                 width: '280dp'
                 on_release: root.loadArrayToPage()
             Button:
-                text: 'OK'
+                text: 'Save Start Points'
                 size_hint_x: None
                 width: '120dp'
                 on_release: root.save_values()
@@ -233,6 +233,7 @@
                         valign: 'middle'
                         on_size: self.text_size = self.size
                     HControl:
+                        id: a_ctrl
                         left_src:  'dmccodegui/assets/images/arrow-left-red.png'
                         right_src: 'dmccodegui/assets/images/arrow-right-green.png'
                         left_w:  '72dp'
@@ -278,6 +279,7 @@
                         valign: 'middle'
                         on_size: self.text_size = self.size
                     VControl:
+                        id: b_ctrl
                         up_src:   'dmccodegui/assets/images/arrow-up-green.png'
                         down_src: 'dmccodegui/assets/images/arrow-down-red.png'
                         up_cb:   lambda: root.adjust_axis('B',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
@@ -321,6 +323,7 @@
                         valign: 'middle'
                         on_size: self.text_size = self.size
                     VControl:
+                        id: c_ctrl
                         up_src:   'dmccodegui/assets/images/arrow-up-green.png'
                         down_src: 'dmccodegui/assets/images/arrow-down-red.png'
                         up_cb:   lambda: root.adjust_axis('C',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
@@ -364,6 +367,7 @@
                         valign: 'middle'
                         on_size: self.text_size = self.size
                     HControl:
+                        id: d_ctrl
                         left_src:  'dmccodegui/assets/images/arrow-left-orange.png'
                         right_src: 'dmccodegui/assets/images/arrow-right-blue.png'
                         left_w:  '72dp'

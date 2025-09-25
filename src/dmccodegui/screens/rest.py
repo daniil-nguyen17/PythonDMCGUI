@@ -17,23 +17,29 @@ class RestScreen(Screen):
     def on_pre_enter(self, *args):  # noqa: ANN001
         self._load_from_state()
 
+    def _get_axis_input(self, axis: str):
+        try:
+            ctrl = self.ids.get(f"{axis.lower()}_ctrl")
+            if not ctrl:
+                return None
+            return ctrl.ids.get("ctrl_input")
+        except Exception:
+            return None
+
     def _load_from_state(self) -> None:
         data = (self.state.taught_points.get("Rest") or {}).get("pos", {}) if self.state else {}
         a = str(data.get("A", 0.0))
         b = str(data.get("B", 0.0))
         c = str(data.get("C", 0.0))
         d = str(data.get("D", 0.0))
-        ids = self.ids
-        if ids.get("a_inp"): ids["a_inp"].text = a
-        if ids.get("b_inp"): ids["b_inp"].text = b
-        if ids.get("c_inp"): ids["c_inp"].text = c
-        if ids.get("d_inp"): ids["d_inp"].text = d
+        if (ti := self._get_axis_input("A")): ti.text = a
+        if (ti := self._get_axis_input("B")): ti.text = b
+        if (ti := self._get_axis_input("C")): ti.text = c
+        if (ti := self._get_axis_input("D")): ti.text = d
 
     def save_values(self) -> None:
-        ids = self.ids
-
-        def get_num(wid: str) -> float:
-            ti = ids.get(wid)
+        def get_axis_num(axis: str) -> float:
+            ti = self._get_axis_input(axis)
             s = ti.text.strip() if ti and ti.text is not None else "0"
             try:
                 return float(s)
@@ -44,10 +50,10 @@ class RestScreen(Screen):
 
         # A, B, C, D in order → local array
         new_vals = [
-            get_num("a_inp"),
-            get_num("b_inp"),
-            get_num("c_inp"),
-            get_num("d_inp"),
+            get_axis_num("A"),
+            get_axis_num("B"),
+            get_axis_num("C"),
+            get_axis_num("D"),
         ]
 
         # 1) Save to your local array on the screen
@@ -85,9 +91,7 @@ class RestScreen(Screen):
 
     # This lets us adjust the array values for array
     def adjust_axis(self, axis: str, delta: float) -> None:
-        ids = self.ids
-        key = f"{axis.lower()}_inp"
-        w = ids.get(key)
+        w = self._get_axis_input(axis)
         if not w:
             return
         try:

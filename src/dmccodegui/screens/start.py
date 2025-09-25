@@ -23,25 +23,31 @@ class StartScreen(Screen):
         self.start_vals = (vals + [0,0,0,0])[:4]
         self._fill_inputs_from_vals(self.start_vals)
         
+    def _get_axis_input(self, axis: str):
+        try:
+            ctrl = self.ids.get(f"{axis.lower()}_ctrl")
+            if not ctrl:
+                return None
+            return ctrl.ids.get("ctrl_input")
+        except Exception:
+            return None
+
     def _fill_inputs_from_vals(self, vals):
-        ids = self.ids
         mapping = [
-            ("a_inp", 0),
-            ("b_inp", 1),
-            ("c_inp", 2),
-            ("d_inp", 3),
+            ("A", 0),
+            ("B", 1),
+            ("C", 2),
+            ("D", 3),
         ]
-        for wid, idx in mapping:
-            ti = ids.get(wid)
+        for axis, idx in mapping:
+            ti = self._get_axis_input(axis)
             if ti is not None and idx < len(vals):
                 ti.text = str(vals[idx])
 
     # saves values from UI and pushes them to controller
     def save_values(self) -> None:
-        ids = self.ids
-
-        def get_num(wid: str) -> float:
-            ti = ids.get(wid)
+        def get_axis_num(axis: str) -> float:
+            ti = self._get_axis_input(axis)
             s = ti.text.strip() if ti and ti.text is not None else "0"
             try:
                 return float(s)
@@ -52,10 +58,10 @@ class StartScreen(Screen):
 
         # A, B, C, D in order → local array
         new_vals = [
-            get_num("a_inp"),
-            get_num("b_inp"),
-            get_num("c_inp"),
-            get_num("d_inp"),
+            get_axis_num("A"),
+            get_axis_num("B"),
+            get_axis_num("C"),
+            get_axis_num("D"),
         ]
 
         # 1) Save to your local array on the screen
@@ -76,9 +82,7 @@ class StartScreen(Screen):
 
     # This lets us adjust the array values for array
     def adjust_axis(self, axis: str, delta: float) -> None:
-        ids = self.ids
-        key = f"{axis.lower()}_inp"
-        w = ids.get(key)
+        w = self._get_axis_input(axis)
         if not w:
             return
         try:

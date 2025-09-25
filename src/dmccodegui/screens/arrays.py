@@ -14,8 +14,8 @@ from ..utils import jobs
 class ArraysScreen(Screen):
     controller: GalilController = ObjectProperty(None)  # type: ignore
     state: MachineState = ObjectProperty(None)  # type: ignore
-    array_name: str = StringProperty("arr")
-    array_len: int = NumericProperty(150)
+    array_name = StringProperty("arr")
+    array_len = NumericProperty(150)
     _built: bool = False
     _value_labels: list = []
     _value_inputs: list = []
@@ -51,6 +51,16 @@ class ArraysScreen(Screen):
             right.add_widget(ti)
             self._value_inputs.append(ti)
 
+    def on_pre_enter(self, *args):  # noqa: ANN001
+        #"""Called right before the screen is shown."""
+        try:
+            vals = self.controller.upload_array(array_name, 0, 3)
+        except Exception as e:
+            print("StartPnt read failed:", e)
+            return
+        self.start_vals = (vals + [0,0,0,0])[:4]
+        self._fill_inputs_from_vals(self.start_vals)
+        
     def load_from_controller(self) -> None:
         name = self.array_name
         n = int(self.array_len)

@@ -19,7 +19,7 @@ class ArraysScreen(Screen):
     _built: bool = False
     _value_labels: list = []
     _value_inputs: list = []
-
+    vals
     def on_kv_post(self, *_):
         if self._built:
             return
@@ -52,14 +52,15 @@ class ArraysScreen(Screen):
             self._value_inputs.append(ti)
 
     def on_pre_enter(self, *args):  # noqa: ANN001
-        #"""Called right before the screen is shown."""
         try:
-            vals = self.controller.upload_array(array_name, 0, 3)
+            vals = self.controller.upload_array(self.array_name, 0, int(self.array_len)-1)
         except Exception as e:
-            print("StartPnt read failed:", e)
+            print(f"{self.array_name} read failed:", e)
             return
-        self.start_vals = (vals + [0,0,0,0])[:4]
-        self._fill_inputs_from_vals(self.start_vals)
+        # Update the labels with the loaded values
+        for i, val in enumerate(vals):
+            if i < len(self._value_labels):
+                self._value_labels[i].text = str(val) 
         
     def load_from_controller(self) -> None:
         name = self.array_name

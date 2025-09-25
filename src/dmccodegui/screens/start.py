@@ -36,7 +36,7 @@ class StartScreen(Screen):
             if ti is not None and idx < len(vals):
                 ti.text = str(vals[idx])
 
-
+    # saves values from UI and pushes them to controller
     def save_values(self) -> None:
         ids = self.ids
 
@@ -74,7 +74,7 @@ class StartScreen(Screen):
             print("StartPnt send to controller failed:", e)
             return
 
-
+    # This lets us adjust the array values for array
     def adjust_axis(self, axis: str, delta: float) -> None:
         ids = self.ids
         key = f"{axis.lower()}_inp"

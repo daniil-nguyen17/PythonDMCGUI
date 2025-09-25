@@ -459,35 +459,46 @@ class GalilController:
         count = min(preferred, n)
         return self.read_array_slice(var_name, 0, count)
 
-    def initialize_array(self, array_name: str, size: int = 150, default_value: float = 0.0) -> bool:
-        """Initialize an array on the controller with default values.
-        
-        Returns True if successful, False otherwise.
-        """
-        print(f"[CTRL] initialize_array called: array_name={array_name}, size={size}, default_value={default_value}")
+    def diagnose_controller_state(self) -> None:
+        """Diagnose controller state and available arrays."""
+        print(f"[CTRL] === Controller Diagnostics ===")
         
         try:
-            print(f"[CTRL] Checking connection status...")
             if not self.is_connected():
-                print(f"[CTRL] Not connected - initialization failed")
-                return False
-            print(f"[CTRL] Connection OK, proceeding with initialization")
+                print(f"[CTRL] Not connected")
+                return
             
-            # Initialize array by setting first few elements to default value
-            values = [default_value] * min(size, 10)  # Initialize first 10 elements
-            print(f"[CTRL] Created values list: {values}")
+            # Check basic controller status
+            print(f"[CTRL] Checking basic controller status...")
+            try:
+                resp = self.cmd("MG _TPA")
+                print(f"[CTRL] Controller time: {resp.strip()}")
+            except Exception as e:
+                print(f"[CTRL] Failed to get controller time: {e}")
             
-            print(f"[CTRL] Calling download_array({array_name}, 0, {values})")
-            result = self.download_array(array_name, 0, values)
-            print(f"[CTRL] download_array returned: {result}")
+            # Check if DMC program is running
+            try:
+                resp = self.cmd("MG _XQ")
+                print(f"[CTRL] Program execution status: {resp.strip()}")
+            except Exception as e:
+                print(f"[CTRL] Failed to get execution status: {e}")
             
-            print(f"[CTRL] Successfully initialized array {array_name} with {len(values)} elements")
-            return True
+            # Try to probe some common array patterns
+            test_arrays = ["EdgeB", "EdgeC", "EDGEB", "EDGEC", "edgeb", "edgec"]
+            for array_name in test_arrays:
+                try:
+                    resp = self.cmd(f"MG {array_name}[0]").strip()
+                    if resp != "?":
+                        print(f"[CTRL] Found array {array_name}[0] = {resp}")
+                    else:
+                        print(f"[CTRL] Array {array_name} not available")
+                except Exception as e:
+                    print(f"[CTRL] Error checking {array_name}: {e}")
+            
+            print(f"[CTRL] === End Diagnostics ===")
+            
         except Exception as e:
-            print(f"[CTRL] Exception in initialize_array: {type(e).__name__}: {e}")
-            import traceback
-            print(f"[CTRL] Traceback: {traceback.format_exc()}")
-            return False
+            print(f"[CTRL] Diagnostics failed: {e}")
 
 
 if __name__ == "__main__":  # Minimal integration demo

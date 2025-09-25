@@ -51,51 +51,38 @@ class ArraysScreen(Screen):
             self._value_inputs.append(ti)
 
     def on_pre_enter(self, *args):  # noqa: ANN001
-        #"""Called right before the screen is shown."""
-        print(f"[ARRAYS] on_pre_enter called for {self.array_name}")
-        print(f"[ARRAYS] Controller: {self.controller}")
-        print(f"[ARRAYS] Controller connected: {self.controller.is_connected() if self.controller else 'No controller'}")
-        
+        """Called right before the screen is shown - similar to start/rest screens."""
         try:
-            print(f"[ARRAYS] Attempting to upload_array({self.array_name}, 0, {int(self.array_len)-1})")
-            vals = self.controller.upload_array(self.array_name, 0, int(self.array_len)-1)
-            print(f"[ARRAYS] Successfully read {len(vals)} values from {self.array_name}")
-        except Exception as e:
-            error_msg = str(e).lower()
-            print(f"[ARRAYS] {self.array_name} read failed: {type(e).__name__}: {e}")
-            print(f"[ARRAYS] Error message: '{error_msg}'")
+            if not self.controller or not self.controller.is_connected():
+                raise RuntimeError("No controller connected")
             
-            # If array not available (question mark), try to initialize it
-            # Check for various forms of "array not available" errors
-            if ("not available" in error_msg or "?" in error_msg or 
-                "question mark" in error_msg or "array" in error_msg):
-                print(f"[ARRAYS] Error matches initialization criteria - attempting to initialize {self.array_name}")
-                print(f"[ARRAYS] Controller check: {self.controller is not None}")
-                
-                if self.controller and self.controller.initialize_array(self.array_name, int(self.array_len)):
-                    print(f"[ARRAYS] initialize_array returned True - trying to read again")
-                    # Try reading again after initialization
-                    try:
-                        print(f"[ARRAYS] Second attempt to upload_array({self.array_name}, 0, {int(self.array_len)-1})")
-                        vals = self.controller.upload_array(self.array_name, 0, int(self.array_len)-1)
-                        print(f"[ARRAYS] Successfully initialized and read {self.array_name} - got {len(vals)} values")
-                    except Exception as e2:
-                        print(f"[ARRAYS] Still failed to read {self.array_name} after initialization: {type(e2).__name__}: {e2}")
-                        return
-                else:
-                    print(f"[ARRAYS] initialize_array returned False - initialization failed")
-                    return
-            else:
-                print(f"[ARRAYS] Error doesn't match initialization criteria, skipping initialization")
-                print(f"[ARRAYS] Checked for: 'not available', '?', 'question mark', 'array'")
-                return
+            # Try to read the full array - if it fails, fall back to state
+            vals = self.controller.upload_array(self.array_name, 0, int(self.array_len)-1)
+            
+            # Update the labels with the loaded values
+            for i, val in enumerate(vals):
+                if i < len(self._value_labels):
+                    self._value_labels[i].text = str(val)
+                    
+        except Exception as e:
+            print(f"{self.array_name} read failed:", e)
+            # Fall back to app state like start/rest screens do
+            self._load_from_state()
+
+    def _load_from_state(self) -> None:
+        """Load array values from app state when controller read fails."""
+        if not self.state:
+            return
+            
+        # Get values from state
+        vals = self.state.arrays.get(self.array_name, [])
         
-        print(f"[ARRAYS] Updating labels with {len(vals)} values")
-        # Update the labels with the loaded values
-        for i, val in enumerate(vals):
-            if i < len(self._value_labels):
-                self._value_labels[i].text = str(val)
-        print(f"[ARRAYS] Labels updated successfully") 
+        # Update labels with state values (or empty if no state)
+        for i, lbl in enumerate(self._value_labels):
+            if i < len(vals):
+                lbl.text = str(vals[i])
+            else:
+                lbl.text = "" 
         
     def load_from_controller(self) -> None:
         name = self.array_name

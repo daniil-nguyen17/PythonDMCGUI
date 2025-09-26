@@ -111,6 +111,19 @@ class ArraysScreen(Screen):
             try:
                 # Ensure controller is ready (arrays declared and numeric)
                 self.controller.wait_for_ready()
+                
+                # First, test if the array exists by trying to read the first element
+                try:
+                    test_val = self.controller.read_array_elem(name, 0)
+                    print(f"[CTRL] Array {name} exists, first element: {test_val}")
+                except Exception as e:
+                    if "Bad function or array" in str(e) or "57" in str(e):
+                        msg = f"Array '{name}' is not declared on the controller. Please ensure the controller program declares this array first."
+                        Clock.schedule_once(lambda *_: self._alert(msg))
+                        return
+                    else:
+                        raise e
+                
                 # Discover actual length up to configured max
                 length = self.controller.discover_length(name, probe_max=n)
                 if length <= 0:
@@ -183,8 +196,9 @@ class ArraysScreen(Screen):
                 if run_start is not None and run_vals:
                     wrote += self.controller.download_array(name, run_start, run_vals)
 
-                # re-read to reflect new values (up to configured window)
-                vals = self.controller.upload_array(name, 0, max(0, n - 1))
+                # re-read to reflect new values (only read what we actually wrote)
+                max_written = max(updates.keys()) if updates else 0
+                vals = self.controller.upload_array(name, 0, min(max_written, n - 1))
 
                 def on_ui() -> None:
                     # paint left labels

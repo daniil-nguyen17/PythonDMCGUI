@@ -90,7 +90,27 @@ class StartScreen(Screen):
             cur = float(w.text or "0")
         except Exception:
             cur = 0.0
-        w.text = str(int(cur + delta))
+        new_val = int(cur + delta)
+        w.text = str(new_val)
+        
+        # Send motor move command when button is released
+        self.dmcCommand("pa=" + str(new_val))
+
+    def dmcCommand(self, command: str) -> None:
+        """Send a command to the DMC controller."""
+        if not self.controller or not self.controller.is_connected():
+            self._alert("No controller connected")
+            return
+        
+        def do_command():
+            try:
+                self.controller.cmd(command)
+                print(f"[DMC] Command sent: {command}")
+            except Exception as e:
+                print(f"[DMC] Command failed: {command} -> {e}")
+                Clock.schedule_once(lambda *_: self._alert(f"Command failed: {e}"))
+        
+        jobs.submit(do_command)
 
     def _alert(self, message: str) -> None:
         try:

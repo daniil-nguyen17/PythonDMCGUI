@@ -84,7 +84,7 @@
                 width: root.left_w
                 height: root.left_w
                 source: root.left_src or 'data/logo/kivy-icon-64.png'
-                on_release: root.left_cb() if root.left_cb else None
+                on_press: root.left_cb() if root.left_cb else None
 
         CenteredTextInput:
             id: ctrl_input
@@ -103,7 +103,7 @@
                 width: root.right_w
                 height: root.right_w
                 source: root.right_src or 'data/logo/kivy-icon-64.png'
-                on_release: root.right_cb() if root.right_cb else None
+                on_press: root.right_cb() if root.right_cb else None
 
 # ---------- VERTICAL CONTROL ----------
 <VControl@AnchorLayout>:
@@ -144,7 +144,7 @@
                     width: root.up_w
                     height: root.up_w
                     source: root.up_src or 'data/logo/kivy-icon-64.png'
-                    on_release: root.up_cb() if root.up_cb else None
+                    on_press: root.up_cb() if root.up_cb else None
 
             CenteredTextInput:
                 id: ctrl_input
@@ -164,4 +164,4 @@
                     width: root.down_w
                     height: root.down_w
                     source: root.down_src or 'data/logo/kivy-icon-64.png'
-                    on_release: root.down_cb() if root.down_cb else None
+                    on_press: root.down_cb() if root.down_cb else None

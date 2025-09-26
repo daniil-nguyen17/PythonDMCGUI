@@ -62,8 +62,8 @@ class DMCApp(App):
                 screen.controller = self.controller
                 screen.state = self.state
 
-        # Start periodic poll
-        self._poll_cancel = jobs.schedule(0.1, self._poll_controller)
+        # Start periodic poll (disabled for now to prevent spam)
+        # self._poll_cancel = jobs.schedule(1.0, self._poll_controller)
         # Hook controller logger to push messages into state and show banner
         self.controller.set_logger(lambda msg: Clock.schedule_once(lambda *_: self._log_message(msg)))
         # Detect pre-existing connection (e.g., controller opened by previous run)
@@ -100,7 +100,6 @@ class DMCApp(App):
             st = self.controller.read_status()
             pos = cast(dict, st.get("pos", {}))
             speed = cast(float, st.get("speeds", 0.0))
-            st = self.controller.read_status()
             Clock.schedule_once(lambda *_: self.state.update_status(pos=pos, interlocks_ok=True, speed=speed))
         except Exception as e:
             msg = f"poll error: {e}"             # capture here

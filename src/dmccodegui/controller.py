@@ -69,6 +69,7 @@ class GalilController:
         self._connected = False
         self._logger: Optional[callable] = None
         self._max_edges: int = MAX_EDGES_DEFAULT
+        self._transport = None
 
     #logging
     def set_logger(self, fn: Optional[callable]) -> None:
@@ -114,7 +115,7 @@ class GalilController:
                 log.error("Failed to create gclib driver: %s", e)
                 return False
         try:
-            self._driver.GOpen(address + " -d")
+            self._driver.GOpen(address)
             self._connected = True
             if self._logger:
                 try:
@@ -147,6 +148,40 @@ class GalilController:
     def is_connected(self) -> bool:
         return self._connected
 
+    def read_status(self) -> Dict[str, Any]:
+        """Read controller status including position and speed information."""
+        if not self._driver or not self._connected:
+            raise RuntimeError("No controller connected")
+        
+        try:
+            # Read position for all axes (reduced debug output)
+            pos = {}
+            for axis in ['A', 'B', 'C', 'D']:
+                try:
+                    resp = self.cmd(f"MG _TP{axis}")
+                    pos[axis] = float(resp.strip())
+                except Exception:
+                    pos[axis] = 0.0
+            
+            # Read speed (using _TSA as an example - adjust based on your controller setup)
+            try:
+                speed_resp = self.cmd("MG _TSA")
+                speed = float(speed_resp.strip())
+            except Exception:
+                speed = 0.0
+                
+            return {
+                "pos": pos,
+                "speeds": speed
+            }
+        except Exception as e:
+            if self._logger:
+                try:
+                    self._logger(f"Status read error: {e}")
+                except Exception:
+                    pass
+            raise RuntimeError(f"Failed to read status: {e}")
+
     # Used to input commands to the controller, ESTOP uses this
     def cmd(self, command: str) -> str:
         if not self._driver or not self._connected:
@@ -158,7 +193,13 @@ class GalilController:
                     pass
             raise RuntimeError("No controller connected")
         try:
+            # Completely suppress debug output for status polling commands
+            is_status_command = (command.startswith("MG _TP") or command.startswith("MG _TS"))
+            if not is_status_command:
+                print(f"[CTRL] Sending command: {command}")
             resp = self._driver.GCommand(command)
+            if not is_status_command:
+                print(f"[CTRL] Response: {resp.strip()}")
             if self._logger:
                 try:
                     self._logger(f"CMD {command} -> {resp.strip()}")
@@ -166,11 +207,14 @@ class GalilController:
                     pass
             return resp
         except Exception as e:
+            print(f"[CTRL] Command failed: {command} -> {e}")
             # Try to fetch error string
             try:
                 tc1 = self._driver.GCommand("TC1")
+                print(f"[CTRL] TC1 error code: {tc1}")
             except Exception:
                 tc1 = str(e)
+                print(f"[CTRL] Could not get TC1: {tc1}")
             if self._logger:
                 try:
                     self._logger(f"Error: {tc1}")
@@ -225,26 +269,51 @@ class GalilController:
                 # Fall through to MG-based approach
                 pass
 
-        # Fallback: use MG in safe chunks
+        # Fallback: use MG in safe chunks with adaptive sizing
         print(f"[CTRL] Using MG fallback method")
         out: List[float] = []
         i = first
+        chunk_size = 1  # Start with 1 element at a time
+        
         while i <= last:
-            count = min(32, last - i + 1)
+            count = min(chunk_size, last - i + 1)
             refs = ", ".join(f"{name}[{j}]" for j in range(i, i + count))
             cmd = "MG " + refs
             print(f"[CTRL] Sending command: {cmd}")
-            resp = self.cmd(cmd).strip()
-            print(f"[CTRL] Response: '{resp}'")
             
-            if resp == "?":
-                print(f"[CTRL] Got '?' response - array {name} not available")
-                raise ControllerNotReady(f"Array {name} not available")
-            
-            parts = resp.replace("\r", " ").replace("\n", " ").split()
-            print(f"[CTRL] Parsed parts: {parts}")
-            out.extend(float(p) for p in parts)
-            i += count
+            try:
+                resp = self.cmd(cmd).strip()
+                print(f"[CTRL] Response: '{resp}'")
+                
+                if resp == "?":
+                    print(f"[CTRL] Got '?' response - array {name} not available")
+                    raise ControllerNotReady(f"Array {name} not available")
+                
+                parts = resp.replace("\r", " ").replace("\n", " ").split()
+                print(f"[CTRL] Parsed parts: {parts}")
+                out.extend(float(p) for p in parts)
+                i += count
+                
+                # If successful with current chunk size, try to increase it for efficiency
+                if chunk_size == 1 and count == 1:
+                    chunk_size = 2  # Try 2 elements next time
+                
+                # Small delay to avoid overwhelming the controller
+                import time
+                time.sleep(0.01)  # 10ms delay
+                    
+            except Exception as e:
+                if "question mark" in str(e).lower():
+                    # Reduce chunk size and retry
+                    if chunk_size > 1:
+                        chunk_size = max(1, chunk_size // 2)
+                        print(f"[CTRL] Reducing chunk size to {chunk_size} due to error")
+                        continue
+                    else:
+                        # Even 1 element failed, this is a real error
+                        raise e
+                else:
+                    raise e
         
         result = out[: (last - first + 1)]
         print(f"[CTRL] Returning {len(result)} values: {result}")
@@ -310,10 +379,10 @@ class GalilController:
         return written    
     
     def wait_for_ready(self, *, timeout_s: float = 5.0, poll_s: float = 0.1) -> None:
-        """Wait until controller is responsive and arrays declared.
+        """Wait until controller is responsive.
 
         1) Probe a cheap numeric like _TPA
-        2) Probe EdgeB[0] and EdgeC[0]
+        2) Optionally check for arrays if they exist
         """
         self.ensure_connected()
         end = (time.monotonic() + timeout_s)
@@ -321,22 +390,32 @@ class GalilController:
         print("[CTRL] Waiting for controller ready...")
         while time.monotonic() < end:
             try:
-                _ = _parse_float_str(self.cmd("MG{Z10.0} _TPA"))
-                # If _TPA is ok, try arrays
-                b0 = self.cmd("MG EdgeB[0]").strip()
-                c0 = self.cmd("MG EdgeC[0]").strip()
-                if b0 != "?" and c0 != "?":
-                    # parse to confirm numeric
-                    _ = _parse_float_str(b0)
-                    _ = _parse_float_str(c0)
-                    print("[CTRL] Ready: arrays declared and numeric")
-                    return
+                # First, just check if controller responds to basic commands
+                print("[CTRL] Testing basic controller response...")
+                _ = self._parse_float_str(self.cmd("MG _TPA"))
+                print("[CTRL] Controller responding to basic commands")
+                
+                # Controller is ready - arrays will be checked when actually needed
+                print("[CTRL] Ready: controller responding")
+                return
+                    
             except Exception as e:
                 last_err = e
+                print(f"[CTRL] Controller not ready: {e}")
             time.sleep(poll_s)
-        raise ControllerNotReady(f"Controller arrays not ready within {timeout_s}s: {last_err}")
+        raise ControllerNotReady(f"Controller not ready within {timeout_s}s: {last_err}")
 
-    def _parse_float_str(s: str) -> float:
+    def test_basic_connectivity(self) -> bool:
+        """Test if controller responds to basic commands without requiring arrays."""
+        try:
+            self.ensure_connected()
+            _ = self._parse_float_str(self.cmd("MG _TPA"))
+            return True
+        except Exception as e:
+            print(f"[CTRL] Basic connectivity test failed: {e}")
+            return False
+
+    def _parse_float_str(self, s: str) -> float:
         t = s.strip()
         if not t:
             raise ParseError(f"Empty string: '{s}'")
@@ -364,34 +443,8 @@ class GalilController:
         self._max_edges = max(1, n)
 
     def ensure_connected(self) -> None:
-        if not self._connected or not self._transport or not self._transport.is_connected():
+        if not self._connected or not self._driver:
             raise CommError("Not connected")
-
-    def wait_for_ready(self, *, timeout_s: float = 5.0, poll_s: float = 0.1) -> None:
-        """Wait until controller is responsive and arrays declared.
-        1) Probe a cheap numeric like _TPA
-        2) Probe EdgeB[0] and EdgeC[0]
-        """
-        self.ensure_connected()
-        end = (time.monotonic() + timeout_s)
-        last_err: Optional[Exception] = None
-        print("[CTRL] Waiting for controller ready...")
-        while time.monotonic() < end:
-            try:
-                _ = _parse_float_str(self.cmd("MG{Z10.0} _TPA"))
-                # If _TPA is ok, try arrays
-                b0 = self.cmd("MG EdgeB[0]").strip()
-                c0 = self.cmd("MG EdgeC[0]").strip()
-                if b0 != "?" and c0 != "?":
-                    # parse to confirm numeric
-                    _ = _parse_float_str(b0)
-                    _ = _parse_float_str(c0)
-                    print("[CTRL] Ready: arrays declared and numeric")
-                    return
-            except Exception as e:
-                last_err = e
-            time.sleep(poll_s)
-            raise ControllerNotReady(f"Controller arrays not ready within {timeout_s}s: {last_err}")
 
     def _validate_index(self, idx: int) -> None:
         if idx < 0 or idx >= self._max_edges:
@@ -401,11 +454,18 @@ class GalilController:
         self.ensure_connected()
         self._validate_index(idx)
         cmd = f"MG {var_name}[{idx}]"
-        resp = self.cmd(cmd)
-        if resp.strip() == "?":
-            print(f"[CTRL] READ ELEM '?' for {cmd}")
-            raise ControllerNotReady(f"Array {var_name} not available")
-        return _parse_float_str(resp)
+        try:
+            resp = self.cmd(cmd)
+            if resp.strip() == "?":
+                print(f"[CTRL] READ ELEM '?' for {cmd}")
+                raise ControllerNotReady(f"Array {var_name} not available")
+            return self._parse_float_str(resp)
+        except RuntimeError as e:
+            # Check if this is a "Bad function or array" error
+            if "Bad function or array" in str(e) or "57" in str(e):
+                raise ControllerNotReady(f"Array {var_name} is not declared on the controller")
+            else:
+                raise e
 
     def read_array_slice(self, var_name: str, start: int, count: int) -> List[float]:
         self.ensure_connected()

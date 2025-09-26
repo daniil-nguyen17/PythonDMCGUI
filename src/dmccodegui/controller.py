@@ -460,7 +460,7 @@ class GalilController:
         return self.read_array_slice(var_name, 0, count)
 
     def diagnose_controller_state(self) -> None:
-        """Diagnose controller state and available arrays."""
+        #"""Diagnose controller state and available arrays."""
         print(f"[CTRL] === Controller Diagnostics ===")
         
         try:

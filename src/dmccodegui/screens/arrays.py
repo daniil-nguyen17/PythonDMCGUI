@@ -135,36 +135,15 @@ class ArraysScreen(Screen):
             if i < len(self._value_inputs):
                 self._value_inputs[i].text = lbl.text
 
-    def write_to_controller(self, updates: Dict[int, float]) -> None:
-        name = self.array_name
-
+    def write_inputs_to_controller(self) -> None:
+        #"""Collect numbers from right-hand TextInputs and push to controller."""
         if not self.controller or not self.controller.is_connected():
             Clock.schedule_once(lambda *_: self._alert("No controller connected"))
             return
-
-        def do_write() -> None:
-            try:
-                self.controller.write_array(name, updates)
-                # after write, re-read to confirm
-                vals = self.controller.read_array(name, int(self.array_len))
-                def on_ui() -> None:
-                    self.state.arrays[name] = vals
-                    # update labels
-                    for i, v in enumerate(vals):
-                        if i < len(self._value_labels):
-                            self._value_labels[i].text = f"{v}"
-                    self.state.notify()
-                Clock.schedule_once(lambda *_: on_ui())
-            except Exception as e:
-                msg = f"Array write error: {e}"
-                Clock.schedule_once(lambda *_: self._alert(msg))
-
-        jobs.submit(do_write)
-
-    def write_inputs_to_controller(self) -> None:
         updates: Dict[int, float] = {}
+        # Gather numeric edits (skip blanks, mark invalids)
         for i, ti in enumerate(self._value_inputs):
-            s = ti.text.strip()
+            s = (ti.text or "").strip()
             if not s:
                 continue
             try:
@@ -173,9 +152,60 @@ class ArraysScreen(Screen):
                 ti.background_color = (1, 1, 1, 1)
             except Exception:
                 ti.background_color = (1, 0.6, 0.6, 1)
-        if updates:
-            self.write_to_controller(updates)
 
+        if not updates:
+            Clock.schedule_once(lambda *_: self._alert("No edits to write"))
+            return
+
+        self._write_updates(updates)
+
+    def _write_updates(self, updates: Dict[int, float]) -> None:
+        #"""Write sparse updates efficiently in contiguous runs, then refresh UI."""
+        name = self.array_name
+        n = int(self.array_len)
+
+        def do_write() -> None:
+            wrote = 0
+            try:
+                # batch contiguous indices: [10]=..,[11]=..,[12]=.. → one call
+                run_start = None
+                run_vals: list[float] = []
+                for idx in sorted(updates.keys()):
+                    val = updates[idx]
+                    if run_start is None:
+                        run_start = idx
+                        run_vals = [val]
+                    elif idx == run_start + len(run_vals):
+                        run_vals.append(val)
+                    else:
+                        wrote += self.controller.download_array(name, run_start, run_vals)
+                        run_start, run_vals = idx, [val]
+                if run_start is not None and run_vals:
+                    wrote += self.controller.download_array(name, run_start, run_vals)
+
+                # re-read to reflect new values (up to configured window)
+                vals = self.controller.upload_array(name, 0, max(0, n - 1))
+
+                def on_ui() -> None:
+                    # paint left labels
+                    for i, v in enumerate(vals[:len(self._value_labels)]):
+                        self._value_labels[i].text = str(v)
+                    for j in range(len(vals), len(self._value_labels)):
+                        self._value_labels[j].text = ""
+                    # also mirror into state if you track arrays there
+                    if self.state:
+                        self.state.arrays[name] = vals
+                        self.state.notify()
+                    self._alert(f"Wrote {wrote} value(s) to {name}")
+                Clock.schedule_once(lambda *_: on_ui())
+
+            except Exception as ex:
+                msg = f"Array write error: {ex}"
+                Clock.schedule_once(lambda *_: self._alert(msg))
+
+        from ..utils import jobs
+        jobs.submit(do_write)
+    
     def _alert(self, message: str) -> None:
         try:
             from kivy.app import App

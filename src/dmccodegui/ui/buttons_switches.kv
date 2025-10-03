@@ -1,0 +1,186 @@
+# Styles for rectangular buttons/toggles used on Buttons & Switches screen
+
+<RectButton@Button>:
+    size_hint: None, None
+    width: '120dp'
+    height: '44dp'
+    background_normal: ''
+    background_down: ''
+    background_color: 0, 0, 0, 0
+    color: 0.1, 0.1, 0.1, 1
+    font_size: '16sp'
+    canvas.before:
+        # Smooth vertical gradient approximated by many thin bands (increase contrast for visibility)
+        Color:
+            rgba: (1.00, 1.00, 1.00, 1)
+        RoundedRectangle:
+            pos: self.x, self.y + self.height * 0.90
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.98, 0.98, 0.99, 1)
+        RoundedRectangle:
+            pos: self.x, self.y + self.height * 0.80
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.97, 0.97, 0.985, 1)
+        RoundedRectangle:
+            pos: self.x, self.y + self.height * 0.70
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.955, 0.955, 0.975, 1)
+        RoundedRectangle:
+            pos: self.x, self.y + self.height * 0.60
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.94, 0.94, 0.965, 1)
+        RoundedRectangle:
+            pos: self.x, self.y + self.height * 0.50
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.93, 0.93, 0.955, 1)
+        RoundedRectangle:
+            pos: self.x, self.y + self.height * 0.40
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.915, 0.915, 0.945, 1)
+        RoundedRectangle:
+            pos: self.x, self.y + self.height * 0.30
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.90, 0.90, 0.935, 1)
+        RoundedRectangle:
+            pos: self.x, self.y + self.height * 0.20
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.89, 0.89, 0.93, 1)
+        RoundedRectangle:
+            pos: self.x, self.y + self.height * 0.10
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.88, 0.88, 0.92, 1)
+        RoundedRectangle:
+            pos: self.x, self.y
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        # Press darken overlay
+        Color:
+            rgba: (0, 0, 0, 0.50) if self.state=='down' else (0, 0, 0, 0)
+        RoundedRectangle:
+            pos: self.x, self.y
+            size: self.width, self.height
+            radius: [8,]
+        # Border line
+        Color:
+            rgba: (0.65, 0.65, 0.68, 1)
+        Line:
+            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+            width: 2.0
+
+<ToggleRect@ToggleButton>:
+    size_hint: None, None
+    width: '120dp'
+    height: '44dp'
+    background_normal: ''
+    background_down: ''
+    background_color: 0, 0, 0, 0
+    font_size: '16sp'
+    color: 0.1, 0.1, 0.1, 1
+    # Flat fill states: OFF darker flat fill with red outline; ON lighter fill with bold blue outline
+    canvas.before:
+        Color:
+            rgba: (0.92, 0.96, 1, 1) if self.state=='down' else (0.78, 0.78, 0.82, 1)
+        RoundedRectangle:
+            pos: self.x, self.y
+            size: self.width, self.height
+            radius: [8,]
+        # No gradient overlay for switches
+        Color:
+            rgba: (0.0, 0.55, 1.0, 1.0) if self.state=='down' else (1.0, 0.2, 0.2, 1)
+        Line:
+            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+            width: 3.6 if self.state=='down' else 3.0
+
+
+<ButtonsSwitchesScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: '12dp'
+        spacing: '12dp'
+
+        Label:
+            size_hint_y: None
+            height: '40dp'
+            text: 'Switches and Buttons'
+            font_size: '18sp'
+
+        # Row of 8 action buttons, horizontally centered
+        AnchorLayout:
+            size_hint_y: None
+            height: '64dp'
+            anchor_x: 'center'
+            anchor_y: 'center'
+            BoxLayout:
+                size_hint: None, None
+                width: self.minimum_width
+                height: '64dp'
+                spacing: '24dp'
+                padding: '8dp'
+                RectButton:
+                    text: 'Button 1'
+                RectButton:
+                    text: 'Button 2'
+                RectButton:
+                    text: 'Button 3'
+                RectButton:
+                    text: 'Button 4'
+                RectButton:
+                    text: 'Button 5'
+                RectButton:
+                    text: 'Button 6'
+                RectButton:
+                    text: 'Button 7'
+                RectButton:
+                    text: 'Button 8'
+
+        # Row of 8 toggles, horizontally centered
+        AnchorLayout:
+            size_hint_y: None
+            height: '64dp'
+            anchor_x: 'center'
+            anchor_y: 'center'
+            BoxLayout:
+                size_hint: None, None
+                width: self.minimum_width
+                height: '64dp'
+                spacing: '24dp'
+                padding: '8dp'
+                ToggleRect:
+                    text: 'Switch 1'
+                ToggleRect:
+                    text: 'Switch 2'
+                ToggleRect:
+                    text: 'Switch 3'
+                ToggleRect:
+                    text: 'Switch 4'
+                ToggleRect:
+                    text: 'Switch 5'
+                ToggleRect:
+                    text: 'Switch 6'
+                ToggleRect:
+                    text: 'Switch 7'
+                ToggleRect:
+                    text: 'Switch 8'
+
+        # Body filler showing layout like mock
+        Widget:
+
+

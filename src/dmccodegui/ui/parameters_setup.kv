@@ -1,0 +1,221 @@
+# Parameters Setup 4x6 grid with rectangular label cells and inputs with hints
+
+<ParamCell@BoxLayout>:
+    size_hint: None, None
+    width: '260dp'
+    height: '52dp'
+    padding: '10dp'
+    canvas.before:
+        # Near-continuous vertical gradient using thin bands
+        Color:
+            rgba: (0.985, 0.985, 0.988, 1)
+        RoundedRectangle:
+            pos: self.x, self.y + self.height * 0.90
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.976, 0.976, 0.982, 1)
+        RoundedRectangle:
+            pos: self.x, self.y + self.height * 0.80
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.968, 0.968, 0.976, 1)
+        RoundedRectangle:
+            pos: self.x, self.y + self.height * 0.70
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.960, 0.960, 0.970, 1)
+        RoundedRectangle:
+            pos: self.x, self.y + self.height * 0.60
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.952, 0.952, 0.964, 1)
+        RoundedRectangle:
+            pos: self.x, self.y + self.height * 0.50
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.944, 0.944, 0.958, 1)
+        RoundedRectangle:
+            pos: self.x, self.y + self.height * 0.40
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.936, 0.936, 0.952, 1)
+        RoundedRectangle:
+            pos: self.x, self.y + self.height * 0.30
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.928, 0.928, 0.946, 1)
+        RoundedRectangle:
+            pos: self.x, self.y + self.height * 0.20
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.920, 0.920, 0.940, 1)
+        RoundedRectangle:
+            pos: self.x, self.y + self.height * 0.10
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.912, 0.912, 0.934, 1)
+        RoundedRectangle:
+            pos: self.x, self.y
+            size: self.width, self.height * 0.10
+            radius: [8,]
+        Color:
+            rgba: (0.65, 0.65, 0.68, 1)
+        Line:
+            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+            width: 1.4
+
+<ParamLabel@ParamCell>:
+    text: ''
+    Label:
+        text: root.text
+        color: 0.1, 0.1, 0.1, 1
+        font_size: '16sp'
+
+<ParamInput@ParamCell>:
+    hint: ''
+    # Override to flat background (no gradient) for input cells
+    canvas.before:
+        Color:
+            rgba: (0.92, 0.92, 0.94, 1)
+        RoundedRectangle:
+            pos: self.x, self.y
+            size: self.width, self.height
+            radius: [8,]
+        Color:
+            rgba: (0.65, 0.65, 0.68, 1)
+        Line:
+            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+            width: 1.4
+    TextInput:
+        hint_text: root.hint
+        hint_text_color: (.7, .7, .75, .9)
+        background_color: 0, 0, 0, 0
+        foreground_color: 0.1, 0.1, 0.1, 1
+        cursor_color: (1, 1, 1, 1)
+        padding: [8, (self.height - self.line_height) / 2]
+        size_hint: None, None
+        width: root.width - dp(20)
+        height: root.height - dp(20)
+        halign: 'center'
+        multiline: False
+
+
+<ParametersSetupScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: '12dp'
+        spacing: '12dp'
+        # Title centered, buttons right-aligned, balanced with left spacer
+        BoxLayout:
+            size_hint_y: None
+            height: '52dp'
+            spacing: '8dp'
+            Widget:
+                id: left_spacer
+                size_hint_x: None
+                width: btns.width
+            Label:
+                text: 'Parameters Setup'
+                font_size: '18sp'
+                size_hint_x: 1
+                halign: 'center'
+                valign: 'middle'
+                text_size: self.size
+            BoxLayout:
+                id: btns
+                size_hint_x: None
+                width: self.minimum_width
+                spacing: '8dp'
+                Button:
+                    text: 'Load Startpoints for Axis'
+                    size_hint_x: None
+                    width: '220dp'
+                Button:
+                    text: 'OK'
+                    size_hint_x: None
+                    width: '100dp'
+
+        AnchorLayout:
+            anchor_x: 'center'
+            anchor_y: 'top'
+            GridLayout:
+                cols: 4
+                rows: 6
+                size_hint: None, None
+                width: self.minimum_width
+                height: self.minimum_height
+                row_default_height: '64dp'
+                row_force_default: True
+                col_default_width: '270dp'
+                col_force_default: True
+                padding: '8dp'
+                spacing: '20dp'
+
+                # Column 1 labels
+                ParamLabel:
+                    text: 'mmA ='
+                # Column 2 inputs matching C1
+                ParamInput:
+                    hint: 'Enter mmA value'
+                # Column 3 labels
+                ParamLabel:
+                    text: 'gapB ='
+                # Column 4 inputs matching C3
+                ParamInput:
+                    hint: 'Enter gapB value'
+
+                ParamLabel:
+                    text: 'mmB ='
+                ParamInput:
+                    hint: 'Enter mmB value'
+                ParamLabel:
+                    text: 'gapC ='
+                ParamInput:
+                    hint: 'Enter gapC value'
+
+                ParamLabel:
+                    text: 'mmC ='
+                ParamInput:
+                    hint: 'Enter mmC value'
+                ParamLabel:
+                    text: 'distB ='
+                ParamInput:
+                    hint: 'Enter distB value'
+
+                ParamLabel:
+                    text: 'degreeA ='
+                ParamInput:
+                    hint: 'Enter degreeA value'
+                ParamLabel:
+                    text: 'distC ='
+                ParamInput:
+                    hint: 'Enter distC value'
+
+                ParamLabel:
+                    text: 'probeR ='
+                ParamInput:
+                    hint: 'Enter probeR value'
+                ParamLabel:
+                    text: 'distA ='
+                ParamInput:
+                    hint: 'Enter distA value'
+
+                ParamLabel:
+                    text: 'Pv ='
+                ParamInput:
+                    hint: 'Enter Pv value'
+                ParamLabel:
+                    text: 'Pave ='
+                ParamInput:
+                    hint: 'Enter Pave value'
+
+

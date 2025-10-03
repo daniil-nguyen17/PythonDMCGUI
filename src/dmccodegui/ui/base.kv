@@ -28,6 +28,10 @@
             name: 'edge_b'
         EdgePointCScreen:
             name: 'edge_c'
+        ParametersSetupScreen:
+            name: 'params_setup'
+        ButtonsSwitchesScreen:
+            name: 'buttons_switches'
 
 <SomeMenu_ActionBar@BoxLayout>:
     size_hint_y: None
@@ -48,15 +52,17 @@
         Spinner:
             id: actions_spinner
             text: 'Actions'
-            values: ['RestPoint', 'StartPoint', 'EdgePointB', 'EdgePointC']
+            values: ['RestPoint', 'StartPoint', 'EdgePointB', 'EdgePointC', 'Parameters Setup', 'Buttons and Switches']
             size_hint_x: None
-            width: '140dp'
+            width: '180dp'
             height: '36dp'
             on_text:
                 self.text=='RestPoint' and setattr(app.root.ids.sm, 'current', 'rest');\
                 self.text=='StartPoint' and setattr(app.root.ids.sm, 'current', 'start');\
                 self.text=='EdgePointB' and setattr(app.root.ids.sm, 'current', 'edge_b');\
                 self.text=='EdgePointC' and setattr(app.root.ids.sm, 'current', 'edge_c');\
+                self.text=='Parameters Setup' and setattr(app.root.ids.sm, 'current', 'params_setup');\
+                self.text=='Buttons and Switches' and setattr(app.root.ids.sm, 'current', 'buttons_switches');\
                 self.text!='Actions' and setattr(self, 'text', 'Actions')
         Spinner:
             id: app_spinner

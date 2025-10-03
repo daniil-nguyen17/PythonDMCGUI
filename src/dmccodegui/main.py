@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from functools import partial
 from typing import cast
 
 from kivy.app import App
@@ -9,12 +8,11 @@ from kivy.lang import Builder
 from kivy.clock import Clock
 from kivy.factory import Factory
 from kivy.properties import StringProperty
+from kivy.core.window import Window
 from kivy.config import Config
 Config.set('graphics', 'fullscreen', '0')   # disable fullscreen
 Config.set('graphics', 'maximized', '0')    # start not maximized
 Config.set('graphics', 'borderless', '0')   # keep window borders
-
-from kivy.core.window import Window
 Window.size = (1280, 800)                   # pick a window size you want
 
 try:
@@ -35,6 +33,8 @@ KV_FILES = [
     "ui/edges.kv",   # declares EdgePointB/EdgePointC
     "ui/rest.kv",
     "ui/start.kv",
+    "ui/buttons_switches.kv",
+    "ui/parameters_setup.kv",
     "ui/setup.kv",
     "ui/base.kv",    # load last so classes are registered first
 ]

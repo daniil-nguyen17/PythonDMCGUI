@@ -29,14 +29,15 @@ except Exception:  # Allows running as a script: python src/dmccodegui/main.py
 
 KV_FILES = [
     "ui/theme.kv",
-    "ui/arrays.kv",  # base widget for Edge screens
-    "ui/edges.kv",   # declares EdgePointB/EdgePointC
+    "ui/arrays.kv",
+    "ui/edges.kv",
     "ui/rest.kv",
     "ui/start.kv",
     "ui/buttons_switches.kv",
     "ui/parameters_setup.kv",
     "ui/setup.kv",
-    "ui/base.kv",    # load last so classes are registered first
+    "ui/axis_angles.kv",   # ✅ move here (before base.kv)
+    "ui/base.kv",          # must always be last
 ]
 
 

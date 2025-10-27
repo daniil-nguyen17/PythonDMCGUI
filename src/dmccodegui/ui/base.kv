@@ -32,6 +32,8 @@
             name: 'params_setup'
         ButtonsSwitchesScreen:
             name: 'buttons_switches'
+        AxisAnglesScreen:
+            name: 'axis_angles'
 
 <SomeMenu_ActionBar@BoxLayout>:
     size_hint_y: None
@@ -52,9 +54,9 @@
         Spinner:
             id: actions_spinner
             text: 'Actions'
-            values: ['RestPoint', 'StartPoint', 'EdgePointB', 'EdgePointC', 'Parameters Setup', 'Buttons and Switches']
+            values: ['RestPoint', 'StartPoint', 'EdgePointB', 'EdgePointC', 'Parameters Setup', 'Axis and Angles', 'Buttons and Switches']
             size_hint_x: None
-            width: '180dp'
+            width: '200dp'
             height: '36dp'
             on_text:
                 self.text=='RestPoint' and setattr(app.root.ids.sm, 'current', 'rest');\
@@ -62,6 +64,7 @@
                 self.text=='EdgePointB' and setattr(app.root.ids.sm, 'current', 'edge_b');\
                 self.text=='EdgePointC' and setattr(app.root.ids.sm, 'current', 'edge_c');\
                 self.text=='Parameters Setup' and setattr(app.root.ids.sm, 'current', 'params_setup');\
+                self.text=='Axis and Angles' and setattr(app.root.ids.sm, 'current', 'axis_angles');\
                 self.text=='Buttons and Switches' and setattr(app.root.ids.sm, 'current', 'buttons_switches');\
                 self.text!='Actions' and setattr(self, 'text', 'Actions')
         Spinner:
@@ -94,4 +97,3 @@
             background_color: [.88, .06, .06, 1]
             color: [1, 1, 1, 1]
             on_release: app.e_stop()
-

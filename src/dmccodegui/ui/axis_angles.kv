@@ -1,0 +1,189 @@
+# Axis & Angles screen (top-aligned, enlarged labels, wider image shifted right)
+<AxisAnglesScreen>:
+    name: "axis_angles"
+
+    FloatLayout:
+        # --- Header bar ---
+        BoxLayout:
+            size_hint_y: None
+            height: dp(52)
+            spacing: dp(8)
+            pos_hint: {"top": 1}
+
+            Widget:
+                id: left_spacer
+                size_hint_x: None
+                width: btns.width
+
+            Label:
+                text: 'Axis and Angles'
+                font_size: '18sp'
+                size_hint_x: 1
+                halign: 'center'
+                valign: 'middle'
+                text_size: self.size
+
+            BoxLayout:
+                id: btns
+                size_hint_x: None
+                width: self.minimum_width
+                spacing: dp(8)
+
+                Button:
+                    text: 'Load Axis and Angle Values'
+                    size_hint_x: None
+                    width: dp(220)
+                Button:
+                    text: 'Save Values'
+                    size_hint_x: None
+                    width: dp(100)
+                    on_release: root.on_apply()
+
+        # --- Axis/Angle section ---
+        BoxLayout:
+            orientation: 'vertical'
+            spacing: dp(10)
+            size_hint_y: None
+            height: dp(160)
+            pos_hint: {"top": 0.85, "center_x": 0.5}
+
+            # --- Axis row ---
+            AnchorLayout:
+                anchor_x: 'center'
+                size_hint_x: 1
+                BoxLayout:
+                    orientation: 'horizontal'
+                    spacing: dp(10)
+                    size_hint_x: None
+                    height: dp(64)
+                    width: self.minimum_width
+
+                    Label:
+                        text: 'Axis'
+                        color: 1, 1, 1, 1
+                        halign: 'right'
+                        valign: 'middle'
+                        font_size: '24sp'
+                        text_size: self.size
+                        size_hint_x: None
+                        width: dp(85)  # 🔹 Fixed width for both labels
+
+                    GridLayout:
+                        cols: 4
+                        spacing: dp(20)
+                        size_hint_x: None
+                        width: self.minimum_width
+                        row_default_height: dp(64)
+                        row_force_default: True
+                        col_default_width: dp(140)
+                        col_force_default: True
+
+                        ParamInput:
+                            id: input_a1
+                            size_hint_x: None
+                            width: dp(140)
+                            cursor_color: 0, 0, 0, 1
+                            foreground_color: 0, 0, 0, 1
+                        ParamInput:
+                            id: input_a2
+                            size_hint_x: None
+                            width: dp(140)
+                            cursor_color: 0, 0, 0, 1
+                            foreground_color: 0, 0, 0, 1
+                        ParamInput:
+                            id: input_a3
+                            size_hint_x: None
+                            width: dp(140)
+                            cursor_color: 0, 0, 0, 1
+                            foreground_color: 0, 0, 0, 1
+                        ParamInput:
+                            id: input_a4
+                            size_hint_x: None
+                            width: dp(140)
+                            cursor_color: 0, 0, 0, 1
+                            foreground_color: 0, 0, 0, 1
+
+            # --- Angle row ---
+            AnchorLayout:
+                anchor_x: 'center'
+                size_hint_x: 1
+                BoxLayout:
+                    orientation: 'horizontal'
+                    spacing: dp(10)
+                    size_hint_x: None
+                    height: dp(64)
+                    width: self.minimum_width
+
+                    Label:
+                        text: 'Angle'
+                        color: 1, 1, 1, 1
+                        halign: 'right'
+                        valign: 'middle'
+                        font_size: '24sp'
+                        text_size: self.size
+                        size_hint_x: None
+                        width: dp(85)  # 🔹 Same fixed width as Axis
+
+                    GridLayout:
+                        cols: 4
+                        spacing: dp(20)
+                        size_hint_x: None
+                        width: self.minimum_width
+                        row_default_height: dp(64)
+                        row_force_default: True
+                        col_default_width: dp(140)
+                        col_force_default: True
+
+                        ParamInput:
+                            id: input_b1
+                            size_hint_x: None
+                            width: dp(140)
+                            cursor_color: 0, 0, 0, 1
+                            foreground_color: 0, 0, 0, 1
+                        ParamInput:
+                            id: input_b2
+                            size_hint_x: None
+                            width: dp(140)
+                            cursor_color: 0, 0, 0, 1
+                            foreground_color: 0, 0, 0, 1
+                        ParamInput:
+                            id: input_b3
+                            size_hint_x: None
+                            width: dp(140)
+                            cursor_color: 0, 0, 0, 1
+                            foreground_color: 0, 0, 0, 1
+                        ParamInput:
+                            id: input_b4
+                            size_hint_x: None
+                            width: dp(140)
+                            cursor_color: 0, 0, 0, 1
+                            foreground_color: 0, 0, 0, 1
+
+        # --- Image below the grid (50% wider, shifted 20% right) ---
+        AnchorLayout:
+            anchor_y: 'top'
+            size_hint_y: None
+            height: dp(260)
+            pos_hint: {"top": 0.58}
+
+            Image:
+                id: knife_image
+                source: 'assets/images/knife_demo.png'
+                size_hint: None, None
+                width: dp(1080)
+                height: dp(250)
+                fit_mode: "contain"
+                mipmap: True
+                pos_hint: {"center_x": 0.7}
+
+        # --- Status label ---
+        Label:
+            id: status_label
+            text: 'Controller not connected'
+            size_hint_y: None
+            height: dp(30)
+            halign: 'center'
+            valign: 'middle'
+            text_size: self.size
+            color: 1, 1, 1, 1
+            pos_hint: {"y": 0}

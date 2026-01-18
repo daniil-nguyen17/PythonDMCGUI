@@ -9,7 +9,7 @@
         Label:
             size_hint_y: None
             height: '24dp'
-            text: "[b]Start Point Set up for A B C D AXIS[/b]"
+            text: "[b]Start Point Set up for A B C AXIS[/b]"
             markup: True
 
         BoxLayout:
@@ -85,13 +85,6 @@
                         right_w: '80dp'
                         left_cb:  lambda: root.adjust_axis('A', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
                         right_cb: lambda: root.adjust_axis('A',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-                    Widget:
-                        size_hint_y: 1
-                    Label:
-                        text: "Startpoint[1]"
-                        size_hint_y: None
-                        height: '24dp'
-
             VDivider:
 
             # B (vertical)
@@ -129,13 +122,6 @@
                         down_src: 'dmccodegui/assets/images/arrow-down-red.png'
                         up_cb:   lambda: root.adjust_axis('B',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
                         down_cb: lambda: root.adjust_axis('B', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-                    Widget:
-                        size_hint_y: 1
-                    Label:
-                        text: "Startpoint[2]"
-                        size_hint_y: None
-                        height: '24dp'
-
             VDivider:
 
             # C (vertical)
@@ -173,55 +159,49 @@
                         down_src: 'dmccodegui/assets/images/arrow-down-red.png'
                         up_cb:   lambda: root.adjust_axis('C',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
                         down_cb: lambda: root.adjust_axis('C', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-                    Widget:
-                        size_hint_y: 1
-                    Label:
-                        text: "Startpoint[3]"
-                        size_hint_y: None
-                        height: '24dp'
 
-            VDivider:
+ #           VDivider:
 
             # D (horizontal – rotation)
-            CardFrame:
-                BoxLayout:
-                    size_hint_y: None
-                    height: '36dp'
-                    padding: '6dp'
-                    canvas.before:
-                        Color:
-                            rgba: .95, .95, .95, 0.18
-                        RoundedRectangle:
-                            pos: self.pos
-                            size: self.size
-                            radius: [6,]
-                    Label:
-                        text: "[b]D Axis[/b]"
-                        markup: True
-                BoxLayout:
-                    orientation: 'vertical'
-                    size_hint_y: 1
-                    spacing: '12dp'
-                    Widget:
-                        size_hint_y: 1
-                    Label:
-                        size_hint_y: None
-                        height: '60dp'
-                        text: "Startpoint[4]\nvalue from\nDMC"
-                        halign: 'center'
-                        valign: 'middle'
-                        on_size: self.text_size = self.size
-                    HControl:
-                        id: d_ctrl
-                        left_src:  'dmccodegui/assets/images/arrow-left-orange.png'
-                        right_src: 'dmccodegui/assets/images/arrow-right-blue.png'
-                        left_w:  '72dp'
-                        right_w: '76dp'
-                        left_cb:  lambda: root.adjust_axis('D', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-                        right_cb: lambda: root.adjust_axis('D',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-                    Widget:
-                        size_hint_y: 1
-                    Label:
-                        text: "Startpoint[4]"
-                        size_hint_y: None
-                        height: '24dp'
+        #    CardFrame:
+        #        BoxLayout:
+        #            size_hint_y: None
+        #            height: '36dp'
+        #             padding: '6dp'
+        #             canvas.before:
+        #                 Color:
+        #                     rgba: .95, .95, .95, 0.18
+        #                 RoundedRectangle:
+        #                     pos: self.pos
+        #                     size: self.size
+        #                     radius: [6,]
+        #             Label:
+        #                 text: "[b]D Axis[/b]"
+        #                 markup: True
+        #         BoxLayout:
+        #             orientation: 'vertical'
+        #             size_hint_y: 1
+        #             spacing: '12dp'
+        #             Widget:
+        #                 size_hint_y: 1
+        #             Label:
+        #                 size_hint_y: None
+        #                 height: '60dp'
+        #                 text: "Startpoint[4]\nvalue from\nDMC"
+        #                 halign: 'center'
+        #                 valign: 'middle'
+        #                 on_size: self.text_size = self.size
+        #             HControl:
+        #                 id: d_ctrl
+        #                 left_src:  'dmccodegui/assets/images/arrow-left-orange.png'
+        #                 right_src: 'dmccodegui/assets/images/arrow-right-blue.png'
+        #                 left_w:  '72dp'
+        #                 right_w: '76dp'
+        #                 left_cb:  lambda: root.adjust_axis('D', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+        #                 right_cb: lambda: root.adjust_axis('D',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+        #             Widget:
+        #                 size_hint_y: 1
+        #             Label:
+        #                 text: "Startpoint[4]"
+        #                 size_hint_y: None
+        #                 height: '24dp'

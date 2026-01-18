@@ -4,10 +4,10 @@
     orientation: 'vertical'
     SomeMenu_ActionBar:
         id: actionbar
-    # Log ticker area
     BoxLayout:
         size_hint_y: None
         height: '28dp'
+        # Log ticker area
         padding: '6dp'
         spacing: '6dp'
         Label:
@@ -16,6 +16,7 @@
             text_size: self.size
             halign: 'left'
             valign: 'middle'
+
     ScreenManager:
         id: sm
         SetupScreen:
@@ -24,23 +25,26 @@
             name: 'rest'
         StartScreen:
             name: 'start'
-        EdgePointBScreen:
-            name: 'edge_b'
-        EdgePointCScreen:
-            name: 'edge_c'
+        AxisDSetupScreen:
+            name: 'axisDSetup'
         ParametersSetupScreen:
             name: 'params_setup'
         ButtonsSwitchesScreen:
             name: 'buttons_switches'
-        AxisAnglesScreen:
-            name: 'axis_angles'
+            #EdgePointBScreen:
+            #        name: 'edge_b'
+            #EdgePointCScreen:
+            #        name: 'edge_c'
+            # AxisAnglesScreen:
+            #        name: 'axis_angles'
+        
 
 <SomeMenu_ActionBar@BoxLayout>:
     size_hint_y: None
     height: '48dp'
     padding: '6dp'
     spacing: '6dp'
-    # Left cluster: Setup + Actions + App
+        # Left cluster: Setup + Actions + App
     BoxLayout:
         size_hint_x: None
         width: self.minimum_width
@@ -54,19 +58,20 @@
         Spinner:
             id: actions_spinner
             text: 'Actions'
-            values: ['RestPoint', 'StartPoint', 'EdgePointB', 'EdgePointC', 'Parameters Setup', 'Axis and Angles', 'Buttons and Switches']
+            values: ['Rest Point', 'Start Point', 'Axis D Setup', 'Parameters Setup', 'Buttons and Switches']
             size_hint_x: None
             width: '200dp'
             height: '36dp'
             on_text:
-                self.text=='RestPoint' and setattr(app.root.ids.sm, 'current', 'rest');\
-                self.text=='StartPoint' and setattr(app.root.ids.sm, 'current', 'start');\
-                self.text=='EdgePointB' and setattr(app.root.ids.sm, 'current', 'edge_b');\
-                self.text=='EdgePointC' and setattr(app.root.ids.sm, 'current', 'edge_c');\
+                self.text=='Rest Point' and setattr(app.root.ids.sm, 'current', 'rest');\
+                self.text=='Start Point' and setattr(app.root.ids.sm, 'current', 'start');\
+                self.text=='Axis D Setup' and setattr(app.root.ids.sm, 'current', 'axisDSetup');\
                 self.text=='Parameters Setup' and setattr(app.root.ids.sm, 'current', 'params_setup');\
-                self.text=='Axis and Angles' and setattr(app.root.ids.sm, 'current', 'axis_angles');\
                 self.text=='Buttons and Switches' and setattr(app.root.ids.sm, 'current', 'buttons_switches');\
                 self.text!='Actions' and setattr(self, 'text', 'Actions')
+                    # self.text=='Axis and Angles' and setattr(app.root.ids.sm, 'current', 'axis_angles');\
+                    #self.text=='EdgePointB' and setattr(app.root.ids.sm, 'current', 'edge_b');\
+                    #self.text=='EdgePointC' and setattr(app.root.ids.sm, 'current', 'edge_c');\
         Spinner:
             id: app_spinner
             text: 'App'

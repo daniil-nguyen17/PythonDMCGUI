@@ -1,6 +1,6 @@
 # Class rules moved to theme.kv to avoid re-declaration warnings
 
-<RestScreen>:
+<AxisDSetupScreen>:
     BoxLayout:
         orientation: 'vertical'
         padding: '2dp'
@@ -10,7 +10,7 @@
         Label:
             size_hint_y: None
             height: '24dp'
-            text: "[b]Rest Point Set up for A B C D AXIS[/b]"
+            text: "[b]Axis D Setup for Zero, Angle 1, Angle 2[/b]"
             markup: True
 
         # Step controls row
@@ -37,21 +37,21 @@
                 group: 'step'
             Widget:
             Button:
-                text: 'Load Rest Array to Screen'
+                text: 'Load D Arrays to Screen'
                 size_hint_x: None
                 width: '280dp'
                 on_release: root.loadArrayToPage()
             Button:
-                text: 'Save Rest Points'
+                text: 'Save D Values'
                 size_hint_x: None
                 width: '120dp'
                 on_release: root.save_values()
 
-        # Four-axis panel row
+        # Three-axis panel row
         BoxLayout:
             spacing: '14dp'
 
-            # A Axis (horizontal – left red, right green)
+            # Set up D zero
             CardFrame:
                 # Header
                 BoxLayout:
@@ -66,7 +66,7 @@
                             size: self.size
                             radius: [6,]
                     Label:
-                        text: "[b]A Axis[/b]"
+                        text: "[b]D Zero[/b]"
                         markup: True
 
                 # Body (even vertical distribution)
@@ -79,7 +79,7 @@
                     Label:
                         size_hint_y: None
                         height: '60dp'
-                        text: "Restpoint[1]\nvalue from\nDMC"
+                        text: "D Zero\nvalue from\nDMC"
                         halign: 'center'
                         valign: 'middle'
                         on_size: self.text_size = self.size
@@ -92,7 +92,7 @@
 
             VDivider:
 
-            # B Axis (vertical – up green, down red)
+            # set up Dangle 1
             CardFrame:
                 BoxLayout:
                     size_hint_y: None
@@ -106,7 +106,7 @@
                             size: self.size
                             radius: [6,]
                     Label:
-                        text: "[b]B Axis[/b]"
+                        text: "[b]D Angle 1[/b]"
                         markup: True
 
                 BoxLayout:
@@ -118,7 +118,7 @@
                     Label:
                         size_hint_y: None
                         height: '60dp'
-                        text: "Restpoint[2]\nvalue from\nDMC"
+                        text: "D Angle 1\nvalue from\nDMC"
                         halign: 'center'
                         valign: 'middle'
                         on_size: self.text_size = self.size
@@ -131,7 +131,7 @@
 
             VDivider:
 
-            # C Axis (vertical – up green, down red)
+            # set up D Dangle 2
             CardFrame:
                 BoxLayout:
                     size_hint_y: None
@@ -145,7 +145,7 @@
                             size: self.size
                             radius: [6,]
                     Label:
-                        text: "[b]C Axis[/b]"
+                        text: "[b]D Angle 2[/b]"
                         markup: True
 
                 BoxLayout:
@@ -157,7 +157,7 @@
                     Label:
                         size_hint_y: None
                         height: '60dp'
-                        text: "Restpoint[3]\nvalue from\nDMC"
+                        text: "D Angle 2\nvalue from\nDMC"
                         halign: 'center'
                         valign: 'middle'
                         on_size: self.text_size = self.size
@@ -168,48 +168,3 @@
                         up_cb:   lambda: root.adjust_axis('C',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
                         down_cb: lambda: root.adjust_axis('C', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
 
-            # VDivider:
-
-            # # D Axis (horizontal – rotation: left orange, right blue)
-            # CardFrame:
-            #     BoxLayout:
-            #         size_hint_y: None
-            #         height: '36dp'
-            #         padding: '6dp'
-            #         canvas.before:
-            #             Color:
-            #                 rgba: .95, .95, .95, 0.18
-            #             RoundedRectangle:
-            #                 pos: self.pos
-            #                 size: self.size
-            #                 radius: [6,]
-            #         Label:
-            #             text: "[b]D Axis[/b]"
-            #             markup: True
-
-            #     BoxLayout:
-            #         orientation: 'vertical'
-            #         size_hint_y: 1
-            #         spacing: '12dp'
-            #         Widget:
-            #             size_hint_y: 1
-            #         Label:
-            #             size_hint_y: None
-            #             height: '60dp'
-            #             text: "Restpoint[4]\nvalue from\nDMC"
-            #             halign: 'center'
-            #             valign: 'middle'
-            #             on_size: self.text_size = self.size
-            #         HControl:
-            #             id: d_ctrl
-            #             left_src:  'dmccodegui/assets/images/arrow-left-orange.png'
-            #             right_src: 'dmccodegui/assets/images/arrow-right-blue.png'
-            #             left_cb:  lambda: root.adjust_axis('D', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-            #             right_cb: lambda: root.adjust_axis('D',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-                    
-            #         Widget:
-            #             size_hint_y: 1
-            #         Label:
-            #             text: "Restpoint[4]"
-            #             size_hint_y: None
-            #             height: '24dp'

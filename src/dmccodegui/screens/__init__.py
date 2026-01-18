@@ -4,6 +4,7 @@ from .setup import SetupScreen
 from .arrays import ArraysScreen
 from .rest import RestScreen
 from .start import StartScreen
+from .axisDSetup import AxisDSetupScreen
 # EdgePointBScreen/EdgePointCScreen are declared in KV inheriting ArraysScreen
 # Import/export screen classes
 from .parameters_setup import ParametersSetupScreen
@@ -18,4 +19,5 @@ __all__ = [
     "ParametersSetupScreen",
     "ButtonsSwitchesScreen",
     "AxisAnglesScreen",  # ✅ export it too
+    "AxisDSetupScreen",
 ]

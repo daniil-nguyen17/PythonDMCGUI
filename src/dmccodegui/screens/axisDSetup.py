@@ -10,20 +10,21 @@ from ..app_state import MachineState
 from ..controller import GalilController
 from ..utils import jobs
 
-class RestScreen(Screen):
+
+class AxisDSetupScreen(Screen):
     controller: GalilController = ObjectProperty(None)  # type: ignore
     state: MachineState = ObjectProperty(None)  # type: ignore
-    rest_vals = ([0.0, 0.0, 0.0, 0.0])
+    rest_vals = ([0.0, 0.0, 0.0])
 
     def on_pre_enter(self, *args):  # noqa: ANN001
         try:
             if not self.controller or not self.controller.is_connected():
                 raise RuntimeError("No controller connected")
             vals = self.controller.upload_array("RestPnt", 0, 2)
-            self.rest_vals = (vals + [0,0,0])[:3]
+            self.rest_vals = (vals + [0, 0, 0])[:3]
             self._fill_inputs_from_vals(self.rest_vals)
         except Exception as e:
-            print("RestPnt read failed:", e)
+            print("AxisDSetup read failed:", e)
             self._load_from_state()
 
     def _get_axis_input(self, axis: str):
@@ -51,21 +52,17 @@ class RestScreen(Screen):
             try:
                 return float(s)
             except ValueError:
-                # optional: visually flag bad input
                 if ti: ti.background_color = (1, 0.6, 0.6, 1)
                 return 0.0
 
-        # A, B, C, D in order → local array
         new_vals = [
             get_axis_num("A"),
             get_axis_num("B"),
             get_axis_num("C"),
         ]
 
-        # 1) Save to your local array on the screen
         self.rest_vals = new_vals
 
-        # 2) (Optional) keep your app-wide state in sync
         self.state.taught_points["Rest"] = {
             "pos": {"A": new_vals[0], "B": new_vals[1], "C": new_vals[2]}
         }
@@ -73,23 +70,18 @@ class RestScreen(Screen):
         try:
             if not self.controller or not self.controller.is_connected():
                 raise RuntimeError("No controller connected")
-            # Push the Rest values we just collected
             self.controller.download_array("RestPnt", 0, self.rest_vals)
         except Exception as e:
-            print("RestPnt send to controller failed:", e)
+            print("AxisDSetup send to controller failed:", e)
             return
-        #send command to controller to move axis to new position
-        self.dmcCommand("PA "+str(new_vals[0])+", " +str(new_vals[1])+", "+str(new_vals[2]))
-        self.dmcCommand("BG")
 
     def loadArrayToPage(self, *args):
         try:
-            # Read Rest array from controller, not Start
             vals = self.controller.upload_array("RestPnt", 0, 2)
         except Exception as e:
-            print("RestPnt read failed:", e)
+            print("AxisDSetup read failed:", e)
             return
-        self.rest_vals = (vals + [0,0,0])[:3]
+        self.rest_vals = (vals + [0, 0, 0])[:3]
         self._fill_inputs_from_vals(self.rest_vals)
 
     def _fill_inputs_from_vals(self, vals):
@@ -103,7 +95,6 @@ class RestScreen(Screen):
             if ti is not None and idx < len(vals):
                 ti.text = str(vals[idx])
 
-    # This lets us adjust the array values for array
     def adjust_axis(self, axis: str, delta: float) -> None:
         w = self._get_axis_input(axis)
         if not w:
@@ -114,13 +105,13 @@ class RestScreen(Screen):
             cur = 0.0
         new_val = int(cur + delta)
         w.text = str(new_val)
+        self.dmcCommand("pa=" + str(new_val))
 
     def dmcCommand(self, command: str) -> None:
-        """Send a command to the DMC controller."""
         if not self.controller or not self.controller.is_connected():
             self._alert("No controller connected")
             return
-        
+
         def do_command():
             try:
                 self.controller.cmd(command)
@@ -128,7 +119,7 @@ class RestScreen(Screen):
             except Exception as e:
                 print(f"[DMC] Command failed: {command} -> {e}")
                 Clock.schedule_once(lambda *_: self._alert(f"Command failed: {e}"))
-        
+
         jobs.submit(do_command)
 
     def _alert(self, message: str) -> None:
@@ -142,4 +133,3 @@ class RestScreen(Screen):
             pass
         if self.state:
             self.state.log(message)
-

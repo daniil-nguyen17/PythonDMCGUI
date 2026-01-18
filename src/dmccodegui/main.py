@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import os
+os.environ["KIVY_DPI_AWARE"] = "1"
+os.environ["KIVY_METRICS_DENSITY"] = "1"
+os.environ["KIVY_MOUSE"] = "mouse,multitouch_on_demand"
 from typing import cast
+from kivy.config import Config
 
 from kivy.app import App
 from kivy.lang import Builder
@@ -37,6 +41,7 @@ KV_FILES = [
     "ui/parameters_setup.kv",
     "ui/setup.kv",
     "ui/axis_angles.kv",   # ✅ move here (before base.kv)
+    "ui/axisDSetup.kv",
     "ui/base.kv",          # must always be last
 ]
 
@@ -51,6 +56,9 @@ class DMCApp(App):
         self._poll_cancel = None
 
     def build(self):
+        if Window:
+            Window.bind(on_cursor_enter=lambda *args: Window.show())
+            
         for kv in KV_FILES:
             Builder.load_file(os.path.join(os.path.dirname(__file__), kv))
 

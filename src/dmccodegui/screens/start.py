@@ -11,14 +11,14 @@ from ..utils import jobs
 class StartScreen(Screen):
     controller: GalilController = ObjectProperty(None)  # type: ignore
     state: MachineState = ObjectProperty(None)  # type: ignore
-    start_vals = ([0.0, 0.0, 0.0, 0.0])
+    start_vals = ([0.0, 0.0, 0.0])
 
     def on_pre_enter(self, *args):  # noqa: ANN001
         try:
             if not self.controller or not self.controller.is_connected():
                 raise RuntimeError("No controller connected")
-            vals = self.controller.upload_array("StartPnt", 0, 3)
-            self.start_vals = (vals + [0,0,0,0])[:4]
+            vals = self.controller.upload_array("StartPnt", 0, 2)
+            self.start_vals = (vals + [0,0,0])[:3]
             self._fill_inputs_from_vals(self.start_vals)
         except Exception as e:
             print("StartPnt read failed:", e)
@@ -38,14 +38,13 @@ class StartScreen(Screen):
             ("A", 0),
             ("B", 1),
             ("C", 2),
-            ("D", 3),
         ]
         for axis, idx in mapping:
             ti = self._get_axis_input(axis)
             if ti is not None and idx < len(vals):
                 ti.text = str(vals[idx])
 
-    # saves values from UI and pushes them to controller
+    # saves values from UI and pushes them to controller > then move the motor to the new position based on new numbers
     def save_values(self) -> None:
         def get_axis_num(axis: str) -> float:
             ti = self._get_axis_input(axis)
@@ -57,12 +56,11 @@ class StartScreen(Screen):
                 if ti: ti.background_color = (1, 0.6, 0.6, 1)
                 return 0.0
 
-        # A, B, C, D in order → local array
+        # A, B, C in order → local array
         new_vals = [
             get_axis_num("A"),
             get_axis_num("B"),
             get_axis_num("C"),
-            get_axis_num("D"),
         ]
 
         # 1) Save to your local array on the screen
@@ -70,7 +68,7 @@ class StartScreen(Screen):
 
         # 2) (Optional) keep your app-wide state in sync
         self.state.taught_points["Start"] = {
-            "pos": {"A": new_vals[0], "B": new_vals[1], "C": new_vals[2], "D": new_vals[3]}
+            "pos": {"A": new_vals[0], "B": new_vals[1], "C": new_vals[2]}
         }
         self.state.notify()
         try:
@@ -80,6 +78,9 @@ class StartScreen(Screen):
         except Exception as e:
             print("StartPnt send to controller failed:", e)
             return
+        
+        self.dmcCommand("PA "+str(new_vals[0])+", " +str(new_vals[1])+", "+str(new_vals[2]))
+        self.dmcCommand("BG")
 
     # This lets us adjust the array values for array
     def adjust_axis(self, axis: str, delta: float) -> None:
@@ -93,8 +94,6 @@ class StartScreen(Screen):
         new_val = int(cur + delta)
         w.text = str(new_val)
         
-        # Send motor move command when button is released
-        self.dmcCommand("pa=" + str(new_val))
 
     def dmcCommand(self, command: str) -> None:
         """Send a command to the DMC controller."""
@@ -126,11 +125,11 @@ class StartScreen(Screen):
             
     def loadArrayToPage(self, *args):
         try:
-            vals = self.controller.upload_array("StartPnt", 0, 3)
+            vals = self.controller.upload_array("StartPnt", 0, 2)
         except Exception as e:
             print("StartPnt read failed:", e)
             return
-        self.start_vals = (vals + [0,0,0,0])[:4]
+        self.start_vals = (vals + [0,0,0])[:3]
         self._fill_inputs_from_vals(self.start_vals)
         
     # removed duplicate helper; rely on _get_axis_input mapping
@@ -139,9 +138,8 @@ class StartScreen(Screen):
         a = str(data.get("A", 0.0))
         b = str(data.get("B", 0.0))
         c = str(data.get("C", 0.0))
-        d = str(data.get("D", 0.0))
         if (ti := self._get_axis_input("A")): ti.text = a
         if (ti := self._get_axis_input("B")): ti.text = b
         if (ti := self._get_axis_input("C")): ti.text = c
-        if (ti := self._get_axis_input("D")): ti.text = d
+
 

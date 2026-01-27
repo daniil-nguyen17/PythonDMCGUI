@@ -83,12 +83,41 @@
                         halign: 'center'
                         valign: 'middle'
                         on_size: self.text_size = self.size
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '40dp'
+                        padding: '4dp'
+                        canvas.before:
+                            Color:
+                                rgba: .2, .2, .2, 1
+                            RoundedRectangle:
+                                pos: self.pos
+                                size: self.size
+                                radius: [4,]
+                        TextInput:
+                            id: a_display
+                            readonly: True
+                            multiline: False
+                            font_size: '18sp'
+                            halign: 'center'
+                            valign: 'middle'
+                            background_color: (.15, .15, .15, 1)
+                            foreground_color: (.8, .8, .8, 1)
+                    Label:
+                        size_hint_y: None
+                        height: '20dp'
+                        text: "[color=999999]Value from Controller[/color]"
+                        markup: True
+                        font_size: '10sp'
+                        halign: 'center'
                     HControl:
                         id: a_ctrl
                         left_src:  'dmccodegui/assets/images/arrow-left-red.png'
                         right_src: 'dmccodegui/assets/images/arrow-right-green.png'
                         left_cb:  lambda: root.adjust_axis('A', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
                         right_cb: lambda: root.adjust_axis('A',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                    Widget:
+                        size_hint_y: 1
 
             VDivider:
 
@@ -122,12 +151,41 @@
                         halign: 'center'
                         valign: 'middle'
                         on_size: self.text_size = self.size
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '40dp'
+                        padding: '4dp'
+                        canvas.before:
+                            Color:
+                                rgba: .2, .2, .2, 1
+                            RoundedRectangle:
+                                pos: self.pos
+                                size: self.size
+                                radius: [4,]
+                        TextInput:
+                            id: b_display
+                            readonly: True
+                            multiline: False
+                            font_size: '18sp'
+                            halign: 'center'
+                            valign: 'middle'
+                            background_color: (.15, .15, .15, 1)
+                            foreground_color: (.8, .8, .8, 1)
+                    Label:
+                        size_hint_y: None
+                        height: '20dp'
+                        text: "[color=999999]Value from Controller[/color]"
+                        markup: True
+                        font_size: '10sp'
+                        halign: 'center'
                     VControl:
                         id: b_ctrl
                         up_src:   'dmccodegui/assets/images/arrow-up-green.png'
                         down_src: 'dmccodegui/assets/images/arrow-down-red.png'
                         up_cb:   lambda: root.adjust_axis('B',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
                         down_cb: lambda: root.adjust_axis('B', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                    Widget:
+                        size_hint_y: 1
 
             VDivider:
 
@@ -161,10 +219,39 @@
                         halign: 'center'
                         valign: 'middle'
                         on_size: self.text_size = self.size
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '40dp'
+                        padding: '4dp'
+                        canvas.before:
+                            Color:
+                                rgba: .2, .2, .2, 1
+                            RoundedRectangle:
+                                pos: self.pos
+                                size: self.size
+                                radius: [4,]
+                        TextInput:
+                            id: c_display
+                            readonly: True
+                            multiline: False
+                            font_size: '18sp'
+                            halign: 'center'
+                            valign: 'middle'
+                            background_color: (.15, .15, .15, 1)
+                            foreground_color: (.8, .8, .8, 1)
+                    Label:
+                        size_hint_y: None
+                        height: '20dp'
+                        text: "[color=999999]Value from Controller[/color]"
+                        markup: True
+                        font_size: '10sp'
+                        halign: 'center'
                     VControl:
                         id: c_ctrl
                         up_src:   'dmccodegui/assets/images/arrow-up-green.png'
                         down_src: 'dmccodegui/assets/images/arrow-down-red.png'
                         up_cb:   lambda: root.adjust_axis('C',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
                         down_cb: lambda: root.adjust_axis('C', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                    Widget:
+                        size_hint_y: 1
 

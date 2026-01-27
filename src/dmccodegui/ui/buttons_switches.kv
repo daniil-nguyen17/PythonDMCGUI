@@ -131,25 +131,25 @@
             BoxLayout:
                 size_hint: None, None
                 width: self.minimum_width
-                height: '64dp'
+                height: '100dp'
                 spacing: '24dp'
                 padding: '8dp'
                 RectButton:
-                    text: 'Button 1'
+                    text: 'Cancel Mai Dao'
                 RectButton:
-                    text: 'Button 2'
+                    text: 'Them Da'
                 RectButton:
-                    text: 'Button 3'
+                    text: 'Bot Da'
                 RectButton:
-                    text: 'Button 4'
+                    text: 'Bat Dau Mai'
                 RectButton:
-                    text: 'Button 5'
+                    text: 'Luu Lai Rest point'
                 RectButton:
-                    text: 'Button 6'
+                    text: 'Luu Lai Start point'
                 RectButton:
-                    text: 'Button 7'
+                    text: 'Di Ve Rest Cho 4 Truc'
                 RectButton:
-                    text: 'Button 8'
+                    text: 'Di Ve Start Cho 4 Truc'
 
         # Row of 8 toggles, horizontally centered
         AnchorLayout:
@@ -160,15 +160,15 @@
             BoxLayout:
                 size_hint: None, None
                 width: self.minimum_width
-                height: '64dp'
+                height: '100dp'
                 spacing: '24dp'
                 padding: '8dp'
                 ToggleRect:
-                    text: 'Switch 1'
+                    text: 'Enter Setup'
                 ToggleRect:
-                    text: 'Switch 2'
+                    text: 'Probing Mode'
                 ToggleRect:
-                    text: 'Switch 3'
+                    text: 'Chay Wheeler'
                 ToggleRect:
                     text: 'Switch 4'
                 ToggleRect:
@@ -179,6 +179,342 @@
                     text: 'Switch 7'
                 ToggleRect:
                     text: 'Switch 8'
+
+        # Axis Sliders Section
+        Label:
+            size_hint_y: None
+            height: '30dp'
+            text: 'Axis Position Control'
+            font_size: '14sp'
+            bold: True
+
+        ScrollView:
+            BoxLayout:
+                orientation: 'vertical'
+                size_hint_y: None
+                height: self.minimum_height
+                spacing: '12dp'
+                padding: '8dp'
+
+                # A Axis
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_y: None
+                    height: '80dp'
+                    spacing: '4dp'
+                    
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '24dp'
+                        spacing: '8dp'
+                        Label:
+                            text: 'A Axis:'
+                            size_hint_x: None
+                            width: '80dp'
+                            font_size: '12sp'
+                        Slider:
+                            id: slider_a
+                            min: -1000
+                            max: 1000
+                            value: 0
+                            on_touch_up: root.on_slider_release('A', self.value)
+                        TextInput:
+                            id: value_a_display
+                            text: '0'
+                            readonly: True
+                            multiline: False
+                            size_hint_x: None
+                            width: '80dp'
+                            height: '24dp'
+                            font_size: '12sp'
+                            halign: 'center'
+                            background_color: (.15, .15, .15, 1)
+                            foreground_color: (.8, .8, .8, 1)
+                    
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '20dp'
+                        spacing: '12dp'
+                        Label:
+                            text: 'Reverse Limit'
+                            size_hint_x: None
+                            width: '120dp'
+                            font_size: '10sp'
+                        CheckBox:
+                            id: a_reverse_limit
+                            size_hint_x: None
+                            width: '30dp'
+                            active: False
+                        Label:
+                            text: 'Home'
+                            size_hint_x: None
+                            width: '60dp'
+                            font_size: '10sp'
+                        CheckBox:
+                            id: a_home
+                            size_hint_x: None
+                            width: '30dp'
+                            active: False
+                        Label:
+                            text: 'Forward Limit'
+                            size_hint_x: None
+                            width: '120dp'
+                            font_size: '10sp'
+                        CheckBox:
+                            id: a_forward_limit
+                            size_hint_x: None
+                            width: '30dp'
+                            active: False
+                        Label:
+                            text: 'Motor Off'
+                            size_hint_x: None
+                            width: '80dp'
+                            font_size: '10sp'
+                        CheckBox:
+                            id: a_motor_off
+                            size_hint_x: None
+                            width: '30dp'
+                            active: False
+
+                # B Axis
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_y: None
+                    height: '80dp'
+                    spacing: '4dp'
+                    
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '24dp'
+                        spacing: '8dp'
+                        Label:
+                            text: 'B Axis:'
+                            size_hint_x: None
+                            width: '80dp'
+                            font_size: '12sp'
+                        Slider:
+                            id: slider_b
+                            min: -1000
+                            max: 1000
+                            value: 0
+                            on_touch_up: root.on_slider_release('B', self.value)
+                        TextInput:
+                            id: value_b_display
+                            text: '0'
+                            readonly: True
+                            multiline: False
+                            size_hint_x: None
+                            width: '80dp'
+                            height: '24dp'
+                            font_size: '12sp'
+                            halign: 'center'
+                            background_color: (.15, .15, .15, 1)
+                            foreground_color: (.8, .8, .8, 1)
+                    
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '20dp'
+                        spacing: '12dp'
+                        Label:
+                            text: 'Reverse Limit'
+                            size_hint_x: None
+                            width: '120dp'
+                            font_size: '10sp'
+                        CheckBox:
+                            id: b_reverse_limit
+                            size_hint_x: None
+                            width: '30dp'
+                            active: False
+                        Label:
+                            text: 'Home'
+                            size_hint_x: None
+                            width: '60dp'
+                            font_size: '10sp'
+                        CheckBox:
+                            id: b_home
+                            size_hint_x: None
+                            width: '30dp'
+                            active: False
+                        Label:
+                            text: 'Forward Limit'
+                            size_hint_x: None
+                            width: '120dp'
+                            font_size: '10sp'
+                        CheckBox:
+                            id: b_forward_limit
+                            size_hint_x: None
+                            width: '30dp'
+                            active: False
+                        Label:
+                            text: 'Motor Off'
+                            size_hint_x: None
+                            width: '80dp'
+                            font_size: '10sp'
+                        CheckBox:
+                            id: b_motor_off
+                            size_hint_x: None
+                            width: '30dp'
+                            active: False
+
+                # C Axis
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_y: None
+                    height: '80dp'
+                    spacing: '4dp'
+                    
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '24dp'
+                        spacing: '8dp'
+                        Label:
+                            text: 'C Axis:'
+                            size_hint_x: None
+                            width: '80dp'
+                            font_size: '12sp'
+                        Slider:
+                            id: slider_c
+                            min: -1000
+                            max: 1000
+                            value: 0
+                            on_touch_up: root.on_slider_release('C', self.value)
+                        TextInput:
+                            id: value_c_display
+                            text: '0'
+                            readonly: True
+                            multiline: False
+                            size_hint_x: None
+                            width: '80dp'
+                            height: '24dp'
+                            font_size: '12sp'
+                            halign: 'center'
+                            background_color: (.15, .15, .15, 1)
+                            foreground_color: (.8, .8, .8, 1)
+                    
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '20dp'
+                        spacing: '12dp'
+                        Label:
+                            text: 'Reverse Limit'
+                            size_hint_x: None
+                            width: '120dp'
+                            font_size: '10sp'
+                        CheckBox:
+                            id: c_reverse_limit
+                            size_hint_x: None
+                            width: '30dp'
+                            active: False
+                        Label:
+                            text: 'Home'
+                            size_hint_x: None
+                            width: '60dp'
+                            font_size: '10sp'
+                        CheckBox:
+                            id: c_home
+                            size_hint_x: None
+                            width: '30dp'
+                            active: False
+                        Label:
+                            text: 'Forward Limit'
+                            size_hint_x: None
+                            width: '120dp'
+                            font_size: '10sp'
+                        CheckBox:
+                            id: c_forward_limit
+                            size_hint_x: None
+                            width: '30dp'
+                            active: False
+                        Label:
+                            text: 'Motor Off'
+                            size_hint_x: None
+                            width: '80dp'
+                            font_size: '10sp'
+                        CheckBox:
+                            id: c_motor_off
+                            size_hint_x: None
+                            width: '30dp'
+                            active: False
+
+                # D Axis
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_y: None
+                    height: '80dp'
+                    spacing: '4dp'
+                    
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '24dp'
+                        spacing: '8dp'
+                        Label:
+                            text: 'D Axis:'
+                            size_hint_x: None
+                            width: '80dp'
+                            font_size: '12sp'
+                        Slider:
+                            id: slider_d
+                            min: -1000
+                            max: 1000
+                            value: 0
+                            on_touch_up: root.on_slider_release('D', self.value)
+                        TextInput:
+                            id: value_d_display
+                            text: '0'
+                            readonly: True
+                            multiline: False
+                            size_hint_x: None
+                            width: '80dp'
+                            height: '24dp'
+                            font_size: '12sp'
+                            halign: 'center'
+                            background_color: (.15, .15, .15, 1)
+                            foreground_color: (.8, .8, .8, 1)
+                    
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '20dp'
+                        spacing: '12dp'
+                        Label:
+                            text: 'Reverse Limit'
+                            size_hint_x: None
+                            width: '120dp'
+                            font_size: '10sp'
+                        CheckBox:
+                            id: d_reverse_limit
+                            size_hint_x: None
+                            width: '30dp'
+                            active: False
+                        Label:
+                            text: 'Home'
+                            size_hint_x: None
+                            width: '60dp'
+                            font_size: '10sp'
+                        CheckBox:
+                            id: d_home
+                            size_hint_x: None
+                            width: '30dp'
+                            active: False
+                        Label:
+                            text: 'Forward Limit'
+                            size_hint_x: None
+                            width: '120dp'
+                            font_size: '10sp'
+                        CheckBox:
+                            id: d_forward_limit
+                            size_hint_x: None
+                            width: '30dp'
+                            active: False
+                        Label:
+                            text: 'Motor Off'
+                            size_hint_x: None
+                            width: '80dp'
+                            font_size: '10sp'
+                        CheckBox:
+                            id: d_motor_off
+                            size_hint_x: None
+                            width: '30dp'
+                            active: False
 
         # Body filler showing layout like mock
         Widget:

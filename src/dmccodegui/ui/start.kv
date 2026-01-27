@@ -8,8 +8,8 @@
 
         Label:
             size_hint_y: None
-            height: '24dp'
-            text: "[b]Start Point Set up for A B C AXIS[/b]"
+            height: '36dp'
+            text: "[b]Chinh Diem Start Cho Truc A B C D[/b]"
             markup: True
 
         BoxLayout:
@@ -35,12 +35,12 @@
                 group: 'step'
             Widget:
             Button:
-                text: 'Load Start Array to Screen'
+                text: 'Lay Diem Start Ve Man Hinh'
                 size_hint_x: None
                 width: '280dp'
                 on_release: root.loadArrayToPage()
             Button:
-                text: 'Save Start Points'
+                text: 'Luu Diem Start'
                 size_hint_x: None
                 width: '120dp'
                 on_release: root.save_values()
@@ -62,7 +62,7 @@
                             size: self.size
                             radius: [6,]
                     Label:
-                        text: "[b]A Axis[/b]"
+                        text: "[b]Diem Start Truc A[/b]"
                         markup: True
                 BoxLayout:
                     orientation: 'vertical'
@@ -73,10 +73,37 @@
                     Label:
                         size_hint_y: None
                         height: '60dp'
-                        text: "Startpoint[1]\nvalue from\nDMC"
+                        text: "Diem Start Truc A"
                         halign: 'center'
                         valign: 'middle'
                         on_size: self.text_size = self.size
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '40dp'
+                        padding: '4dp'
+                        canvas.before:
+                            Color:
+                                rgba: .2, .2, .2, 1
+                            RoundedRectangle:
+                                pos: self.pos
+                                size: self.size
+                                radius: [4,]
+                        TextInput:
+                            id: a_display
+                            readonly: True
+                            multiline: False
+                            font_size: '18sp'
+                            halign: 'center'
+                            valign: 'middle'
+                            background_color: (.15, .15, .15, 1)
+                            foreground_color: (.8, .8, .8, 1)
+                    Label:
+                        size_hint_y: None
+                        height: '20dp'
+                        text: "[color=999999]Value from Controller[/color]"
+                        markup: True
+                        font_size: '10sp'
+                        halign: 'center'
                     HControl:
                         id: a_ctrl
                         left_src:  'dmccodegui/assets/images/arrow-left-red.png'
@@ -85,9 +112,11 @@
                         right_w: '80dp'
                         left_cb:  lambda: root.adjust_axis('A', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
                         right_cb: lambda: root.adjust_axis('A',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                    Widget:
+                        size_hint_y: 1
             VDivider:
 
-            # B (vertical)
+            # B Left (vertical)
             CardFrame:
                 BoxLayout:
                     size_hint_y: None
@@ -101,7 +130,7 @@
                             size: self.size
                             radius: [6,]
                     Label:
-                        text: "[b]B Axis[/b]"
+                        text: "[b]Diem Start B Trai[/b]"
                         markup: True
                 BoxLayout:
                     orientation: 'vertical'
@@ -112,16 +141,111 @@
                     Label:
                         size_hint_y: None
                         height: '60dp'
-                        text: "Startpoint[2]\nvalue from\nDMC"
+                        text: "Diem Start B Trai"
                         halign: 'center'
                         valign: 'middle'
                         on_size: self.text_size = self.size
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '40dp'
+                        padding: '4dp'
+                        canvas.before:
+                            Color:
+                                rgba: .2, .2, .2, 1
+                            RoundedRectangle:
+                                pos: self.pos
+                                size: self.size
+                                radius: [4,]
+                        TextInput:
+                            id: b_left_display
+                            readonly: True
+                            multiline: False
+                            font_size: '18sp'
+                            halign: 'center'
+                            valign: 'middle'
+                            background_color: (.15, .15, .15, 1)
+                            foreground_color: (.8, .8, .8, 1)
+                    Label:
+                        size_hint_y: None
+                        height: '20dp'
+                        text: "[color=999999]Value from Controller[/color]"
+                        markup: True
+                        font_size: '10sp'
+                        halign: 'center'
                     VControl:
-                        id: b_ctrl
+                        id: b_left_ctrl
                         up_src:   'dmccodegui/assets/images/arrow-up-green.png'
                         down_src: 'dmccodegui/assets/images/arrow-down-red.png'
-                        up_cb:   lambda: root.adjust_axis('B',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-                        down_cb: lambda: root.adjust_axis('B', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                        up_cb:   lambda: root.adjust_axis('B_left',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                        down_cb: lambda: root.adjust_axis('B_left', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                    Widget:
+                        size_hint_y: 1
+            VDivider:
+
+            # B Right (vertical)
+            CardFrame:
+                BoxLayout:
+                    size_hint_y: None
+                    height: '36dp'
+                    padding: '6dp'
+                    canvas.before:
+                        Color:
+                            rgba: .95, .95, .95, 0.18
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [6,]
+                    Label:
+                        text: "[b]Diem Start B Phai[/b]"
+                        markup: True
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_y: 1
+                    spacing: '12dp'
+                    Widget:
+                        size_hint_y: 1
+                    Label:
+                        size_hint_y: None
+                        height: '60dp'
+                        text: "Diem Start B Phai"
+                        halign: 'center'
+                        valign: 'middle'
+                        on_size: self.text_size = self.size
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '40dp'
+                        padding: '4dp'
+                        canvas.before:
+                            Color:
+                                rgba: .2, .2, .2, 1
+                            RoundedRectangle:
+                                pos: self.pos
+                                size: self.size
+                                radius: [4,]
+                        TextInput:
+                            id: b_right_display
+                            readonly: True
+                            multiline: False
+                            font_size: '18sp'
+                            halign: 'center'
+                            valign: 'middle'
+                            background_color: (.15, .15, .15, 1)
+                            foreground_color: (.8, .8, .8, 1)
+                    Label:
+                        size_hint_y: None
+                        height: '20dp'
+                        text: "[color=999999]Value from Controller[/color]"
+                        markup: True
+                        font_size: '10sp'
+                        halign: 'center'
+                    VControl:
+                        id: b_right_ctrl
+                        up_src:   'dmccodegui/assets/images/arrow-up-green.png'
+                        down_src: 'dmccodegui/assets/images/arrow-down-red.png'
+                        up_cb:   lambda: root.adjust_axis('B_right',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                        down_cb: lambda: root.adjust_axis('B_right', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                    Widget:
+                        size_hint_y: 1
             VDivider:
 
             # C (vertical)
@@ -138,7 +262,7 @@
                             size: self.size
                             radius: [6,]
                     Label:
-                        text: "[b]C Axis[/b]"
+                        text: "[b]Diem Start C[/b]"
                         markup: True
                 BoxLayout:
                     orientation: 'vertical'
@@ -149,59 +273,43 @@
                     Label:
                         size_hint_y: None
                         height: '60dp'
-                        text: "Startpoint[3]\nvalue from\nDMC"
+                        text: "Diem Start Truc C"
                         halign: 'center'
                         valign: 'middle'
                         on_size: self.text_size = self.size
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '40dp'
+                        padding: '4dp'
+                        canvas.before:
+                            Color:
+                                rgba: .2, .2, .2, 1
+                            RoundedRectangle:
+                                pos: self.pos
+                                size: self.size
+                                radius: [4,]
+                        TextInput:
+                            id: c_display
+                            readonly: True
+                            multiline: False
+                            font_size: '18sp'
+                            halign: 'center'
+                            valign: 'middle'
+                            background_color: (.15, .15, .15, 1)
+                            foreground_color: (.8, .8, .8, 1)
+                    Label:
+                        size_hint_y: None
+                        height: '20dp'
+                        text: "[color=999999]Value from Controller[/color]"
+                        markup: True
+                        font_size: '10sp'
+                        halign: 'center'
                     VControl:
                         id: c_ctrl
                         up_src:   'dmccodegui/assets/images/arrow-up-green.png'
                         down_src: 'dmccodegui/assets/images/arrow-down-red.png'
                         up_cb:   lambda: root.adjust_axis('C',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
                         down_cb: lambda: root.adjust_axis('C', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
+                    Widget:
+                        size_hint_y: 1
 
- #           VDivider:
-
-            # D (horizontal – rotation)
-        #    CardFrame:
-        #        BoxLayout:
-        #            size_hint_y: None
-        #            height: '36dp'
-        #             padding: '6dp'
-        #             canvas.before:
-        #                 Color:
-        #                     rgba: .95, .95, .95, 0.18
-        #                 RoundedRectangle:
-        #                     pos: self.pos
-        #                     size: self.size
-        #                     radius: [6,]
-        #             Label:
-        #                 text: "[b]D Axis[/b]"
-        #                 markup: True
-        #         BoxLayout:
-        #             orientation: 'vertical'
-        #             size_hint_y: 1
-        #             spacing: '12dp'
-        #             Widget:
-        #                 size_hint_y: 1
-        #             Label:
-        #                 size_hint_y: None
-        #                 height: '60dp'
-        #                 text: "Startpoint[4]\nvalue from\nDMC"
-        #                 halign: 'center'
-        #                 valign: 'middle'
-        #                 on_size: self.text_size = self.size
-        #             HControl:
-        #                 id: d_ctrl
-        #                 left_src:  'dmccodegui/assets/images/arrow-left-orange.png'
-        #                 right_src: 'dmccodegui/assets/images/arrow-right-blue.png'
-        #                 left_w:  '72dp'
-        #                 right_w: '76dp'
-        #                 left_cb:  lambda: root.adjust_axis('D', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-        #                 right_cb: lambda: root.adjust_axis('D',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
-        #             Widget:
-        #                 size_hint_y: 1
-        #             Label:
-        #                 text: "Startpoint[4]"
-        #                 size_hint_y: None
-        #                 height: '24dp'

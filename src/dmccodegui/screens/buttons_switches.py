@@ -40,9 +40,90 @@ class ButtonsSwitchesScreen(Screen):
         try:
             if not self.controller or not self.controller.is_connected():
                 raise RuntimeError("No controller connected")
+            self.refresh_axis_status()
         except Exception as e:
             print("Buttons and Switches Read Failed:", e)
             self._load_from_state()
+
+    def refresh_axis_status(self) -> None:
+        """Query controller for axis status and update checkboxes using MG command."""
+        def do_refresh():
+            try:
+                axes = ['A', 'B', 'C', 'D']
+                for axis in axes:
+                    # Use MG command to get position and status in one call: MG _RP{axis}, _TS{axis}
+                    mg_cmd = f"MG _RP{axis}, _TS{axis}"
+                    data = self.controller.cmd(mg_cmd)
+                    
+                    if not data:
+                        continue
+                    
+                    parts = data.split()
+                    if len(parts) < 2:
+                        continue
+                    
+                    try:
+                        ts_value = int(parts[1])
+                        
+                        # Extract status bits from _TS{axis}
+                        # Bit 2 (value 4): Reverse Limit Switch (active low, so invert)
+                        reverse_limit = (ts_value & 4) == 0
+                        
+                        # Bit 3 (value 8): Forward Limit Switch (active low, so invert)
+                        forward_limit = (ts_value & 8) == 0
+                        
+                        # Bit 5 (value 32): Motor Off
+                        motor_off = (ts_value & 32) != 0
+                        
+                        # Bit 6 (value 64): Home switch (if applicable)
+                        home = (ts_value & 64) == 0
+                        
+                        # Update UI on main thread
+                        def update_ui(a=axis, rl=reverse_limit, hm=home, fl=forward_limit, mo=motor_off):
+                            try:
+                                self.ids[f"{a.lower()}_reverse_limit"].active = rl
+                                self.ids[f"{a.lower()}_home"].active = hm
+                                self.ids[f"{a.lower()}_forward_limit"].active = fl
+                                self.ids[f"{a.lower()}_motor_off"].active = mo
+                            except Exception:
+                                pass
+                        
+                        Clock.schedule_once(lambda *_, u=update_ui: u())
+                    except (ValueError, IndexError):
+                        pass
+            except Exception as e:
+                print(f"Status refresh error: {e}")
+        
+        jobs.submit(do_refresh)
+
+    def on_slider_release(self, axis: str, value: float) -> None:
+        """Called when a slider is released. Sends PA command to controller."""
+        try:
+            # Round to integer
+            int_value = int(round(value))
+            
+            # Update display
+            display_id = f"value_{axis.lower()}_display"
+            display = self.ids.get(display_id)
+            if display:
+                display.text = str(int_value)
+            
+            # Send command to controller
+            self.dmcCommand(f"PA{axis}={int_value}")
+            self.dmcCommand("BG")
+        except Exception as e:
+            self._alert(f"Slider error for {axis}: {e}")
+
+    def on_slider_change(self, axis: str, value: float) -> None:
+        """Update display value as slider moves (optional)."""
+        try:
+            int_value = int(round(value))
+            display_id = f"value_{axis.lower()}_display"
+            display = self.ids.get(display_id)
+            if display:
+                display.text = str(int_value)
+        except Exception:
+            pass
 
 
     def _load_from_state(self) -> None:

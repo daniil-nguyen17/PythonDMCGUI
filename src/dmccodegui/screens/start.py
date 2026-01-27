@@ -11,14 +11,14 @@ from ..utils import jobs
 class StartScreen(Screen):
     controller: GalilController = ObjectProperty(None)  # type: ignore
     state: MachineState = ObjectProperty(None)  # type: ignore
-    start_vals = ([0.0, 0.0, 0.0])
+    start_vals = ([0.0, 0.0, 0.0, 0.0])
 
     def on_pre_enter(self, *args):  # noqa: ANN001
         try:
             if not self.controller or not self.controller.is_connected():
                 raise RuntimeError("No controller connected")
-            vals = self.controller.upload_array("StartPnt", 0, 2)
-            self.start_vals = (vals + [0,0,0])[:3]
+            vals = self.controller.upload_array("StartPnt", 0, 3)
+            self.start_vals = (vals + [0,0,0,0])[:4]
             self._fill_inputs_from_vals(self.start_vals)
         except Exception as e:
             print("StartPnt read failed:", e)
@@ -33,16 +33,27 @@ class StartScreen(Screen):
         except Exception:
             return None
 
+    def _get_axis_display(self, axis: str):
+        """Get the read-only display box for an axis."""
+        try:
+            return self.ids.get(f"{axis.lower()}_display")
+        except Exception:
+            return None
+
     def _fill_inputs_from_vals(self, vals):
         mapping = [
             ("A", 0),
-            ("B", 1),
-            ("C", 2),
+            ("B_left", 1),
+            ("B_right", 2),
+            ("C", 3),
         ]
         for axis, idx in mapping:
             ti = self._get_axis_input(axis)
+            display = self._get_axis_display(axis)
             if ti is not None and idx < len(vals):
                 ti.text = str(vals[idx])
+            if display is not None and idx < len(vals):
+                display.text = str(vals[idx])
 
     # saves values from UI and pushes them to controller > then move the motor to the new position based on new numbers
     def save_values(self) -> None:
@@ -56,10 +67,11 @@ class StartScreen(Screen):
                 if ti: ti.background_color = (1, 0.6, 0.6, 1)
                 return 0.0
 
-        # A, B, C in order → local array
+        # A, Left B, Right B, C in order → local array
         new_vals = [
             get_axis_num("A"),
-            get_axis_num("B"),
+            get_axis_num("B_left"),
+            get_axis_num("B_right"),
             get_axis_num("C"),
         ]
 
@@ -68,7 +80,7 @@ class StartScreen(Screen):
 
         # 2) (Optional) keep your app-wide state in sync
         self.state.taught_points["Start"] = {
-            "pos": {"A": new_vals[0], "B": new_vals[1], "C": new_vals[2]}
+            "pos": {"A": new_vals[0], "B_left": new_vals[1], "B_right": new_vals[2], "C": new_vals[3]}
         }
         self.state.notify()
         try:
@@ -79,7 +91,7 @@ class StartScreen(Screen):
             print("StartPnt send to controller failed:", e)
             return
         
-        self.dmcCommand("PA "+str(new_vals[0])+", " +str(new_vals[1])+", "+str(new_vals[2]))
+        self.dmcCommand("PA "+str(new_vals[0])+", " +str(new_vals[1])+", "+str(new_vals[2])+", "+str(new_vals[3]))
         self.dmcCommand("BG")
 
     # This lets us adjust the array values for array
@@ -125,21 +137,23 @@ class StartScreen(Screen):
             
     def loadArrayToPage(self, *args):
         try:
-            vals = self.controller.upload_array("StartPnt", 0, 2)
+            vals = self.controller.upload_array("StartPnt", 0, 3)
         except Exception as e:
             print("StartPnt read failed:", e)
             return
-        self.start_vals = (vals + [0,0,0])[:3]
+        self.start_vals = (vals + [0,0,0,0])[:4]
         self._fill_inputs_from_vals(self.start_vals)
         
     # removed duplicate helper; rely on _get_axis_input mapping
     def _load_from_state(self) -> None:
         data = (self.state.taught_points.get("Start") or {}).get("pos", {}) if self.state else {}
         a = str(data.get("A", 0.0))
-        b = str(data.get("B", 0.0))
+        b_left = str(data.get("B_left", 0.0))
+        b_right = str(data.get("B_right", 0.0))
         c = str(data.get("C", 0.0))
         if (ti := self._get_axis_input("A")): ti.text = a
-        if (ti := self._get_axis_input("B")): ti.text = b
+        if (ti := self._get_axis_input("B_left")): ti.text = b_left
+        if (ti := self._get_axis_input("B_right")): ti.text = b_right
         if (ti := self._get_axis_input("C")): ti.text = c
 
 

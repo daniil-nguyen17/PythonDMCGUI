@@ -36,6 +36,13 @@ class AxisDSetupScreen(Screen):
         except Exception:
             return None
 
+    def _get_axis_display(self, axis: str):
+        """Get the read-only display box for an axis."""
+        try:
+            return self.ids.get(f"{axis.lower()}_display")
+        except Exception:
+            return None
+
     def _load_from_state(self) -> None:
         data = (self.state.taught_points.get("Rest") or {}).get("pos", {}) if self.state else {}
         a = str(data.get("A", 0.0))
@@ -92,8 +99,11 @@ class AxisDSetupScreen(Screen):
         ]
         for axis, idx in mapping:
             ti = self._get_axis_input(axis)
+            display = self._get_axis_display(axis)
             if ti is not None and idx < len(vals):
                 ti.text = str(vals[idx])
+            if display is not None and idx < len(vals):
+                display.text = str(vals[idx])
 
     def adjust_axis(self, axis: str, delta: float) -> None:
         w = self._get_axis_input(axis)

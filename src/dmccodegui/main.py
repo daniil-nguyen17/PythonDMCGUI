@@ -7,17 +7,20 @@ os.environ["KIVY_MOUSE"] = "mouse,multitouch_on_demand"
 from typing import cast
 from kivy.config import Config
 
+Config.set('graphics', 'fullscreen', '0')   # disable fullscreen
+Config.set('graphics', 'maximized', '0')    # start not maximized
+Config.set('graphics', 'borderless', '0')   # keep window borders
+Config.set('graphics', 'resizable', '1')    # allow window resizing
+Config.set('input', 'mouse', 'mouse,multitouch_on_demand')  # ensure mouse input
+
 from kivy.app import App
 from kivy.lang import Builder
 from kivy.clock import Clock
 from kivy.factory import Factory
 from kivy.properties import StringProperty
 from kivy.core.window import Window
-from kivy.config import Config
-Config.set('graphics', 'fullscreen', '0')   # disable fullscreen
-Config.set('graphics', 'maximized', '0')    # start not maximized
-Config.set('graphics', 'borderless', '0')   # keep window borders
-Window.size = (1280, 800)                   # pick a window size you want
+
+Window.size = (1920, 1080)                   # pick a window size you want
 
 try:
     from .app_state import MachineState

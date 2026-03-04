@@ -10,6 +10,7 @@ from .axisDSetup import AxisDSetupScreen
 from .parameters_setup import ParametersSetupScreen
 from .buttons_switches import ButtonsSwitchesScreen
 from .axis_angles import AxisAnglesScreen  # ✅ add this line
+from .serration_knife import SerratedKnifeScreen
 
 __all__ = [
     "SetupScreen",
@@ -20,4 +21,5 @@ __all__ = [
     "ButtonsSwitchesScreen",
     "AxisAnglesScreen",  # ✅ export it too
     "AxisDSetupScreen",
+    "SerratedKnifeScreen",
 ]

@@ -45,6 +45,7 @@ KV_FILES = [
     "ui/setup.kv",
     "ui/axis_angles.kv",   # ✅ move here (before base.kv)
     "ui/axisDSetup.kv",
+    "ui/serration_knife.kv",
     "ui/base.kv",          # must always be last
 ]
 

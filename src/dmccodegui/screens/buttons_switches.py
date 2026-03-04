@@ -35,15 +35,40 @@ from ..utils import jobs
 class ButtonsSwitchesScreen(Screen):
     controller: GalilController = ObjectProperty(None)  # type: ignore
     state: MachineState = ObjectProperty(None)  # type: ignore
+    _update_clock_event = None  # Store reference to scheduled event
+    
 
     def on_pre_enter(self, *args):  # noqa: ANN001
         try:
             if not self.controller or not self.controller.is_connected():
                 raise RuntimeError("No controller connected")
             self.refresh_axis_status()
+            self.start()  # Start continuous updates
         except Exception as e:
             print("Buttons and Switches Read Failed:", e)
             self._load_from_state()
+
+    def on_leave(self, *args):  # noqa: ANN001
+        """Stop updates when leaving the screen."""
+        self.stop_update()
+
+    def start(self) -> None:
+        """Schedule the clock update to run at 10Hz (100ms interval)."""
+        if self._update_clock_event:
+            self._update_clock_event.cancel()
+        self._update_clock_event = Clock.schedule_interval(self._update_clock, 1 / 10.0)
+
+    def stop_update(self) -> None:
+        """Cancel the scheduled clock update."""
+        if self._update_clock_event:
+            self._update_clock_event.cancel()
+            self._update_clock_event = None
+
+    def _update_clock(self, dt: float) -> None:
+        """Update the screen at 10Hz with current controller status."""
+        if not self.controller or not self.controller.is_connected():
+            return
+        self.refresh_axis_status()
 
     def refresh_axis_status(self) -> None:
         """Query controller for axis status and update checkboxes using MG command."""

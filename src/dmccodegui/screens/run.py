@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import time
+from collections import deque
 
 from kivy.clock import Clock
 from kivy.graphics import Color, Line, Rectangle
@@ -14,6 +15,9 @@ from kivy.properties import (
 )
 from kivy.uix.screenmanager import Screen
 from kivy.uix.widget import Widget
+from matplotlib.figure import Figure
+from matplotlib.ticker import MaxNLocator
+import kivy_matplotlib_widget  # noqa: F401 — registers MatplotFigure in Kivy Factory
 
 from ..app_state import MachineState
 from ..controller import GalilController
@@ -30,6 +34,17 @@ IS_SERRATION = MACHINE_TYPE == "3axis_serration"
 CYCLE_VAR_TOOTH = "tooth"
 CYCLE_VAR_PASS = "pass_num"
 CYCLE_VAR_DEPTH = "depth"
+
+# ---------------------------------------------------------------------------
+# Live A/B Position Plot constants
+# ---------------------------------------------------------------------------
+PLOT_UPDATE_HZ: int = 5       # Hz — plot redraw rate; tuning point: lower to 2-3 if Pi CPU load is too high
+PLOT_BUFFER_SIZE: int = 750   # points — rolling history buffer; tuning point: reduce to 300 if Pi memory is constrained
+
+# Theme-matched colors for matplotlib (hex strings, not Kivy RGBA lists)
+BG_PANEL_HEX = "#0D1219"     # matches theme.bg_panel
+TICK_COLOR = "#94A1B5"        # matches theme.text_mid
+TRAIL_COLOR = "#7DF9FF"       # electric cyan — high contrast on dark navy
 
 # ---------------------------------------------------------------------------
 # Delta-C (Knife Grind Adjustment) constants — Plan 02-02 fills the full panel
@@ -200,7 +215,18 @@ class RunScreen(Screen):
     # Internal state
     # -----------------------------------------------------------------------
     _update_clock_event = None
+    _plot_clock_event = None
+    _plot_buf_x: deque = None  # type: ignore — initialized in __init__
+    _plot_buf_y: deque = None  # type: ignore
+    _fig = None
+    _ax = None
+    _plot_line = None
     _cycle_start_time: float | None = None
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._plot_buf_x = deque(maxlen=PLOT_BUFFER_SIZE)
+        self._plot_buf_y = deque(maxlen=PLOT_BUFFER_SIZE)
 
     # -----------------------------------------------------------------------
     # Lifecycle
@@ -211,26 +237,48 @@ class RunScreen(Screen):
 
         Binds the DeltaCBarChart selection observer so selected_section_value
         stays in sync with whichever bar the operator taps.
+        Initializes the MatplotFigure plot widget for the live A/B position trail.
         """
         chart = self.ids.get("delta_c_chart")
         if chart is not None:
             chart.bind(selected_index=self._on_chart_selection_changed)
+
+        plot_wgt = self.ids.get("ab_plot")
+        if plot_wgt is not None:
+            self._fig = Figure(figsize=(4, 3), facecolor=BG_PANEL_HEX)
+            self._ax = self._fig.add_subplot(111)
+            self._configure_plot_axes()
+            self._plot_line, = self._ax.plot([], [], color=TRAIL_COLOR, linewidth=1.2)
+            plot_wgt.figure = self._fig
+            # Disable all touch interaction — preserves E-STOP responsiveness
+            plot_wgt.do_pan_x = False
+            plot_wgt.do_pan_y = False
+            plot_wgt.do_scale = False
+            plot_wgt.touch_mode = 'none'
+            plot_wgt.disable_mouse_scrolling = True
 
     def on_pre_enter(self, *args) -> None:
         """Called by Kivy when operator navigates to this screen.
 
         Reads CPM values once in the background, then starts the 10 Hz poll loop.
         Shows disconnected indicators immediately if no controller.
+        Also starts the 5 Hz plot redraw clock.
         """
         # Controller polling disabled — no program loaded yet.
-        # Controller polling disabled — no program loaded yet.
         self._show_disconnected()
+        # Start 10 Hz position poll (guarded — _update_clock checks is_connected)
+        self._update_clock_event = Clock.schedule_interval(self._update_clock, 1.0 / 10)
+        # Start 5 Hz plot redraw (separate from poll to protect E-STOP latency)
+        self._plot_clock_event = Clock.schedule_interval(self._tick_plot, 1.0 / PLOT_UPDATE_HZ)
 
     def on_leave(self, *args) -> None:
-        """Called by Kivy when operator navigates away. Stops the poll loop."""
+        """Called by Kivy when operator navigates away. Stops the poll loop and plot clock."""
         if self._update_clock_event:
             self._update_clock_event.cancel()
             self._update_clock_event = None
+        if self._plot_clock_event:
+            self._plot_clock_event.cancel()
+            self._plot_clock_event = None
 
     # -----------------------------------------------------------------------
     # Polling loop
@@ -288,6 +336,17 @@ class RunScreen(Screen):
                 except (ValueError, TypeError):
                     setattr(self, prop, "---")
 
+        # Feed raw A/B positions to plot buffer (only during active cycle)
+        if self.cycle_running:
+            raw_a = pos.get("A")
+            raw_b = pos.get("B")
+            if raw_a is not None and raw_b is not None:
+                try:
+                    self._plot_buf_x.append(float(raw_a))
+                    self._plot_buf_y.append(float(raw_b))
+                except (ValueError, TypeError):
+                    pass
+
         # Cycle completion percentage
         pct = cycle.get("pct")
         if pct is not None:
@@ -343,6 +402,36 @@ class RunScreen(Screen):
         self.pos_c = "---"
         self.pos_d = "---"
 
+    def _configure_plot_axes(self) -> None:
+        """Style the A/B position plot axes to match app dark theme."""
+        ax = self._ax
+        self._fig.patch.set_facecolor(BG_PANEL_HEX)
+        ax.set_facecolor(BG_PANEL_HEX)
+        ax.set_aspect("equal", adjustable="datalim")
+        ax.tick_params(colors=TICK_COLOR, labelsize=7, length=3, width=0.5)
+        for spine in ax.spines.values():
+            spine.set_edgecolor(TICK_COLOR)
+            spine.set_linewidth(0.5)
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=4, integer=True))
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=4, integer=True))
+        ax.grid(False)
+        self._fig.tight_layout(pad=0.4)
+
+    def _tick_plot(self, dt: float) -> None:
+        """5 Hz Kivy clock: redraw the A/B position trail. Main thread only."""
+        if not self.cycle_running:
+            return  # No update when idle — saves Pi CPU
+        if self._plot_line is None:
+            return
+        xs = list(self._plot_buf_x)
+        ys = list(self._plot_buf_y)
+        if len(xs) < 2:
+            return
+        self._plot_line.set_data(xs, ys)
+        self._ax.relim()
+        self._ax.autoscale_view()
+        self._fig.canvas.draw_idle()
+
     def _read_cpm_values(self) -> None:
         """Background thread: read CPM (counts per unit) for each axis.
 
@@ -379,6 +468,14 @@ class RunScreen(Screen):
                           'normal' = PAUSE (was running, now pausing).
         """
         if btn_state == "down":
+            # Clear plot trail for fresh cycle view
+            self._plot_buf_x.clear()
+            self._plot_buf_y.clear()
+            if self._plot_line is not None:
+                self._plot_line.set_data([], [])
+                if self._fig and self._fig.canvas:
+                    self._fig.canvas.draw_idle()
+
             # START — begin cycle
             self._cycle_start_time = time.time()
             self.cycle_running = True

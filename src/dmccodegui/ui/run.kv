@@ -1,6 +1,7 @@
 #:import theme dmccodegui.theme_manager.theme
 #:import DeltaCBarChart dmccodegui.screens.run
 #:import run_module dmccodegui.screens.run
+#:import kivy_matplotlib_widget kivy_matplotlib_widget
 
 <RunScreen>:
     canvas.before:
@@ -29,7 +30,7 @@
                 orientation: 'vertical'
                 spacing: '8dp'
 
-                # Plot placeholder card
+                # Live A/B position plot (RUN-07)
                 BoxLayout:
                     canvas.before:
                         Color:
@@ -44,16 +45,15 @@
                             rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
                             width: 1.2
                     size_hint_y: 1
-                    padding: ['12dp', '10dp']
+                    padding: ['4dp', '4dp']
 
-                    Label:
-                        text: 'Live Position — A / B Axes'
-                        font_size: '12sp'
-                        bold: True
-                        color: theme.text_mid
-                        halign: 'center'
-                        valign: 'middle'
-                        text_size: self.size
+                    MatplotFigure:
+                        id: ab_plot
+                        size_hint: 1, 1
+                        do_pan_x: False
+                        do_pan_y: False
+                        do_scale: False
+                        touch_mode: 'none'
 
                 # Knife Grind Adjustment panel
                 BoxLayout:

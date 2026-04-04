@@ -51,7 +51,7 @@ Plans:
   3. Cycle status panel shows current tooth, pass, depth, speed, elapsed time, and ETA during an active cycle
   4. Progress bar fills continuously from 0% to 100% as the cycle runs
   5. Operation log shows timestamped entries for cycle start, faults, parameter changes, and E-STOP in a scrollable view
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 Plans:
 - [ ] 02-00-PLAN.md — Wave 0 test scaffolds (test_run_screen, test_delta_c_bar_chart, test_machine_state_cycle)
@@ -135,7 +135,7 @@ Note: Phase 3 depends on Phase 2; Phase 4 depends on Phase 1 (not Phase 2/3 — 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Auth and Navigation | 3/4 | In Progress|  |
-| 2. RUN Page | 1/4 | In Progress|  |
+| 2. RUN Page | 2/4 | In Progress|  |
 | 3. Live Matplotlib Plot | 0/TBD | Not started | - |
 | 4. Axes Setup and Parameters | 0/TBD | Not started | - |
 | 5. CSV Profile System | 0/TBD | Not started | - |

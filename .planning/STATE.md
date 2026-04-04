@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-00-PLAN.md — Wave 0 test scaffolds
-last_updated: "2026-04-04T08:13:31.758Z"
+stopped_at: "Completed 02-01-PLAN.md — RUN page foundation: MachineState cycle fields, RunScreen Python class, full KV layout"
+last_updated: "2026-04-04T08:17:11.844Z"
 last_activity: "2026-04-04 — Plan 01-03 complete: PIN overlay auth flow, role-gated tabs, idle auto-lock"
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 8
-  completed_plans: 5
+  completed_plans: 6
   percent: 8
 ---
 
@@ -54,6 +54,7 @@ Progress: [█░░░░░░░░░] 8%
 | Phase 01 P02 | 2 min | 2 tasks | 16 files |
 | Phase 01 P03 | 4 min | 2 tasks | 8 files |
 | Phase 02-run-page P00 | 2 | 2 tasks | 3 files |
+| Phase 02-run-page P01 | 5 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Recent decisions affecting current work:
 - [Phase 01-03]: _tabs_for_role is a staticmethod for pure-Python testability without Kivy event loop
 - [Phase 02-run-page]: Wave 0 scaffolds use direct imports inside test functions — defers Kivy initialization, avoids headless import failures
 - [Phase 02-run-page]: test_machine_state_cycle.py kept Kivy-free — pure dataclass tests run in any CI environment without display
+- [Phase 02-01]: DELTA_C constants and DeltaCBarChart stub added in Plan 02-01 to satisfy pre-written tests; full implementation deferred to Plan 02-02
+- [Phase 02-01]: delta_c_offsets kept as plain list (not Kivy ListProperty) since Plan 02-02 owns the full widget binding
 
 ### Pending Todos
 
@@ -90,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-04T08:13:31.755Z
-Stopped at: Completed 02-00-PLAN.md — Wave 0 test scaffolds
+Last session: 2026-04-04T08:17:11.842Z
+Stopped at: Completed 02-01-PLAN.md — RUN page foundation: MachineState cycle fields, RunScreen Python class, full KV layout
 Resume file: None

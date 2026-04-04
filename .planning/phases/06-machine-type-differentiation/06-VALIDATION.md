@@ -2,8 +2,7 @@
 phase: 6
 slug: machine-type-differentiation
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
 created: 2026-04-04
 ---
 
@@ -38,24 +37,22 @@ created: 2026-04-04
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 06-01-01 | 01 | 0 | MACH-01 | unit | `pytest tests/test_machine_config.py::test_registry_has_all_types -x` | ❌ W0 | ⬜ pending |
-| 06-01-02 | 01 | 0 | MACH-01 | unit | `pytest tests/test_machine_config.py::test_serration_axis_list -x` | ❌ W0 | ⬜ pending |
-| 06-01-03 | 01 | 0 | MACH-01 | unit | `pytest tests/test_machine_config.py::test_is_serration -x` | ❌ W0 | ⬜ pending |
-| 06-01-04 | 01 | 0 | MACH-01 | unit | `pytest tests/test_machine_config.py::test_persistence_roundtrip -x` | ❌ W0 | ⬜ pending |
-| 06-02-01 | 02 | 1 | MACH-02 | unit | `pytest tests/test_machine_config.py::test_param_defs_per_type -x` | ❌ W0 | ⬜ pending |
-| 06-02-02 | 02 | 1 | MACH-02 | unit | `pytest tests/test_profiles.py::test_validate_import_uses_active_type -x` | ❌ W0 | ⬜ pending |
-| 06-03-01 | 03 | 1 | MACH-03 | unit | `pytest tests/test_machine_config.py::test_unknown_type_raises -x` | ❌ W0 | ⬜ pending |
+| 06-01-01 | 01 | 1 | MACH-01 | unit | `pytest tests/test_machine_config.py::test_registry_has_all_types -x` | Created by Plan 01 (TDD) | pending |
+| 06-01-02 | 01 | 1 | MACH-01 | unit | `pytest tests/test_machine_config.py::test_serration_axis_list -x` | Created by Plan 01 (TDD) | pending |
+| 06-01-03 | 01 | 1 | MACH-01 | unit | `pytest tests/test_machine_config.py::test_is_serration -x` | Created by Plan 01 (TDD) | pending |
+| 06-01-04 | 01 | 1 | MACH-01 | unit | `pytest tests/test_machine_config.py::test_persistence_roundtrip -x` | Created by Plan 01 (TDD) | pending |
+| 06-02-01 | 02 | 2 | MACH-03 | unit | `pytest tests/test_profiles.py -x` | Existing (updated by Plan 02 Task 2) | pending |
+| 06-02-02 | 02 | 2 | MACH-03 | unit | `pytest tests/test_profiles.py::TestValidateImport::test_validate_import_uses_active_type -x` | Created by Plan 02 Task 2 | pending |
+| 06-03-01 | 03 | 2 | MACH-01 | import | `python -c "from dmccodegui.screens.run import BCompBarChart, DeltaCBarChart; print('OK')"` | Created by Plan 03 Task 1 | pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: pending / green / red / flaky*
 
 ---
 
-## Wave 0 Requirements
+## Wave Structure
 
-- [ ] `tests/test_machine_config.py` — stubs for MACH-01, MACH-02, MACH-03 pure-Python logic
-- [ ] `src/dmccodegui/machine_config.py` — the module itself (new file)
-
-*Existing infrastructure — pytest via pyproject.toml, conftest.py, import-inside-function pattern — covers all other needs. No new framework install required.*
+- **Wave 1 (Plan 01):** TDD plan creates `tests/test_machine_config.py` and `src/dmccodegui/machine_config.py`. All foundation tests written RED then GREEN.
+- **Wave 2 (Plans 02, 03):** Wire machine type into app shell and adapt screens. Plan 02 Task 2 updates `tests/test_profiles.py` (adds `test_validate_import_uses_active_type`, replaces stale `MACHINE_TYPE` import with `mc.get_active_type()` calls).
 
 ---
 
@@ -71,11 +68,12 @@ created: 2026-04-04
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 10s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify commands (no `|| echo` fallbacks)
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 1 TDD plan creates all test files referenced by later waves
+- [x] Plan 02 Task 2 creates `test_validate_import_uses_active_type`
+- [x] No watch-mode flags
+- [x] Feedback latency < 10s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** pending execution

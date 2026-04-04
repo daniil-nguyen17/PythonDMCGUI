@@ -114,7 +114,7 @@ Plans:
   2. On a 4-Axes Convex Grind deployment, the RUN page and Axes Setup show all four axes with Convex Grind parameter groups
   3. On a 3-Axes Serration Grind deployment, the RUN page and Axes Setup show only the three relevant axes with Serration parameter groups
   4. Machine type is fixed at deployment (hard-coded) — no runtime machine-type selector appears in the UI
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 06-01-PLAN.md — Machine config registry + MachineState extension (TDD)
@@ -157,6 +157,6 @@ Note: Phase 3 depends on Phase 2; Phase 4 depends on Phase 1 (not Phase 2/3 — 
 | 3. Live Matplotlib Plot | 1/1 | Complete   | 2026-04-04 |
 | 4. Axes Setup and Parameters | 3/3 | Complete   | 2026-04-04 |
 | 5. CSV Profile System | 3/3 | Complete   | 2026-04-04 |
-| 6. Machine-Type Differentiation | 1/3 | In Progress|  |
+| 6. Machine-Type Differentiation | 2/3 | In Progress|  |
 | 7. Admin and User Management | 0/TBD | Not started | - |
 | 8. Pi Kiosk and Deployment | 0/TBD | Not started | - |

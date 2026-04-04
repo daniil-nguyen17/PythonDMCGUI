@@ -1,11 +1,11 @@
 # PINOverlay widget rule
-# Fullscreen dark overlay with centered PIN entry card
+#:import theme dmccodegui.theme_manager.theme
 
 <PINOverlay>:
     auto_dismiss: False
     size_hint: 1, 1
     background_color: 0, 0, 0, 0
-    overlay_color: 0.031, 0.047, 0.071, 0.95
+    overlay_color: theme.overlay_bg
 
     AnchorLayout:
         anchor_x: 'center'
@@ -15,25 +15,37 @@
             id: pin_card
             orientation: 'vertical'
             size_hint: None, None
-            width: '360dp'
+            width: '540dp'
             height: self.minimum_height
             padding: '16dp'
             spacing: '8dp'
             canvas.before:
                 Color:
-                    rgba: 0.051, 0.071, 0.102, 1
+                    rgba: theme.bg_card
                 RoundedRectangle:
                     pos: self.pos
                     size: self.size
                     radius: [12]
 
+            # Lock icon
+            Label:
+                text: 'PIN'
+                font_size: '48sp'
+                bold: True
+                color: 0.133, 0.773, 0.369, 1
+                size_hint_y: None
+                height: '64dp'
+                halign: 'center'
+                valign: 'middle'
+                text_size: self.size
+
             # Username display / selector label
             Label:
                 text: root.username if root.username else 'Select User'
-                font_size: '20sp'
-                color: 0.875, 0.906, 0.949, 1
+                font_size: '36sp'
+                color: theme.text_main
                 size_hint_y: None
-                height: '36dp'
+                height: '52dp'
                 halign: 'center'
                 valign: 'middle'
                 text_size: self.size
@@ -41,10 +53,10 @@
             # PIN dots row
             Label:
                 text: root.pin_dots
-                font_size: '28sp'
+                font_size: '50sp'
                 color: 0.133, 0.773, 0.369, 1
                 size_hint_y: None
-                height: '40dp'
+                height: '60dp'
                 halign: 'center'
                 valign: 'middle'
                 text_size: self.size
@@ -53,7 +65,7 @@
             # Error message
             Label:
                 text: root.error_msg
-                font_size: '13sp'
+                font_size: '23sp'
                 color: 0.88, 0.06, 0.06, 1
                 size_hint_y: None
                 height: '24dp'
@@ -80,124 +92,124 @@
                     Button:
                         text: '1'
                         size_hint_y: None
-                        height: '64dp'
-                        font_size: '24sp'
+                        height: '80dp'
+                        font_size: '43sp'
                         background_normal: ''
                         background_down: ''
-                        background_color: 0.071, 0.094, 0.133, 1
-                        color: 0.875, 0.906, 0.949, 1
+                        background_color: theme.bg_row
+                        color: theme.text_main
                         on_release: root.press_digit('1')
                     Button:
                         text: '2'
                         size_hint_y: None
-                        height: '64dp'
-                        font_size: '24sp'
+                        height: '80dp'
+                        font_size: '43sp'
                         background_normal: ''
                         background_down: ''
-                        background_color: 0.071, 0.094, 0.133, 1
-                        color: 0.875, 0.906, 0.949, 1
+                        background_color: theme.bg_row
+                        color: theme.text_main
                         on_release: root.press_digit('2')
                     Button:
                         text: '3'
                         size_hint_y: None
-                        height: '64dp'
-                        font_size: '24sp'
+                        height: '80dp'
+                        font_size: '43sp'
                         background_normal: ''
                         background_down: ''
-                        background_color: 0.071, 0.094, 0.133, 1
-                        color: 0.875, 0.906, 0.949, 1
+                        background_color: theme.bg_row
+                        color: theme.text_main
                         on_release: root.press_digit('3')
 
                     # Row 2
                     Button:
                         text: '4'
                         size_hint_y: None
-                        height: '64dp'
-                        font_size: '24sp'
+                        height: '80dp'
+                        font_size: '43sp'
                         background_normal: ''
                         background_down: ''
-                        background_color: 0.071, 0.094, 0.133, 1
-                        color: 0.875, 0.906, 0.949, 1
+                        background_color: theme.bg_row
+                        color: theme.text_main
                         on_release: root.press_digit('4')
                     Button:
                         text: '5'
                         size_hint_y: None
-                        height: '64dp'
-                        font_size: '24sp'
+                        height: '80dp'
+                        font_size: '43sp'
                         background_normal: ''
                         background_down: ''
-                        background_color: 0.071, 0.094, 0.133, 1
-                        color: 0.875, 0.906, 0.949, 1
+                        background_color: theme.bg_row
+                        color: theme.text_main
                         on_release: root.press_digit('5')
                     Button:
                         text: '6'
                         size_hint_y: None
-                        height: '64dp'
-                        font_size: '24sp'
+                        height: '80dp'
+                        font_size: '43sp'
                         background_normal: ''
                         background_down: ''
-                        background_color: 0.071, 0.094, 0.133, 1
-                        color: 0.875, 0.906, 0.949, 1
+                        background_color: theme.bg_row
+                        color: theme.text_main
                         on_release: root.press_digit('6')
 
                     # Row 3
                     Button:
                         text: '7'
                         size_hint_y: None
-                        height: '64dp'
-                        font_size: '24sp'
+                        height: '80dp'
+                        font_size: '43sp'
                         background_normal: ''
                         background_down: ''
-                        background_color: 0.071, 0.094, 0.133, 1
-                        color: 0.875, 0.906, 0.949, 1
+                        background_color: theme.bg_row
+                        color: theme.text_main
                         on_release: root.press_digit('7')
                     Button:
                         text: '8'
                         size_hint_y: None
-                        height: '64dp'
-                        font_size: '24sp'
+                        height: '80dp'
+                        font_size: '43sp'
                         background_normal: ''
                         background_down: ''
-                        background_color: 0.071, 0.094, 0.133, 1
-                        color: 0.875, 0.906, 0.949, 1
+                        background_color: theme.bg_row
+                        color: theme.text_main
                         on_release: root.press_digit('8')
                     Button:
                         text: '9'
                         size_hint_y: None
-                        height: '64dp'
-                        font_size: '24sp'
+                        height: '80dp'
+                        font_size: '43sp'
                         background_normal: ''
                         background_down: ''
-                        background_color: 0.071, 0.094, 0.133, 1
-                        color: 0.875, 0.906, 0.949, 1
+                        background_color: theme.bg_row
+                        color: theme.text_main
                         on_release: root.press_digit('9')
 
                     # Row 4
                     Button:
                         text: '<'
                         size_hint_y: None
-                        height: '64dp'
-                        font_size: '24sp'
+                        height: '80dp'
+                        font_size: '43sp'
                         background_normal: ''
                         background_down: ''
-                        background_color: 0.071, 0.094, 0.133, 1
-                        color: 0.875, 0.906, 0.949, 1
+                        background_color: theme.bg_row
+                        color: theme.text_main
                         on_release: root.press_backspace()
                     Button:
                         text: '0'
                         size_hint_y: None
-                        height: '64dp'
-                        font_size: '24sp'
+                        height: '80dp'
+                        font_size: '43sp'
                         background_normal: ''
                         background_down: ''
-                        background_color: 0.071, 0.094, 0.133, 1
-                        color: 0.875, 0.906, 0.949, 1
+                        background_color: theme.bg_row
+                        color: theme.text_main
                         on_release: root.press_digit('0')
                     Button:
                         text: 'OK'
                         size_hint_y: None
-                        height: '64dp'
-                        font_size: '24sp'
+                        height: '80dp'
+                        font_size: '43sp'
                         background_normal: ''
                         background_down: ''
                         background_color: 0.133, 0.773, 0.369, 1
@@ -207,8 +219,9 @@
 
             # User list container (hidden by default)
             ScrollView:
+                id: user_list_scroll
                 size_hint_y: None
-                height: '280dp'
+                height: '360dp'
                 opacity: 0
                 disabled: True
 
@@ -219,14 +232,27 @@
                     height: self.minimum_height
                     spacing: '4dp'
 
-            # Switch User button
-            Button:
-                text: 'Switch User'
+            # Switch User / Cancel row
+            BoxLayout:
+                orientation: 'horizontal'
                 size_hint_y: None
-                height: '44dp'
-                font_size: '14sp'
-                background_normal: ''
-                background_down: ''
-                background_color: 0.051, 0.071, 0.102, 1
-                color: 0.580, 0.631, 0.710, 1
-                on_release: root.show_user_list()
+                height: '56dp'
+                spacing: '4dp'
+
+                Button:
+                    text: 'Switch User'
+                    font_size: '25sp'
+                    background_normal: ''
+                    background_down: ''
+                    background_color: theme.bg_card
+                    color: theme.text_mid
+                    on_release: root.show_user_list()
+
+                Button:
+                    text: 'Cancel'
+                    font_size: '25sp'
+                    background_normal: ''
+                    background_down: ''
+                    background_color: theme.bg_card
+                    color: theme.text_mid
+                    on_release: root.cancel_user_list()

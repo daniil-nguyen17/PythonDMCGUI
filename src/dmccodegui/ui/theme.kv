@@ -1,17 +1,48 @@
-# Shared styles and colors
+# Shared styles — theme-aware via ThemeManager singleton
+#:import theme dmccodegui.theme_manager.theme
 
 <ActionButton>:
-    font_size: '14sp'
+    font_size: '25sp'
     padding: '6dp', '6dp'
 
 <Label>:
-    font_size: '14sp'
+    font_size: '25sp'
+    color: theme.text_main
 
+<Button>:
+    background_normal: ''
+    background_down: ''
+    background_color: theme.bg_row
+    color: theme.text_main
 
-# Shared composite widgets used across screens
+<ToggleButton>:
+    background_normal: ''
+    background_down: ''
+    background_color: theme.border if self.state == 'normal' else theme.bg_row
+    color: theme.text_mid if self.state == 'normal' else (0.133, 0.773, 0.369, 1)
+
+<TextInput>:
+    background_color: theme.input_bg
+    foreground_color: theme.input_fg
+    cursor_color: theme.input_cursor
+    hint_text_color: theme.input_hint
+
+<Spinner>:
+    background_normal: ''
+    background_down: ''
+    background_color: theme.bg_row
+    color: theme.text_main
+
+<SpinnerOption>:
+    background_normal: ''
+    background_down: ''
+    background_color: theme.bg_row if self.state == 'normal' else theme.border
+    color: theme.text_main
+
+# ── Shared composite widgets ──────────────────────────────────────────────────
+
 <ImageButton@ButtonBehavior+Image>:
     mipmap: True
-    # Removed deprecated allow_stretch/keep_ratio; rely on texture size
 
 <CenteredTextInput@TextInput>:
     multiline: False
@@ -19,17 +50,20 @@
     size_hint: None, None
     width: '120dp'
     height: '56dp'
-    font_size: '22sp'
+    font_size: '40sp'
     halign: 'center'
     valign: 'middle'
     padding: [0, (self.height - self.line_height) / 2]
+    background_color: theme.input_bg
+    foreground_color: theme.input_fg
+    cursor_color: theme.input_cursor
 
 <VDivider@Widget>:
     size_hint_x: None
     width: '2dp'
     canvas:
         Color:
-            rgba: .35, .35, .35, 1
+            rgba: theme.border
         Rectangle:
             pos: self.pos
             size: self.size
@@ -40,13 +74,13 @@
     spacing: '10dp'
     canvas.before:
         Color:
-            rgba: .95, .95, .95, 0.12
+            rgba: theme.bg_panel
         RoundedRectangle:
             pos: self.pos
             size: self.size
             radius: [8,]
         Color:
-            rgba: 1, 0.84, 0, 0.45
+            rgba: 0.980, 0.749, 0.043, 0.45
         Line:
             rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
             width: 1.2

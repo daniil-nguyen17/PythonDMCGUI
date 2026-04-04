@@ -9,6 +9,8 @@ from kivy.properties import StringProperty, ObjectProperty
 from kivy.animation import Animation
 from kivy.clock import Clock
 
+from dmccodegui.theme_manager import theme
+
 
 class PINOverlay(ModalView):
     """Fullscreen PIN entry overlay.
@@ -116,8 +118,9 @@ class PINOverlay(ModalView):
 
         # Build a popup-style list inside a BoxLayout swapped into the card
         user_list_layout = self.ids.get("user_list_layout")
+        user_list_scroll = self.ids.get("user_list_scroll")
         numpad_layout = self.ids.get("numpad_layout")
-        if user_list_layout is None or numpad_layout is None:
+        if user_list_layout is None or numpad_layout is None or user_list_scroll is None:
             return
 
         # Clear existing user buttons and rebuild
@@ -128,12 +131,12 @@ class PINOverlay(ModalView):
             btn = Button(
                 text=name,
                 size_hint_y=None,
-                height="56dp",
-                font_size="18sp",
+                height="72dp",
+                font_size="32sp",
                 background_normal="",
                 background_down="",
-                background_color=[0.071, 0.094, 0.133, 1],
-                color=[0.875, 0.906, 0.949, 1],
+                background_color=list(theme.bg_row),
+                color=list(theme.text_main),
             )
             btn.bind(on_release=lambda b, n=name: self._select_user(n))
             user_list_layout.add_widget(btn)
@@ -141,22 +144,27 @@ class PINOverlay(ModalView):
         # Show user list, hide numpad
         numpad_layout.opacity = 0
         numpad_layout.disabled = True
-        user_list_layout.opacity = 1
-        user_list_layout.disabled = False
+        user_list_scroll.opacity = 1
+        user_list_scroll.disabled = False
 
     def _select_user(self, name: str) -> None:
         """Select a user from the list and return to PIN entry."""
         self.username = name
         self._clear_input()
+        self._show_numpad()
 
-        user_list_layout = self.ids.get("user_list_layout")
+    def cancel_user_list(self) -> None:
+        """Return from user list back to numpad without changing user."""
+        self._show_numpad()
+
+    def _show_numpad(self) -> None:
+        """Hide user list, show numpad."""
+        user_list_scroll = self.ids.get("user_list_scroll")
         numpad_layout = self.ids.get("numpad_layout")
-        if user_list_layout is None or numpad_layout is None:
+        if user_list_scroll is None or numpad_layout is None:
             return
-
-        # Hide user list, show numpad
-        user_list_layout.opacity = 0
-        user_list_layout.disabled = True
+        user_list_scroll.opacity = 0
+        user_list_scroll.disabled = True
         numpad_layout.opacity = 1
         numpad_layout.disabled = False
 

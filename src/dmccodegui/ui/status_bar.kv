@@ -1,15 +1,15 @@
 # StatusBar widget rule
-# 48dp horizontal bar: connection indicator, user/role, banner ticker, E-STOP
+#:import theme dmccodegui.theme_manager.theme
 
 <StatusBar>:
     orientation: 'horizontal'
     size_hint_y: None
-    height: '48dp'
+    height: '64dp'
     padding: '6dp', '2dp'
     spacing: '6dp'
     canvas.before:
         Color:
-            rgba: 0.051, 0.071, 0.102, 1
+            rgba: theme.bg_panel
         Rectangle:
             pos: self.pos
             size: self.size
@@ -17,7 +17,7 @@
     # Connection indicator: colored dot + text
     BoxLayout:
         size_hint_x: None
-        width: '160dp'
+        width: '260dp'
         spacing: '6dp'
         canvas:
             Color:
@@ -28,7 +28,7 @@
         Label:
             text: root.connection_text
             color: root.connection_color
-            font_size: '12sp'
+            font_size: '22sp'
             halign: 'left'
             valign: 'middle'
             text_size: self.size
@@ -38,12 +38,12 @@
     Button:
         id: user_btn
         size_hint_x: None
-        width: '160dp'
+        width: '280dp'
         background_normal: ''
         background_color: 0, 0, 0, 0
         text: (root.user_text + ' [' + root.role_text + ']') if root.role_text else root.user_text
-        color: 0.580, 0.631, 0.710, 1
-        font_size: '12sp'
+        color: theme.text_mid
+        font_size: '22sp'
         halign: 'left'
         valign: 'middle'
         text_size: self.size
@@ -53,10 +53,25 @@
     Label:
         text: root.banner_text
         color: 1, 0.95, 0.2, 1
-        font_size: '13sp'
+        font_size: '23sp'
         halign: 'left'
         valign: 'middle'
         text_size: self.size
+
+    # Theme toggle
+    Button:
+        text: 'LIGHT' if theme.mode == 'dark' else 'DARK'
+        size_hint_x: None
+        width: '72dp'
+        size_hint_y: None
+        height: '56dp'
+        pos_hint: {'center_y': 0.5}
+        background_normal: ''
+        background_down: ''
+        background_color: theme.bg_row
+        color: theme.text_mid
+        font_size: '16sp'
+        on_release: app.toggle_theme()
 
     # E-STOP button (always visible, always red)
     Button:
@@ -64,12 +79,12 @@
         size_hint_x: None
         width: '100dp'
         size_hint_y: None
-        height: '44dp'
+        height: '56dp'
         pos_hint: {'center_y': 0.5}
         background_normal: ''
         background_down: ''
         background_color: 0.88, 0.06, 0.06, 1
         color: 1, 1, 1, 1
-        font_size: '14sp'
+        font_size: '25sp'
         bold: True
         on_release: app.e_stop()

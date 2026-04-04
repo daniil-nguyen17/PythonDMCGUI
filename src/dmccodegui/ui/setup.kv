@@ -1,9 +1,16 @@
+#:import theme dmccodegui.theme_manager.theme
+
 <SetupScreen>:
+    canvas.before:
+        Color:
+            rgba: theme.bg_dark
+        Rectangle:
+            pos: self.pos
+            size: self.size
     BoxLayout:
         orientation: 'vertical'
         padding: '8dp'
         spacing: '8dp'
-        # Placeholder content for consistency with new screens
         BoxLayout:
             size_hint_y: None
             height: '44dp'
@@ -44,4 +51,3 @@
                 width: '160dp'
                 text: root.connection_status
                 color: [0.2, 1, 0.2, 1] if 'Connected' in root.connection_status else [1, 0.4, 0.4, 1]
-

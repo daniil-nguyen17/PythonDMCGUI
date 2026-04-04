@@ -7,8 +7,8 @@ os.environ["KIVY_MOUSE"] = "mouse,multitouch_on_demand"
 from typing import cast
 from kivy.config import Config
 
-Config.set('graphics', 'fullscreen', '0')   # disable fullscreen
-Config.set('graphics', 'maximized', '0')    # start not maximized
+Config.set('graphics', 'fullscreen', '0')
+Config.set('graphics', 'maximized', '1')    # start maximized (fullscreen)
 Config.set('graphics', 'borderless', '0')   # keep window borders
 Config.set('graphics', 'resizable', '1')    # allow window resizing
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')  # ensure mouse input
@@ -31,6 +31,7 @@ try:
     from .utils import jobs
     from . import screens as _screens  # noqa: F401 - ensure screen classes are registered with Factory
     from .screens.pin_overlay import PINOverlay
+    from .theme_manager import theme as app_theme
 except Exception:  # Allows running as a script: python src/dmccodegui/main.py
     from dmccodegui.app_state import MachineState
     from dmccodegui.auth.auth_manager import AuthManager
@@ -38,6 +39,7 @@ except Exception:  # Allows running as a script: python src/dmccodegui/main.py
     from dmccodegui.utils import jobs
     import dmccodegui.screens as _screens  # type: ignore  # noqa: F401
     from dmccodegui.screens.pin_overlay import PINOverlay
+    from dmccodegui.theme_manager import theme as app_theme
 
 
 KV_FILES = [
@@ -136,7 +138,7 @@ class DMCApp(App):
                         self.state.set_connected(ok)
                         if ok:
                             self.state.connected_address = addr
-                            self._log_message(f"Connected to: {addr}")
+                            self.state.log(f"Connected to: {addr}")
                             # Auto-connect succeeded — show PIN overlay
                             Clock.schedule_once(lambda *_: self._show_pin_on_start(), 0)
                         else:
@@ -262,6 +264,18 @@ class DMCApp(App):
     # ------------------------------------------------------------------
     # Global actions
     # ------------------------------------------------------------------
+
+    def toggle_theme(self) -> None:
+        """Toggle between light and dark mode."""
+        new_mode = app_theme.toggle()
+        # Force tab bar to rebuild with new theme colors
+        try:
+            tab_bar = self.root.ids.tab_bar
+            role = tab_bar._current_role
+            tab_bar._current_role = ""  # force rebuild
+            tab_bar.set_role(role, tab_bar.current_tab)
+        except Exception:
+            pass
 
     def disconnect_and_refresh(self) -> None:
         def do_disc():

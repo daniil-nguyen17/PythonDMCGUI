@@ -46,13 +46,19 @@ def test_no_estop_in_run_bar():
 
 
 def test_cycle_status_machine_type():
-    """RUN-04: is_serration flag controls cycle status field visibility."""
+    """RUN-04: is_serration flag controls cycle status field visibility.
+
+    is_serration is now a dynamic BooleanProperty set from mc.is_serration()
+    in on_pre_enter. Default is False (non-serration layout).
+    IS_SERRATION module constant removed — machine_config is the authority.
+    """
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
-    from dmccodegui.screens.run import RunScreen, IS_SERRATION
+    from dmccodegui.screens.run import RunScreen
     r = RunScreen()
     assert hasattr(r, 'is_serration'), "RunScreen missing is_serration property"
-    assert r.is_serration == IS_SERRATION
+    # Default is False — set dynamically in on_pre_enter from mc.is_serration()
+    assert r.is_serration is False, f"Expected is_serration default False, got {r.is_serration}"
 
 
 def test_progress_and_eta():

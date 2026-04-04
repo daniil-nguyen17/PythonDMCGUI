@@ -18,6 +18,16 @@ from dmccodegui.utils.jobs import submit
 import dmccodegui.machine_config as mc
 
 # ---------------------------------------------------------------------------
+# Backward-compatible PARAM_DEFS re-export
+# ---------------------------------------------------------------------------
+# machine_config is now the authoritative source for parameter definitions.
+# PARAM_DEFS is kept as a module-level name for test compatibility and any
+# external code that imports it — it always reflects the Flat Grind defaults
+# (the base machine type) from machine_config._FLAT_PARAM_DEFS.
+# At runtime, ParametersScreen uses mc.get_param_defs() to get the active type's defs.
+from dmccodegui.machine_config import _FLAT_PARAM_DEFS as PARAM_DEFS  # noqa: F401
+
+# ---------------------------------------------------------------------------
 # Validation constants
 # ---------------------------------------------------------------------------
 
@@ -53,9 +63,12 @@ class ParametersScreen(Screen):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # Param defs dict -- keyed by var name; built from mc.get_param_defs()
-        # at on_pre_enter time (not import time), so it reflects the active type
-        self._param_defs: Dict[str, dict] = {}
+        # Param defs dict -- keyed by var name.
+        # Initialized to Flat Grind defaults so validation works immediately
+        # (e.g. in tests that create ParametersScreen() without calling on_pre_enter).
+        # _rebuild_for_machine_type() rebuilds this from mc.get_param_defs() on
+        # every screen entry, picking up the active machine type.
+        self._param_defs: Dict[str, dict] = {p["var"]: p for p in PARAM_DEFS}
         # Last known controller values {var_name: float}
         self._controller_vals: Dict[str, float] = {}
         # User-edited strings not yet applied {var_name: str}

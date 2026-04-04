@@ -96,15 +96,20 @@ def test_param_defs_per_type():
 
 
 def test_flat_param_defs_match_existing():
-    """Flat Grind param_defs entries match PARAM_DEFS from parameters.py."""
-    from dmccodegui.screens.parameters import PARAM_DEFS as EXPECTED
+    """Flat Grind param_defs in machine_config contain all expected params.
+
+    machine_config is now the authoritative source (parameters.py no longer
+    has a static PARAM_DEFS list). Verify Flat Grind defs against the internal
+    _FLAT_PARAM_DEFS registry entry to ensure no entries were dropped.
+    """
+    from dmccodegui.machine_config import _FLAT_PARAM_DEFS as EXPECTED
 
     flat_defs = mc.get_param_defs("4-Axes Flat Grind")
     # Every entry in EXPECTED must appear in flat_defs (by var name match)
     flat_vars = {d["var"] for d in flat_defs}
     for expected_entry in EXPECTED:
         assert expected_entry["var"] in flat_vars, (
-            f"var '{expected_entry['var']}' from parameters.py missing from Flat Grind param_defs"
+            f"var '{expected_entry['var']}' from _FLAT_PARAM_DEFS missing from Flat Grind param_defs"
         )
     # Also verify label/unit/group/min/max match for each
     flat_by_var = {d["var"]: d for d in flat_defs}

@@ -98,7 +98,7 @@ Plans:
   2. Setup user can import a CSV to load a knife profile — a confirmation dialog showing a diff of changes appears before anything is sent to the controller
   3. Import is blocked and shows a clear error when the CSV's machine type header does not match the current machine
   4. Import button is disabled (greyed out) while a grinding cycle is actively running
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 05-01-PLAN.md — Pure Python CSV engine: export, parse, diff, validate (TDD)
@@ -151,7 +151,7 @@ Note: Phase 3 depends on Phase 2; Phase 4 depends on Phase 1 (not Phase 2/3 — 
 | 2. RUN Page | 4/4 | Complete   | 2026-04-04 |
 | 3. Live Matplotlib Plot | 1/1 | Complete   | 2026-04-04 |
 | 4. Axes Setup and Parameters | 3/3 | Complete   | 2026-04-04 |
-| 5. CSV Profile System | 1/3 | In Progress|  |
+| 5. CSV Profile System | 2/3 | In Progress|  |
 | 6. Machine-Type Differentiation | 0/TBD | Not started | - |
 | 7. Admin and User Management | 0/TBD | Not started | - |
 | 8. Pi Kiosk and Deployment | 0/TBD | Not started | - |

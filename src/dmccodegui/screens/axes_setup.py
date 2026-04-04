@@ -4,7 +4,7 @@ axes_setup.py — AxesSetupScreen
 The primary setup tool for positioning axes before grinding. Setup/Admin personnel
 can select any axis (A, B, C, D) from a sidebar, jog it with arrow buttons at
 selectable step sizes (10mm/5mm/1mm), teach rest/start points for all axes at once
-(capturing all 4 axes in one operation), and trigger quick action commands.
+(capturing all active axes in one operation), and trigger quick action commands.
 
 AXIS DEFINITIONS:
   A — Knife Length
@@ -19,19 +19,28 @@ CPM (Counts Per Millimeter):
 
 TEACH OPERATION:
   teach_rest_point() and teach_start_point() each:
-    1. Read current positions for all 4 axes via "MG _TD{axis}"
-    2. Write all 4 scalar DMC variables in one semicolon-separated command
+    1. Read current positions for active axes via "MG _TD{axis}" (from mc.get_axis_list())
+    2. Write scalar DMC variables for active axes only in one semicolon-separated command
     3. Send BV to burn values to NV memory
   Guard: skipped if cycle_running is True.
+
+AXIS SIDEBAR:
+  _rebuild_axis_sidebar() hides the D axis button (opacity=0, disabled=True) on Serration
+  machines by reading mc.get_axis_list(). Called on every on_pre_enter so hot-swap works.
+  If the currently selected axis is no longer in the active axis list, auto-selects 'A'.
 
 QUICK ACTIONS (software variable commands — adjust variable names at integration):
   go_to_rest_all()  → swGoRest=1
   go_to_start_all() → swGoStart=1
   home_all()        → swHomeAll=1
+  (These send single-variable commands; the controller program handles axis routing.)
 
 POLLING:
-  3 Hz position polling (Clock.schedule_interval at 1/3.0 Hz) reads MG _TDA/B/C/D
-  and MG restPtA/B/C/D / startPtA/B/C/D. Started on on_pre_enter, cancelled on_leave.
+  3 Hz position polling (Clock.schedule_interval at 1/3.0 Hz) reads MG _TD{axis}
+  for axes in mc.get_axis_list() only (skips D axis read on Serration to avoid
+  controller errors for undefined variables).
+  Also reads restPt and startPt for active axes.
+  Started on on_pre_enter, cancelled on_leave.
 
 JOG:
   Uses PR (position relative) + BG per axis.
@@ -59,6 +68,7 @@ from kivy.clock import Clock
 from ..app_state import MachineState
 from ..controller import GalilController
 from ..utils import jobs
+import dmccodegui.machine_config as mc
 
 
 # Default CPM values per axis. Read from controller on enter; fall back if read fails.
@@ -83,6 +93,14 @@ AXIS_COLORS: dict[str, list[float]] = {
     "B": [0.659, 0.333, 0.965, 1],   # purple
     "C": [0.024, 0.714, 0.831, 1],   # cyan
     "D": [0.980, 0.749, 0.043, 1],   # yellow
+}
+
+# Map axis letter to KV id for sidebar button
+_AXIS_BTN_IDS: dict[str, str] = {
+    "A": "axis_btn_a",
+    "B": "axis_btn_b",
+    "C": "axis_btn_c",
+    "D": "axis_btn_d",
 }
 
 
@@ -126,7 +144,15 @@ class AxesSetupScreen(Screen):
         self._axis_cpm = dict(AXIS_CPM_DEFAULTS)
 
     def on_pre_enter(self, *args):
-        """Start 3 Hz polling and read CPM + initial taught points."""
+        """Start 3 Hz polling and read CPM + initial taught points.
+
+        Also rebuilds the axis sidebar to match the active machine type —
+        this enables hot-swap: changing machine type and re-entering the
+        screen immediately shows the correct sidebar layout.
+        """
+        # Rebuild sidebar for current machine type (must run before poll starts)
+        self._rebuild_axis_sidebar()
+
         # Start position polling at 3 Hz
         if self._poll_event:
             self._poll_event.cancel()
@@ -141,6 +167,46 @@ class AxesSetupScreen(Screen):
         if self._poll_event:
             self._poll_event.cancel()
             self._poll_event = None
+
+    # ── Axis sidebar ──────────────────────────────────────────────────────────
+
+    def _rebuild_axis_sidebar(self) -> None:
+        """Show/hide axis sidebar buttons based on the active machine type.
+
+        Uses opacity/disabled swap (NOT widget add/remove) to preserve KV ids.
+        If the currently selected axis is not in the active axis list,
+        auto-selects 'A' (the first visible axis).
+
+        Uses mc.get_axis_list() to determine which axes are active.
+        On error (machine not configured), falls back to showing all 4 axes.
+        """
+        try:
+            axis_list = mc.get_axis_list()
+        except ValueError:
+            # machine_config not yet configured — show all axes as fallback
+            axis_list = ["A", "B", "C", "D"]
+
+        if not axis_list:
+            print("[AxesSetup] _rebuild_axis_sidebar: empty axis_list, skipping")
+            return
+
+        for axis, btn_id in _AXIS_BTN_IDS.items():
+            btn = self.ids.get(btn_id)
+            if btn is None:
+                continue
+            visible = axis in axis_list
+            btn.opacity = 1.0 if visible else 0.0
+            btn.disabled = not visible
+
+        # If selected axis is now hidden, auto-select the first visible one
+        if self._selected_axis not in axis_list:
+            self._selected_axis = axis_list[0]
+            # Also update KV toggle button state: set first axis button to 'down'
+            first_btn_id = _AXIS_BTN_IDS.get(axis_list[0])
+            if first_btn_id:
+                first_btn = self.ids.get(first_btn_id)
+                if first_btn is not None:
+                    first_btn.state = "down"
 
     # ── Axis selection ────────────────────────────────────────────────────────
 
@@ -187,10 +253,13 @@ class AxesSetupScreen(Screen):
 
     def teach_rest_point(self) -> None:
         """
-        Capture all 4 axis positions and store as rest points.
+        Capture active axis positions and store as rest points.
 
-        1. Read MG _TDA/_TDB/_TDC/_TDD in background
-        2. Write restPtA=val;restPtB=val;restPtC=val;restPtD=val
+        Reads positions only for axes in mc.get_axis_list() to avoid
+        controller errors on undefined variables (e.g. no D axis on Serration).
+
+        1. Read MG _TD{axis} for each axis in mc.get_axis_list()
+        2. Write restPt{axis}=val for each axis in one semicolon-separated command
         3. Send BV to burn to NV memory
         Guard: skipped if cycle_running is True.
         """
@@ -199,30 +268,35 @@ class AxesSetupScreen(Screen):
         if not self.controller or not self.controller.is_connected():
             return
 
+        try:
+            axis_list = mc.get_axis_list()
+        except ValueError:
+            axis_list = ["A", "B", "C", "D"]
+
+        if not axis_list:
+            print("[AxesSetup] teach_rest_point: empty axis_list, aborting")
+            return
+
         ctrl = self.controller
 
         def do_teach():
             try:
-                val_a = float(ctrl.cmd("MG _TDA").strip())
-                val_b = float(ctrl.cmd("MG _TDB").strip())
-                val_c = float(ctrl.cmd("MG _TDC").strip())
-                val_d = float(ctrl.cmd("MG _TDD").strip())
+                # Read positions for active axes only
+                vals: dict[str, int] = {}
+                for axis in axis_list:
+                    raw = ctrl.cmd(f"MG _TD{axis}").strip()
+                    vals[axis] = int(float(raw))
 
-                write_cmd = (
-                    f"restPtA={int(val_a)};"
-                    f"restPtB={int(val_b)};"
-                    f"restPtC={int(val_c)};"
-                    f"restPtD={int(val_d)}"
-                )
+                # Build write command for active axes only
+                parts = [f"restPt{axis}={vals[axis]}" for axis in axis_list]
+                write_cmd = ";".join(parts)
                 ctrl.cmd(write_cmd)
                 ctrl.cmd("BV")
 
-                # Update UI display
+                # Update UI display for active axes
                 def update_ui(*_):
-                    self.pos_rest["A"] = str(int(val_a))
-                    self.pos_rest["B"] = str(int(val_b))
-                    self.pos_rest["C"] = str(int(val_c))
-                    self.pos_rest["D"] = str(int(val_d))
+                    for axis, val in vals.items():
+                        self.pos_rest[axis] = str(val)
 
                 Clock.schedule_once(update_ui)
             except Exception as e:
@@ -232,10 +306,13 @@ class AxesSetupScreen(Screen):
 
     def teach_start_point(self) -> None:
         """
-        Capture all 4 axis positions and store as start points.
+        Capture active axis positions and store as start points.
 
-        1. Read MG _TDA/_TDB/_TDC/_TDD in background
-        2. Write startPtA=val;startPtB=val;startPtC=val;startPtD=val
+        Reads positions only for axes in mc.get_axis_list() to avoid
+        controller errors on undefined variables (e.g. no D axis on Serration).
+
+        1. Read MG _TD{axis} for each axis in mc.get_axis_list()
+        2. Write startPt{axis}=val for each axis in one semicolon-separated command
         3. Send BV to burn to NV memory
         Guard: skipped if cycle_running is True.
         """
@@ -244,29 +321,34 @@ class AxesSetupScreen(Screen):
         if not self.controller or not self.controller.is_connected():
             return
 
+        try:
+            axis_list = mc.get_axis_list()
+        except ValueError:
+            axis_list = ["A", "B", "C", "D"]
+
+        if not axis_list:
+            print("[AxesSetup] teach_start_point: empty axis_list, aborting")
+            return
+
         ctrl = self.controller
 
         def do_teach():
             try:
-                val_a = float(ctrl.cmd("MG _TDA").strip())
-                val_b = float(ctrl.cmd("MG _TDB").strip())
-                val_c = float(ctrl.cmd("MG _TDC").strip())
-                val_d = float(ctrl.cmd("MG _TDD").strip())
+                # Read positions for active axes only
+                vals: dict[str, int] = {}
+                for axis in axis_list:
+                    raw = ctrl.cmd(f"MG _TD{axis}").strip()
+                    vals[axis] = int(float(raw))
 
-                write_cmd = (
-                    f"startPtA={int(val_a)};"
-                    f"startPtB={int(val_b)};"
-                    f"startPtC={int(val_c)};"
-                    f"startPtD={int(val_d)}"
-                )
+                # Build write command for active axes only
+                parts = [f"startPt{axis}={vals[axis]}" for axis in axis_list]
+                write_cmd = ";".join(parts)
                 ctrl.cmd(write_cmd)
                 ctrl.cmd("BV")
 
                 def update_ui(*_):
-                    self.pos_start["A"] = str(int(val_a))
-                    self.pos_start["B"] = str(int(val_b))
-                    self.pos_start["C"] = str(int(val_c))
-                    self.pos_start["D"] = str(int(val_d))
+                    for axis, val in vals.items():
+                        self.pos_start[axis] = str(val)
 
                 Clock.schedule_once(update_ui)
             except Exception as e:
@@ -312,21 +394,24 @@ class AxesSetupScreen(Screen):
 
         ctrl = self.controller
 
+        # Determine active axes at poll time (avoids D-axis read errors on Serration)
+        try:
+            axis_list = mc.get_axis_list()
+        except ValueError:
+            axis_list = ["A", "B", "C", "D"]
+
         def do_poll():
             try:
-                raw_a = ctrl.cmd("MG _TDA").strip()
-                raw_b = ctrl.cmd("MG _TDB").strip()
-                raw_c = ctrl.cmd("MG _TDC").strip()
-                raw_d = ctrl.cmd("MG _TDD").strip()
+                raw_vals: dict[str, str] = {}
+                for axis in axis_list:
+                    raw_vals[axis] = ctrl.cmd(f"MG _TD{axis}").strip()
 
                 def update_positions(*_):
-                    try:
-                        self.pos_current["A"] = f"{float(raw_a):.1f}"
-                        self.pos_current["B"] = f"{float(raw_b):.1f}"
-                        self.pos_current["C"] = f"{float(raw_c):.1f}"
-                        self.pos_current["D"] = f"{float(raw_d):.1f}"
-                    except (ValueError, TypeError):
-                        pass
+                    for axis, raw in raw_vals.items():
+                        try:
+                            self.pos_current[axis] = f"{float(raw):.1f}"
+                        except (ValueError, TypeError):
+                            pass
 
                 Clock.schedule_once(update_positions)
             except Exception as e:
@@ -340,12 +425,20 @@ class AxesSetupScreen(Screen):
         """
         Background job: read CPM values and existing rest/start points from controller.
         Called once on on_pre_enter.
+
+        Only reads for active axes (from mc.get_axis_list()) to avoid
+        controller errors on undefined variables.
         """
         ctrl = self.controller
         if not ctrl or not ctrl.is_connected():
             return
 
-        # Read CPM values for each axis
+        try:
+            axis_list = mc.get_axis_list()
+        except ValueError:
+            axis_list = ["A", "B", "C", "D"]
+
+        # Read CPM values for each axis (attempt all — CPM vars exist on most machines)
         cpm_updates = {}
         for axis in ("A", "B", "C", "D"):
             try:
@@ -356,10 +449,10 @@ class AxesSetupScreen(Screen):
             except Exception:
                 pass  # Keep default
 
-        # Read existing rest points
+        # Read existing rest points for active axes only
         rest_updates: dict[str, str] = {}
         start_updates: dict[str, str] = {}
-        for axis in ("A", "B", "C", "D"):
+        for axis in axis_list:
             try:
                 raw = ctrl.cmd(f"MG restPt{axis}").strip()
                 rest_updates[axis] = f"{float(raw):.1f}"

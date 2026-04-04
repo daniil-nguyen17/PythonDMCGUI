@@ -30,8 +30,10 @@
             spacing: '4dp'
             padding: '6dp', '8dp', '6dp', '8dp'
 
-            # Axis selector group
+            # Axis selector group — ids assigned so _rebuild_axis_sidebar() can
+            # show/hide buttons programmatically via opacity/disabled swap
             ToggleButton:
+                id: axis_btn_a
                 text: 'A  Knife Length'
                 group: 'axis_sel'
                 state: 'down'
@@ -52,6 +54,7 @@
                         size: dp(4), self.height
 
             ToggleButton:
+                id: axis_btn_b
                 text: 'B  Knife Curve'
                 group: 'axis_sel'
                 font_size: '20sp'
@@ -71,6 +74,7 @@
                         size: dp(4), self.height
 
             ToggleButton:
+                id: axis_btn_c
                 text: 'C  Grinder Up/Down'
                 group: 'axis_sel'
                 font_size: '20sp'
@@ -90,6 +94,7 @@
                         size: dp(4), self.height
 
             ToggleButton:
+                id: axis_btn_d
                 text: 'D  Knife Angle'
                 group: 'axis_sel'
                 font_size: '20sp'
@@ -417,7 +422,7 @@
                 spacing: '8dp'
 
                 Label:
-                    text: 'Captures all 4 axes at current position and burns to NV memory'
+                    text: 'Captures all active axes at current position and burns to NV memory'
                     font_size: '16sp'
                     color: theme.text_dim
                     size_hint_y: None

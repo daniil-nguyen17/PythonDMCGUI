@@ -1,4 +1,6 @@
 #:import theme dmccodegui.theme_manager.theme
+#:import DeltaCBarChart dmccodegui.screens.run
+#:import run_module dmccodegui.screens.run
 
 <RunScreen>:
     canvas.before:
@@ -53,7 +55,7 @@
                         valign: 'middle'
                         text_size: self.size
 
-                # Knife Grind Adjustment placeholder card
+                # Knife Grind Adjustment panel
                 BoxLayout:
                     id: adjustment_panel
                     canvas.before:
@@ -70,15 +72,124 @@
                             width: 1.2
                     size_hint_y: None
                     height: '220dp'
-                    padding: ['12dp', '10dp']
+                    orientation: 'vertical'
+                    padding: '10dp'
+                    spacing: '6dp'
 
-                    Label:
-                        text: 'Knife Grind Adjustment'
-                        font_size: '12sp'
-                        color: theme.text_mid
-                        halign: 'center'
-                        valign: 'middle'
-                        text_size: self.size
+                    # Header row: title + section count controls
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '28dp'
+
+                        Label:
+                            text: 'KNIFE GRIND ADJUSTMENT'
+                            font_size: '11sp'
+                            color: theme.text_muted
+                            bold: True
+                            halign: 'left'
+                            text_size: self.size
+                            valign: 'middle'
+
+                        BoxLayout:
+                            size_hint_x: None
+                            width: '120dp'
+                            spacing: '4dp'
+
+                            Label:
+                                text: 'Sections:'
+                                font_size: '11sp'
+                                color: theme.text_muted
+                                size_hint_x: None
+                                width: '60dp'
+                                halign: 'right'
+                                text_size: self.size
+                                valign: 'middle'
+
+                            Button:
+                                text: '-'
+                                size_hint_x: None
+                                width: '24dp'
+                                font_size: '14sp'
+                                background_normal: ''
+                                background_color: 0.1, 0.12, 0.16, 1
+                                on_release: root.on_section_count_change(root.section_count - 1)
+
+                            Label:
+                                id: section_count_label
+                                text: str(root.section_count)
+                                font_size: '13sp'
+                                color: theme.text_main
+                                bold: True
+                                size_hint_x: None
+                                width: '20dp'
+                                halign: 'center'
+                                text_size: self.size
+                                valign: 'middle'
+
+                            Button:
+                                text: '+'
+                                size_hint_x: None
+                                width: '24dp'
+                                font_size: '14sp'
+                                background_normal: ''
+                                background_color: 0.1, 0.12, 0.16, 1
+                                on_release: root.on_section_count_change(root.section_count + 1)
+
+                    # Bar chart area
+                    DeltaCBarChart:
+                        id: delta_c_chart
+                        offsets: root.delta_c_offsets
+                        size_hint_y: None
+                        height: '110dp'
+
+                    # Controls row: selected value + up/down + apply
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '40dp'
+                        spacing: '8dp'
+
+                        # Selected section display
+                        Label:
+                            text: 'Selected: ' + root.selected_section_value + ' cts'
+                            font_size: '12sp'
+                            color: theme.text_main
+                            halign: 'left'
+                            text_size: self.size
+                            valign: 'middle'
+                            size_hint_x: 0.4
+
+                        # Down adjustment button
+                        Button:
+                            text: '- ' + str(run_module.DELTA_C_STEP)
+                            font_size: '13sp'
+                            bold: True
+                            background_normal: ''
+                            background_color: 0.15, 0.08, 0.02, 1
+                            color: 0.984, 0.573, 0.235, 1
+                            size_hint_x: 0.2
+                            on_release: root.on_adjust_down()
+
+                        # Up adjustment button
+                        Button:
+                            text: '+ ' + str(run_module.DELTA_C_STEP)
+                            font_size: '13sp'
+                            bold: True
+                            background_normal: ''
+                            background_color: 0.02, 0.12, 0.06, 1
+                            color: 0.133, 0.773, 0.369, 1
+                            size_hint_x: 0.2
+                            on_release: root.on_adjust_up()
+
+                        # Apply button
+                        Button:
+                            text: 'APPLY'
+                            font_size: '13sp'
+                            bold: True
+                            background_normal: ''
+                            background_color: 0.118, 0.227, 0.373, 1
+                            color: 0.576, 0.773, 0.992, 1
+                            size_hint_x: 0.2
+                            on_release: root.on_apply_delta_c()
 
             # -------------------------------------------------------------------
             # RIGHT COLUMN (40%) — cycle status + axis positions

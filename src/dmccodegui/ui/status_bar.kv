@@ -49,6 +49,25 @@
         text_size: self.size
         on_release: root.on_user_tap()
 
+    # Machine type area (tap to change machine type — Setup/Admin only)
+    Button:
+        id: machine_type_btn
+        size_hint_x: None
+        width: '260dp'
+        size_hint_y: None
+        height: '56dp'
+        pos_hint: {'center_y': 0.5}
+        background_normal: ''
+        background_down: ''
+        background_color: 0.08, 0.12, 0.22, 1
+        text: root.machine_type_text
+        color: theme.text_mid
+        font_size: '17sp'
+        halign: 'center'
+        valign: 'middle'
+        text_size: self.size
+        on_release: root.on_machine_type_tap()
+
     # Banner ticker (fills remaining space)
     Label:
         text: root.banner_text

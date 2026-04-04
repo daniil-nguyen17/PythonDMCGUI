@@ -32,6 +32,7 @@ try:
     from . import screens as _screens  # noqa: F401 - ensure screen classes are registered with Factory
     from .screens.pin_overlay import PINOverlay
     from .theme_manager import theme as app_theme
+    import dmccodegui.machine_config as mc
 except Exception:  # Allows running as a script: python src/dmccodegui/main.py
     from dmccodegui.app_state import MachineState
     from dmccodegui.auth.auth_manager import AuthManager
@@ -40,6 +41,7 @@ except Exception:  # Allows running as a script: python src/dmccodegui/main.py
     import dmccodegui.screens as _screens  # type: ignore  # noqa: F401
     from dmccodegui.screens.pin_overlay import PINOverlay
     from dmccodegui.theme_manager import theme as app_theme
+    import dmccodegui.machine_config as mc
 
 
 KV_FILES = [
@@ -72,6 +74,11 @@ class DMCApp(App):
             os.path.dirname(os.path.abspath(__file__)), "auth", "users.json"
         )
         self.auth_manager = AuthManager(users_path)
+        # Initialize machine_config — loads persisted machine type from settings.json
+        settings_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "auth", "settings.json"
+        )
+        mc.init(settings_path)
 
     def build(self):
         if Window:
@@ -106,6 +113,9 @@ class DMCApp(App):
         # Wire user area in StatusBar to open switch-user overlay
         status_bar.bind_user_tap(lambda: self._show_pin_overlay("switch"))
 
+        # Wire machine type tap in StatusBar to open picker (Setup/Admin only)
+        status_bar.bind_machine_type_tap(lambda: self._show_machine_type_picker())
+
         # Wire restricted tab callback
         tab_bar.set_restricted_callback(lambda: self._show_pin_overlay("unlock"))
 
@@ -114,6 +124,11 @@ class DMCApp(App):
 
         # Default TabBar to operator (no auth yet) — PIN overlay will set real role
         tab_bar.set_role("operator", "run")
+
+        # Set machine type on state if already configured
+        if mc.is_configured():
+            self.state.machine_type = mc.get_active_type()
+            self.state.notify()
 
         # Set initial screen to setup (connection screen)
         sm.current = 'setup'
@@ -127,8 +142,9 @@ class DMCApp(App):
         # Detect pre-existing connection (e.g., controller opened by previous run)
         if self.controller.verify_connection():
             self.state.set_connected(True)
-            # Connection present — show PIN overlay immediately
-            Clock.schedule_once(lambda *_: self._show_pin_on_start(), 0)
+            # Connection present — show machine type picker first if not configured,
+            # then PIN overlay. Use callback chaining to guarantee order.
+            Clock.schedule_once(lambda *_: self._show_startup_flow(), 0)
         else:
             # Optional auto-connect via env var
             addr = os.environ.get('DMC_ADDRESS', '').strip()
@@ -140,8 +156,8 @@ class DMCApp(App):
                         if ok:
                             self.state.connected_address = addr
                             self.state.log(f"Connected to: {addr}")
-                            # Auto-connect succeeded — show PIN overlay
-                            Clock.schedule_once(lambda *_: self._show_pin_on_start(), 0)
+                            # Auto-connect succeeded — startup flow (picker then PIN)
+                            Clock.schedule_once(lambda *_: self._show_startup_flow(), 0)
                         else:
                             self._log_message("Auto-connect failed")
                     Clock.schedule_once(lambda *_: on_ui())
@@ -168,6 +184,88 @@ class DMCApp(App):
         self._reset_idle_timer()
 
         return root
+
+    # ------------------------------------------------------------------
+    # Startup flow: machine type picker (if needed) then PIN overlay
+    # ------------------------------------------------------------------
+
+    def _show_startup_flow(self) -> None:
+        """Show mandatory machine type picker if not configured, then PIN overlay."""
+        if not mc.is_configured():
+            # First launch — force picker before PIN overlay
+            self._show_machine_type_picker(
+                on_selected=lambda mtype: self._show_pin_on_start(),
+                force=True,
+            )
+        else:
+            self._show_pin_on_start()
+
+    # ------------------------------------------------------------------
+    # Machine type picker
+    # ------------------------------------------------------------------
+
+    def _show_machine_type_picker(self, on_selected=None, force: bool = False) -> None:
+        """Open the machine type selection popup.
+
+        Args:
+            on_selected: Optional callback(mtype: str) called after selection.
+            force: If True, bypass role check (used for first-launch mandatory picker).
+        """
+        if not force:
+            # Role check — only Setup/Admin can change machine type
+            role = getattr(self.state, "current_role", "")
+            if role not in ("setup", "admin"):
+                return
+
+        from kivy.uix.modalview import ModalView
+        from kivy.uix.boxlayout import BoxLayout
+        from kivy.uix.label import Label
+        from kivy.uix.button import Button
+
+        picker = ModalView(auto_dismiss=False, size_hint=(0.55, 0.6))
+
+        layout = BoxLayout(orientation="vertical", padding="20dp", spacing="16dp")
+
+        # Header label
+        header = Label(
+            text="Select Machine Type",
+            font_size="24sp",
+            bold=True,
+            color=(1, 1, 1, 1),
+            size_hint_y=None,
+            height="48dp",
+            halign="center",
+            valign="middle",
+        )
+        header.bind(size=header.setter("text_size"))
+        layout.add_widget(header)
+
+        def _on_type_selected(mtype: str) -> None:
+            mc.set_active_type(mtype)
+            self.state.machine_type = mtype
+            self.state.notify()
+            picker.dismiss()
+            if callable(on_selected):
+                on_selected(mtype)
+
+        # One button per machine type
+        for mtype in mc.MACHINE_TYPES:
+            btn = Button(
+                text=mtype,
+                font_size="20sp",
+                size_hint_y=None,
+                height="64dp",
+                background_normal="",
+                background_down="",
+                background_color=(0.1, 0.25, 0.5, 1),
+                color=(1, 1, 1, 1),
+            )
+            # Capture mtype in default argument to avoid closure issue
+            btn.bind(on_release=lambda inst, t=mtype: _on_type_selected(t))
+            layout.add_widget(btn)
+
+        picker.add_widget(layout)
+        picker.open()
 
     # ------------------------------------------------------------------
     # PIN overlay management
@@ -210,8 +308,8 @@ class DMCApp(App):
             pass
 
     def _on_connect_from_setup(self) -> None:
-        """Called when setup screen successfully connects. Show PIN overlay."""
-        Clock.schedule_once(lambda *_: self._show_pin_on_start(), 0)
+        """Called when setup screen successfully connects. Show picker then PIN overlay."""
+        Clock.schedule_once(lambda *_: self._show_startup_flow(), 0)
 
     # ------------------------------------------------------------------
     # Idle auto-lock

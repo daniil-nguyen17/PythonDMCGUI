@@ -24,6 +24,14 @@ class MachineState:
     current_role: str = ""  # values: "operator" | "setup" | "admin" | ""
     setup_unlocked: bool = False
 
+    # Cycle status fields (Phase 2)
+    cycle_running: bool = False
+    cycle_tooth: int = 0
+    cycle_pass: int = 0
+    cycle_depth: float = 0.0
+    cycle_elapsed_s: float = 0.0
+    cycle_completion_pct: float = 0.0
+
     _listeners: List[ChangeListener] = field(default_factory=list, repr=False)
 
     def subscribe(self, fn: ChangeListener) -> Callable[[], None]:

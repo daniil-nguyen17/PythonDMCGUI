@@ -13,7 +13,7 @@ Starting from a partially-built Kivy application with existing screens for setup
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Auth and Navigation** - PIN login, three-tier roles, tab bar replacing ActionBar+Spinner
-- [ ] **Phase 2: RUN Page** - Cycle controls, live axis positions, cycle status, operation log, E-STOP everywhere
+- [ ] **Phase 2: RUN Page** - Cycle controls, live axis positions, cycle status, Knife Grind Adjustment, E-STOP everywhere
 - [ ] **Phase 3: Live Matplotlib Plot** - Embedded A/B position plot with Pi performance validation
 - [ ] **Phase 4: Axes Setup and Parameters** - Unified jog/teach screen and grouped parameter editor for Setup role
 - [ ] **Phase 5: CSV Profile System** - Safe import/export of knife profiles with machine-type validation
@@ -51,14 +51,19 @@ Plans:
   3. Cycle status panel shows current tooth, pass, depth, speed, elapsed time, and ETA during an active cycle
   4. Progress bar fills continuously from 0% to 100% as the cycle runs
   5. Operation log shows timestamped entries for cycle start, faults, parameter changes, and E-STOP in a scrollable view
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — MachineState cycle fields + RunScreen layout + polling + action buttons
+- [ ] 02-02-PLAN.md — Knife Grind Adjustment panel (DeltaCBarChart widget)
+- [ ] 02-03-PLAN.md — Visual/functional verification checkpoint
 
 ### Phase 3: Live Matplotlib Plot
 **Goal**: Operators can see the grinding path in real time as a top-down A/B position plot embedded in the RUN page
 **Depends on**: Phase 2
 **Requirements**: RUN-07
 **Success Criteria** (what must be TRUE):
-  1. A/B axis positions trace a live path on the RUN page at 5–10 Hz with a rolling history buffer
+  1. A/B axis positions trace a live path on the RUN page at 5-10 Hz with a rolling history buffer
   2. E-STOP button remains immediately responsive while the plot is actively updating (no frozen touch)
   3. Plot renders correctly at both 1920x1080 and typical Pi touchscreen resolutions (800x480, 1024x600)
 **Plans**: TBD
@@ -129,7 +134,7 @@ Note: Phase 3 depends on Phase 2; Phase 4 depends on Phase 1 (not Phase 2/3 — 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Auth and Navigation | 3/4 | In Progress|  |
-| 2. RUN Page | 0/TBD | Not started | - |
+| 2. RUN Page | 0/3 | Not started | - |
 | 3. Live Matplotlib Plot | 0/TBD | Not started | - |
 | 4. Axes Setup and Parameters | 0/TBD | Not started | - |
 | 5. CSV Profile System | 0/TBD | Not started | - |

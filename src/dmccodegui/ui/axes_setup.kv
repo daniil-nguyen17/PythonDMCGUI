@@ -1,5 +1,13 @@
-# AxesSetupScreen placeholder
 #:import theme dmccodegui.theme_manager.theme
+
+# ──────────────────────────────────────────────────────────────────────────────
+# AxesSetupScreen
+#
+# Layout: horizontal split
+#   Left  (18%) — Sidebar: axis selector ToggleButtons + quick action buttons
+#   VDivider
+#   Right (82%) — Main content: position cards + jog controls + teach buttons
+# ──────────────────────────────────────────────────────────────────────────────
 
 <AxesSetupScreen>:
     canvas.before:
@@ -8,28 +16,437 @@
         Rectangle:
             pos: self.pos
             size: self.size
+
     BoxLayout:
-        orientation: 'vertical'
-        spacing: '8dp'
-        Widget:
-            size_hint_y: 0.3
-        Label:
-            text: '+ + +'
-            font_size: '80sp'
-            bold: True
-            color: theme.text_mid
-            size_hint_y: None
-            height: '120dp'
-            halign: 'center'
-            valign: 'middle'
-            text_size: self.size
-        Label:
-            text: 'AXES SETUP'
-            color: theme.text_main
-            font_size: '58sp'
-            size_hint_y: None
-            height: '80dp'
-            halign: 'center'
-            valign: 'middle'
-            text_size: self.size
-        Widget:
+        orientation: 'horizontal'
+        spacing: 0
+        padding: 0
+
+        # ── Left sidebar ──────────────────────────────────────────────────────
+        BoxLayout:
+            orientation: 'vertical'
+            size_hint_x: 0.18
+            spacing: '4dp'
+            padding: '6dp', '8dp', '6dp', '8dp'
+
+            # Axis selector group
+            ToggleButton:
+                text: 'A  Feed'
+                group: 'axis_sel'
+                state: 'down'
+                font_size: '20sp'
+                bold: True
+                size_hint_y: None
+                height: '64dp'
+                on_release: root.select_axis('A')
+                background_normal: ''
+                background_down: ''
+                background_color: (0.980, 0.569, 0.043, 0.25) if self.state == 'down' else theme.bg_panel
+                color: (0.980, 0.569, 0.043, 1) if self.state == 'down' else theme.text_mid
+                canvas.before:
+                    Color:
+                        rgba: (0.980, 0.569, 0.043, 1) if self.state == 'down' else (0, 0, 0, 0)
+                    Rectangle:
+                        pos: self.x, self.y
+                        size: '4dp', self.height
+
+            ToggleButton:
+                text: 'B  Lift'
+                group: 'axis_sel'
+                font_size: '20sp'
+                bold: True
+                size_hint_y: None
+                height: '64dp'
+                on_release: root.select_axis('B')
+                background_normal: ''
+                background_down: ''
+                background_color: (0.659, 0.333, 0.965, 0.25) if self.state == 'down' else theme.bg_panel
+                color: (0.659, 0.333, 0.965, 1) if self.state == 'down' else theme.text_mid
+                canvas.before:
+                    Color:
+                        rgba: (0.659, 0.333, 0.965, 1) if self.state == 'down' else (0, 0, 0, 0)
+                    Rectangle:
+                        pos: self.x, self.y
+                        size: '4dp', self.height
+
+            ToggleButton:
+                text: 'C  Cross'
+                group: 'axis_sel'
+                font_size: '20sp'
+                bold: True
+                size_hint_y: None
+                height: '64dp'
+                on_release: root.select_axis('C')
+                background_normal: ''
+                background_down: ''
+                background_color: (0.024, 0.714, 0.831, 0.25) if self.state == 'down' else theme.bg_panel
+                color: (0.024, 0.714, 0.831, 1) if self.state == 'down' else theme.text_mid
+                canvas.before:
+                    Color:
+                        rgba: (0.024, 0.714, 0.831, 1) if self.state == 'down' else (0, 0, 0, 0)
+                    Rectangle:
+                        pos: self.x, self.y
+                        size: '4dp', self.height
+
+            ToggleButton:
+                text: 'D  Rotation'
+                group: 'axis_sel'
+                font_size: '20sp'
+                bold: True
+                size_hint_y: None
+                height: '64dp'
+                on_release: root.select_axis('D')
+                background_normal: ''
+                background_down: ''
+                background_color: (0.980, 0.749, 0.043, 0.25) if self.state == 'down' else theme.bg_panel
+                color: (0.980, 0.749, 0.043, 1) if self.state == 'down' else theme.text_mid
+                canvas.before:
+                    Color:
+                        rgba: (0.980, 0.749, 0.043, 1) if self.state == 'down' else (0, 0, 0, 0)
+                    Rectangle:
+                        pos: self.x, self.y
+                        size: '4dp', self.height
+
+            # Divider between axis select and quick actions
+            Widget:
+                size_hint_y: None
+                height: '2dp'
+                canvas:
+                    Color:
+                        rgba: theme.border
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
+
+            Label:
+                text: 'Quick Actions'
+                font_size: '14sp'
+                color: theme.text_dim
+                size_hint_y: None
+                height: '24dp'
+                halign: 'center'
+                valign: 'middle'
+                text_size: self.size
+
+            Button:
+                text: 'Go to Rest All'
+                font_size: '17sp'
+                bold: True
+                size_hint_y: None
+                height: '52dp'
+                background_color: theme.bg_row
+                color: theme.text_main
+                on_release: root.go_to_rest_all()
+
+            Button:
+                text: 'Go to Start All'
+                font_size: '17sp'
+                bold: True
+                size_hint_y: None
+                height: '52dp'
+                background_color: theme.bg_row
+                color: theme.text_main
+                on_release: root.go_to_start_all()
+
+            Button:
+                text: 'Home All'
+                font_size: '17sp'
+                bold: True
+                size_hint_y: None
+                height: '52dp'
+                background_color: theme.bg_row
+                color: theme.text_main
+                on_release: root.home_all()
+
+            Widget:
+                # Spacer to fill remaining sidebar space
+
+        # ── Vertical divider ──────────────────────────────────────────────────
+        VDivider:
+
+        # ── Main content area ─────────────────────────────────────────────────
+        BoxLayout:
+            orientation: 'vertical'
+            size_hint_x: 0.82
+            spacing: '12dp'
+            padding: '16dp', '12dp', '16dp', '12dp'
+
+            # ── Position cards row ────────────────────────────────────────────
+            BoxLayout:
+                orientation: 'horizontal'
+                size_hint_y: None
+                height: '160dp'
+                spacing: '12dp'
+
+                # Rest Point card
+                CardFrame:
+                    orientation: 'vertical'
+                    spacing: '6dp'
+                    padding: '12dp'
+
+                    Label:
+                        text: 'Rest Point'
+                        font_size: '18sp'
+                        color: theme.text_mid
+                        size_hint_y: None
+                        height: '30dp'
+                        halign: 'center'
+                        valign: 'middle'
+                        text_size: self.size
+
+                    Label:
+                        id: rest_value_label
+                        text: root.pos_rest[root._selected_axis]
+                        font_size: '32sp'
+                        bold: True
+                        color: theme.text_main
+                        halign: 'center'
+                        valign: 'middle'
+                        text_size: self.size
+
+                    Label:
+                        text: 'deg' if root._selected_axis == 'D' else 'mm'
+                        font_size: '16sp'
+                        color: theme.text_dim
+                        size_hint_y: None
+                        height: '24dp'
+                        halign: 'center'
+                        valign: 'middle'
+                        text_size: self.size
+
+                # Start Point card
+                CardFrame:
+                    orientation: 'vertical'
+                    spacing: '6dp'
+                    padding: '12dp'
+
+                    Label:
+                        text: 'Start Point'
+                        font_size: '18sp'
+                        color: theme.text_mid
+                        size_hint_y: None
+                        height: '30dp'
+                        halign: 'center'
+                        valign: 'middle'
+                        text_size: self.size
+
+                    Label:
+                        id: start_value_label
+                        text: root.pos_start[root._selected_axis]
+                        font_size: '32sp'
+                        bold: True
+                        color: theme.text_main
+                        halign: 'center'
+                        valign: 'middle'
+                        text_size: self.size
+
+                    Label:
+                        text: 'deg' if root._selected_axis == 'D' else 'mm'
+                        font_size: '16sp'
+                        color: theme.text_dim
+                        size_hint_y: None
+                        height: '24dp'
+                        halign: 'center'
+                        valign: 'middle'
+                        text_size: self.size
+
+                # Current Position card (larger, accent color)
+                CardFrame:
+                    orientation: 'vertical'
+                    spacing: '6dp'
+                    padding: '12dp'
+
+                    Label:
+                        text: 'Current Position'
+                        font_size: '18sp'
+                        color: theme.text_mid
+                        size_hint_y: None
+                        height: '30dp'
+                        halign: 'center'
+                        valign: 'middle'
+                        text_size: self.size
+
+                    Label:
+                        id: current_value_label
+                        text: root.pos_current[root._selected_axis]
+                        font_size: '40sp'
+                        bold: True
+                        color: (0.133, 0.773, 0.369, 1)
+                        halign: 'center'
+                        valign: 'middle'
+                        text_size: self.size
+
+                    Label:
+                        text: 'deg' if root._selected_axis == 'D' else 'mm'
+                        font_size: '16sp'
+                        color: theme.text_dim
+                        size_hint_y: None
+                        height: '24dp'
+                        halign: 'center'
+                        valign: 'middle'
+                        text_size: self.size
+
+            # ── Jog controls section ──────────────────────────────────────────
+            BoxLayout:
+                orientation: 'vertical'
+                size_hint_y: None
+                height: '180dp'
+                spacing: '8dp'
+
+                Label:
+                    text: 'Jog Control'
+                    font_size: '18sp'
+                    color: theme.text_mid
+                    size_hint_y: None
+                    height: '28dp'
+                    halign: 'center'
+                    valign: 'middle'
+                    text_size: self.size
+
+                # Arrow buttons + step toggles in a row
+                BoxLayout:
+                    orientation: 'horizontal'
+                    spacing: '16dp'
+                    size_hint_y: None
+                    height: '100dp'
+                    pos_hint: {'center_x': 0.5}
+
+                    Widget:
+                        # Spacer
+
+                    # Left arrow button
+                    Button:
+                        text: '<<'
+                        font_size: '36sp'
+                        bold: True
+                        size_hint: None, None
+                        size: '100dp', '100dp'
+                        background_color: theme.bg_panel
+                        color: theme.text_main
+                        on_release: root.jog_axis(root._selected_axis, -1)
+                        canvas.after:
+                            Color:
+                                rgba: theme.border
+                            Line:
+                                rectangle: (self.x, self.y, self.width, self.height)
+                                width: 1.5
+
+                    # Step size toggles (vertical group)
+                    BoxLayout:
+                        orientation: 'vertical'
+                        size_hint: None, None
+                        size: '140dp', '100dp'
+                        spacing: '2dp'
+
+                        Label:
+                            text: 'Step (' + ('deg' if root._selected_axis == 'D' else 'mm') + ')'
+                            font_size: '14sp'
+                            color: theme.text_dim
+                            size_hint_y: None
+                            height: '20dp'
+                            halign: 'center'
+                            valign: 'middle'
+                            text_size: self.size
+
+                        BoxLayout:
+                            orientation: 'horizontal'
+                            spacing: '2dp'
+
+                            ToggleButton:
+                                id: step_10
+                                text: '10'
+                                group: 'step_sel'
+                                state: 'down'
+                                font_size: '18sp'
+                                bold: True
+                                on_release: root.set_step(10.0)
+
+                            ToggleButton:
+                                id: step_5
+                                text: '5'
+                                group: 'step_sel'
+                                font_size: '18sp'
+                                bold: True
+                                on_release: root.set_step(5.0)
+
+                            ToggleButton:
+                                id: step_1
+                                text: '1'
+                                group: 'step_sel'
+                                font_size: '18sp'
+                                bold: True
+                                on_release: root.set_step(1.0)
+
+                    # Right arrow button
+                    Button:
+                        text: '>>'
+                        font_size: '36sp'
+                        bold: True
+                        size_hint: None, None
+                        size: '100dp', '100dp'
+                        background_color: theme.bg_panel
+                        color: theme.text_main
+                        on_release: root.jog_axis(root._selected_axis, 1)
+                        canvas.after:
+                            Color:
+                                rgba: theme.border
+                            Line:
+                                rectangle: (self.x, self.y, self.width, self.height)
+                                width: 1.5
+
+                    Widget:
+                        # Spacer
+
+            # ── Horizontal divider ────────────────────────────────────────────
+            Widget:
+                size_hint_y: None
+                height: '2dp'
+                canvas:
+                    Color:
+                        rgba: theme.border
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
+
+            # ── Teach buttons row ─────────────────────────────────────────────
+            BoxLayout:
+                orientation: 'vertical'
+                size_hint_y: None
+                height: '120dp'
+                spacing: '8dp'
+
+                Label:
+                    text: 'Captures all 4 axes at current position and burns to NV memory'
+                    font_size: '16sp'
+                    color: theme.text_dim
+                    size_hint_y: None
+                    height: '28dp'
+                    halign: 'center'
+                    valign: 'middle'
+                    text_size: self.size
+
+                BoxLayout:
+                    orientation: 'horizontal'
+                    size_hint_y: None
+                    height: '60dp'
+                    spacing: '20dp'
+                    padding: '40dp', 0
+
+                    Button:
+                        text: 'Teach as Rest Point'
+                        font_size: '20sp'
+                        bold: True
+                        background_color: (0.031, 0.314, 0.471, 1)
+                        color: theme.text_main
+                        on_release: root.teach_rest_point()
+
+                    Button:
+                        text: 'Teach as Start Point'
+                        font_size: '20sp'
+                        bold: True
+                        background_color: (0.031, 0.471, 0.188, 1)
+                        color: theme.text_main
+                        on_release: root.teach_start_point()
+
+            Widget:
+                # Bottom spacer

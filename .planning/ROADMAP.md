@@ -82,7 +82,7 @@ Plans:
   3. Quick action buttons (Go to Rest All, Go to Start All, Home All) move all axes with a single tap
   4. Parameters page shows all values grouped into Geometry, Feedrates, Calibration, Positions, and Safety cards — each row shows human-readable name, DMC code, editable field, and unit
   5. Invalid parameter inputs are flagged with a red border immediately on entry; unsaved changes are highlighted amber with a change counter
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 04-01-PLAN.md — AxesSetupScreen: sidebar, jog, teach, quick actions, live polling + tests
@@ -145,7 +145,7 @@ Note: Phase 3 depends on Phase 2; Phase 4 depends on Phase 1 (not Phase 2/3 — 
 | 1. Auth and Navigation | 3/4 | In Progress|  |
 | 2. RUN Page | 4/4 | Complete   | 2026-04-04 |
 | 3. Live Matplotlib Plot | 1/1 | Complete   | 2026-04-04 |
-| 4. Axes Setup and Parameters | 0/3 | Not started | - |
+| 4. Axes Setup and Parameters | 1/3 | In Progress|  |
 | 5. CSV Profile System | 0/TBD | Not started | - |
 | 6. Machine-Type Differentiation | 0/TBD | Not started | - |
 | 7. Admin and User Management | 0/TBD | Not started | - |

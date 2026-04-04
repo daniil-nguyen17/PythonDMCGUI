@@ -38,12 +38,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Axes Setup
 
-- [ ] **AXES-01**: Single unified axes setup screen with sidebar to select between A, B, C, D axes
-- [ ] **AXES-02**: Each axis view shows Rest Point, Start Point, and Current Position values
-- [ ] **AXES-03**: Jog controls with arrow buttons, slider, and selectable step size (x1, x10, x100)
-- [ ] **AXES-04**: Teach buttons to capture current physical position as Rest Point or Start Point
-- [ ] **AXES-05**: Quick action buttons: Go to Rest (all axes), Go to Start (all axes), Home All Axes
-- [ ] **AXES-06**: Axes setup is only accessible to Setup and Admin roles
+- [x] **AXES-01**: Single unified axes setup screen with sidebar to select between A, B, C, D axes
+- [x] **AXES-02**: Each axis view shows Rest Point, Start Point, and Current Position values
+- [x] **AXES-03**: Jog controls with arrow buttons, slider, and selectable step size (x1, x10, x100)
+- [x] **AXES-04**: Teach buttons to capture current physical position as Rest Point or Start Point
+- [x] **AXES-05**: Quick action buttons: Go to Rest (all axes), Go to Start (all axes), Home All Axes
+- [x] **AXES-06**: Axes setup is only accessible to Setup and Admin roles
 
 ### Parameters
 
@@ -142,12 +142,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RUN-05 | Phase 2 | Complete |
 | RUN-06 | Phase 2 | Complete |
 | RUN-07 | Phase 3 | Complete |
-| AXES-01 | Phase 4 | Pending |
-| AXES-02 | Phase 4 | Pending |
-| AXES-03 | Phase 4 | Pending |
-| AXES-04 | Phase 4 | Pending |
-| AXES-05 | Phase 4 | Pending |
-| AXES-06 | Phase 4 | Pending |
+| AXES-01 | Phase 4 | Complete |
+| AXES-02 | Phase 4 | Complete |
+| AXES-03 | Phase 4 | Complete |
+| AXES-04 | Phase 4 | Complete |
+| AXES-05 | Phase 4 | Complete |
+| AXES-06 | Phase 4 | Complete |
 | PARAM-01 | Phase 4 | Pending |
 | PARAM-02 | Phase 4 | Pending |
 | PARAM-03 | Phase 4 | Pending |

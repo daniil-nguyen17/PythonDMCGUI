@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 4 context gathered
-last_updated: "2026-04-04T10:21:10.886Z"
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-04-04T10:54:46.938Z"
 last_activity: "2026-04-04 — Plan 01-03 complete: PIN overlay auth flow, role-gated tabs, idle auto-lock"
 progress:
   total_phases: 8
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 12
+  completed_plans: 10
   percent: 8
 ---
 
@@ -58,6 +58,7 @@ Progress: [█░░░░░░░░░] 8%
 | Phase 02-run-page P02 | 159 | 2 tasks | 2 files |
 | Phase 02-run-page P03 | 0 | 1 tasks | 2 files |
 | Phase 03-live-matplotlib-plot P01 | 3 | 2 tasks | 3 files |
+| Phase 04-axes-setup-and-parameters P01 | 20 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,9 @@ Recent decisions affecting current work:
 - [Phase 03-live-matplotlib-plot]: kivy_matplotlib_widget 0.16.0 MatplotFigure used for live plot — Figure/Axes direct, no pyplot, draw_idle async redraws
 - [Phase 03-live-matplotlib-plot]: 5 Hz plot clock separate from 10 Hz poll clock — decouples redraws from controller polling to protect E-STOP latency
 - [Phase 03-live-matplotlib-plot]: Touch interaction fully disabled on MatplotFigure (touch_mode='none') — preserves E-STOP button responsiveness
+- [Phase 04]: jog_axis uses PR+BG (position relative) per axis, never PA — locked decision
+- [Phase 04]: Teach writes scalar DMC vars restPtA/B/C/D + BV burn; no download_array
+- [Phase 04]: AXIS_CPM_DEFAULTS A=1200,B=1200,C=800,D=500; read live from controller, fall back to defaults
 
 ### Pending Todos
 
@@ -104,6 +108,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-04T10:21:10.883Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-axes-setup-and-parameters/04-CONTEXT.md
+Last session: 2026-04-04T10:54:46.936Z
+Stopped at: Completed 04-01-PLAN.md
+Resume file: None

@@ -1,112 +1,33 @@
-# Root layout and ScreenManager
+#:import NoTransition kivy.uix.screenmanager.NoTransition
+
+# Root layout: StatusBar + TabBar + ScreenManager
 
 <RootLayout@BoxLayout>:
     orientation: 'vertical'
-    SomeMenu_ActionBar:
-        id: actionbar
-    BoxLayout:
+    canvas.before:
+        Color:
+            rgba: 0.031, 0.047, 0.071, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    StatusBar:
+        id: status_bar
         size_hint_y: None
-        height: '28dp'
-        # Log ticker area
-        padding: '6dp'
-        spacing: '6dp'
-        Label:
-            text: app.banner_text if app else ''
-            color: [1, 0.95, 0.2, 1]
-            text_size: self.size
-            halign: 'left'
-            valign: 'middle'
-
+        height: '48dp'
+    TabBar:
+        id: tab_bar
+        size_hint_y: None
+        height: '48dp'
     ScreenManager:
         id: sm
+        transition: NoTransition()
         SetupScreen:
             name: 'setup'
-        RestScreen:
-            name: 'rest'
-        StartScreen:
-            name: 'start'
-        AxisDSetupScreen:
-            name: 'axisDSetup'
-        ParametersSetupScreen:
-            name: 'params_setup'
-        ButtonsSwitchesScreen:
-            name: 'buttons_switches'
-            #EdgePointBScreen:
-            #        name: 'edge_b'
-            #EdgePointCScreen:
-            #        name: 'edge_c'
-            # AxisAnglesScreen:
-            #        name: 'axis_angles'
-        SerratedKnifeScreen:
-            name: 'serration_knife'
-
-
-<SomeMenu_ActionBar@BoxLayout>:
-    size_hint_y: None
-    height: '48dp'
-    padding: '6dp'
-    spacing: '6dp'
-        # Left cluster: Setup + Actions + App
-    BoxLayout:
-        size_hint_x: None
-        width: self.minimum_width
-        spacing: '6dp'
-        Button:
-            text: 'Setup'
-            size_hint_x: None
-            width: self.texture_size[0] + dp(24)
-            height: '36dp'
-            on_release: app.root.ids.sm.current = 'setup'
-        Button:
-            text: 'Serration Knife UI'
-            size_hint_x: None
-            width: self.texture_size[0] + dp(24)
-            height: '36dp'
-            on_release: app.root.ids.sm.current = 'serration_knife'
-        Spinner:
-            id: actions_spinner
-            text: 'Actions'
-            values: ['Rest Point', 'Start Point', 'Axis D Setup', 'Parameters Setup', 'Buttons and Switches']
-            size_hint_x: None
-            width: '200dp'
-            height: '36dp'
-            on_text:
-                self.text=='Rest Point' and setattr(app.root.ids.sm, 'current', 'rest');\
-                self.text=='Start Point' and setattr(app.root.ids.sm, 'current', 'start');\
-                self.text=='Axis D Setup' and setattr(app.root.ids.sm, 'current', 'axisDSetup');\
-                self.text=='Parameters Setup' and setattr(app.root.ids.sm, 'current', 'params_setup');\
-                self.text=='Buttons and Switches' and setattr(app.root.ids.sm, 'current', 'buttons_switches');\
-                self.text!='Actions' and setattr(self, 'text', 'Actions')
-                    # self.text=='Axis and Angles' and setattr(app.root.ids.sm, 'current', 'axis_angles');\
-                    #self.text=='EdgePointB' and setattr(app.root.ids.sm, 'current', 'edge_b');\
-                    #self.text=='EdgePointC' and setattr(app.root.ids.sm, 'current', 'edge_c');\
-        Spinner:
-            id: app_spinner
-            text: 'App'
-            values: ['Settings', 'Disconnect', 'Quit']
-            size_hint_x: None
-            width: '140dp'
-            height: '36dp'
-            on_text:
-                self.text=='Settings' and app.open_settings();\
-                self.text=='Disconnect' and app.disconnect_and_refresh();\
-                self.text=='Quit' and app.stop();\
-                self.text!='App' and setattr(self, 'text', 'App')
-    # Spacer
-    Widget:
-        size_hint_x: 1
-    # Right E-STOP
-    BoxLayout:
-        size_hint_x: None
-        width: self.minimum_width
-        spacing: '6dp'
-        Button:
-            text: '  E-STOP  '
-            size_hint_x: None
-            width: self.texture_size[0] + dp(24)
-            height: '36dp'
-            background_normal: ''
-            background_down: ''
-            background_color: [.88, .06, .06, 1]
-            color: [1, 1, 1, 1]
-            on_release: app.e_stop()
+        RunScreen:
+            name: 'run'
+        AxesSetupScreen:
+            name: 'axes_setup'
+        ParametersScreen:
+            name: 'parameters'
+        DiagnosticsScreen:
+            name: 'diagnostics'

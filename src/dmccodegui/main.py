@@ -35,18 +35,15 @@ except Exception:  # Allows running as a script: python src/dmccodegui/main.py
 
 
 KV_FILES = [
-    "ui/theme.kv",
-    "ui/arrays.kv",
-    "ui/edges.kv",
-    "ui/rest.kv",
-    "ui/start.kv",
-    "ui/buttons_switches.kv",
-    "ui/parameters_setup.kv",
-    "ui/setup.kv",
-    "ui/axis_angles.kv",   # ✅ move here (before base.kv)
-    "ui/axisDSetup.kv",
-    "ui/serration_knife.kv",
-    "ui/base.kv",          # must always be last
+    "ui/theme.kv",         # base styles - always first
+    "ui/status_bar.kv",    # StatusBar widget
+    "ui/tab_bar.kv",       # TabBar widget
+    "ui/setup.kv",         # SetupScreen (connection)
+    "ui/run.kv",           # RunScreen placeholder
+    "ui/axes_setup.kv",    # AxesSetupScreen placeholder
+    "ui/parameters.kv",    # ParametersScreen placeholder
+    "ui/diagnostics.kv",   # DiagnosticsScreen placeholder
+    "ui/base.kv",          # RootLayout - always last
 ]
 
 
@@ -62,7 +59,10 @@ class DMCApp(App):
     def build(self):
         if Window:
             Window.bind(on_cursor_enter=lambda *args: Window.show())
-            
+
+        from kivy.resources import resource_add_path
+        resource_add_path(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'images'))
+
         for kv in KV_FILES:
             Builder.load_file(os.path.join(os.path.dirname(__file__), kv))
 
@@ -74,6 +74,23 @@ class DMCApp(App):
             if hasattr(screen, 'controller') and hasattr(screen, 'state'):
                 screen.controller = self.controller
                 screen.state = self.state
+
+        # Wire TabBar -> ScreenManager
+        tab_bar = root.ids.tab_bar
+        tab_bar.bind(current_tab=lambda inst, val: setattr(sm, 'current', val))
+
+        # Wire StatusBar banner to app.banner_text
+        status_bar = root.ids.status_bar
+        self.bind(banner_text=status_bar.setter('banner_text'))
+
+        # Subscribe StatusBar to state changes
+        self.state.subscribe(lambda s: Clock.schedule_once(lambda *_: status_bar.update_from_state(s)))
+
+        # Default TabBar to show all tabs (admin) since auth is not wired yet
+        tab_bar.set_role("admin", "run")
+
+        # Set initial screen to setup (connection screen)
+        sm.current = 'setup'
 
         # Start periodic poll (disabled for now to prevent spam)
         # self._poll_cancel = jobs.schedule(1.0, self._poll_controller)

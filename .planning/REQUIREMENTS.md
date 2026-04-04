@@ -29,11 +29,11 @@ Requirements for initial release. Each maps to roadmap phases.
 ### RUN Page
 
 - [ ] **RUN-01**: RUN page displays big touchscreen buttons for Start, Pause, Go to Rest, and E-STOP (all 44dp+ minimum)
-- [ ] **RUN-02**: E-STOP button is visually dominant (red, largest target) and isolated from other buttons to prevent accidental taps
-- [ ] **RUN-03**: Live axis positions (A, B, C, D) update at ~10 Hz with color-coded axis labels (A=orange, B=purple, C=cyan, D=yellow)
-- [ ] **RUN-04**: Cycle status panel shows current tooth, pass, depth, speed, elapsed time, and ETA
-- [ ] **RUN-05**: Progress bar shows overall cycle completion percentage
-- [ ] **RUN-06**: Operation log displays timestamped events (cycle start, faults, parameter changes, E-STOP) in a scrollable view
+- [x] **RUN-02**: E-STOP button is visually dominant (red, largest target) and isolated from other buttons to prevent accidental taps
+- [x] **RUN-03**: Live axis positions (A, B, C, D) update at ~10 Hz with color-coded axis labels (A=orange, B=purple, C=cyan, D=yellow)
+- [x] **RUN-04**: Cycle status panel shows current tooth, pass, depth, speed, elapsed time, and ETA
+- [x] **RUN-05**: Progress bar shows overall cycle completion percentage
+- [x] **RUN-06**: Operation log displays timestamped events (cycle start, faults, parameter changes, E-STOP) in a scrollable view
 - [ ] **RUN-07**: Live matplotlib plot shows top-down A/B axis positions in real-time with rolling buffer
 
 ### Axes Setup
@@ -136,11 +136,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | NAV-04 | Phase 1 | Pending |
 | NAV-05 | Phase 1 | Pending |
 | RUN-01 | Phase 2 | Pending |
-| RUN-02 | Phase 2 | Pending |
-| RUN-03 | Phase 2 | Pending |
-| RUN-04 | Phase 2 | Pending |
-| RUN-05 | Phase 2 | Pending |
-| RUN-06 | Phase 2 | Pending |
+| RUN-02 | Phase 2 | Complete |
+| RUN-03 | Phase 2 | Complete |
+| RUN-04 | Phase 2 | Complete |
+| RUN-05 | Phase 2 | Complete |
+| RUN-06 | Phase 2 | Complete |
 | RUN-07 | Phase 3 | Pending |
 | AXES-01 | Phase 4 | Pending |
 | AXES-02 | Phase 4 | Pending |

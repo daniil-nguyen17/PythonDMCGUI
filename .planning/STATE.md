@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 6 context gathered
-last_updated: "2026-04-04T15:04:34.429Z"
+stopped_at: "Completed 06-01-PLAN.md: machine_config module + MachineState.machine_type"
+last_updated: "2026-04-04T15:37:09.204Z"
 last_activity: "2026-04-04 — Plan 01-03 complete: PIN overlay auth flow, role-gated tabs, idle auto-lock"
 progress:
   total_phases: 8
   completed_phases: 5
-  total_plans: 15
-  completed_plans: 15
+  total_plans: 18
+  completed_plans: 16
   percent: 8
 ---
 
@@ -64,6 +64,7 @@ Progress: [█░░░░░░░░░] 8%
 | Phase 05 P01 | 2 | 1 tasks | 2 files |
 | Phase 05 P02 | 12 | 2 tasks | 7 files |
 | Phase 05 P03 | 0 | 1 tasks | 0 files |
+| Phase 06 P01 | 103 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -111,6 +112,9 @@ Recent decisions affecting current work:
 - [Phase 05-02]: Kivy classes wrapped in try/except ImportError — keeps headless profile engine tests working with zero changes
 - [Phase 05-02]: ProfilesScreen exported from screens/__init__.py — required for Kivy Factory registry before Factory.RootLayout() call
 - [Phase 05-03]: All 5 CSV requirements verified by human interaction with the running application — no code changes required
+- [Phase 06-01]: machine_config._REGISTRY keyed by type string with plug-in param_defs per type; Convex/Serration stubs pending real DMC variable lists from customer
+- [Phase 06-01]: MachineState.machine_type: str = '' added with default to preserve backward compatibility
+- [Phase 06-01]: settings.json merge-on-save pattern preserves other settings keys alongside machine_type
 
 ### Pending Todos
 
@@ -124,6 +128,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-04T15:04:34.426Z
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-machine-type-differentiation/06-CONTEXT.md
+Last session: 2026-04-04T15:37:09.202Z
+Stopped at: Completed 06-01-PLAN.md: machine_config module + MachineState.machine_type
+Resume file: None

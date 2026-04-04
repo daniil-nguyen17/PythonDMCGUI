@@ -10,11 +10,11 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Authentication
 
 - [ ] **AUTH-01**: User can log in by entering a 4-6 digit PIN on a touchscreen numeric keypad overlay
-- [ ] **AUTH-02**: App remembers last logged-in user and pre-selects them on startup
-- [ ] **AUTH-03**: Three user roles exist: Operator, Setup, Admin — each with different access levels
+- [x] **AUTH-02**: App remembers last logged-in user and pre-selects them on startup
+- [x] **AUTH-03**: Three user roles exist: Operator, Setup, Admin — each with different access levels
 - [ ] **AUTH-04**: Operator can only access RUN page and view (not edit) parameters
 - [ ] **AUTH-05**: Setup user can unlock via PIN overlay to access axes setup, parameters, and machine config, then re-lock when done
-- [ ] **AUTH-06**: Setup session auto-locks after configurable inactivity timeout, returning to Operator view
+- [x] **AUTH-06**: Setup session auto-locks after configurable inactivity timeout, returning to Operator view
 - [ ] **AUTH-07**: Admin can create, delete, and modify users (assign PINs and roles)
 - [ ] **AUTH-08**: Admin user management is accessible from a dedicated screen behind Admin PIN
 
@@ -123,11 +123,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | AUTH-01 | Phase 1 | Pending |
-| AUTH-02 | Phase 1 | Pending |
-| AUTH-03 | Phase 1 | Pending |
+| AUTH-02 | Phase 1 | Complete |
+| AUTH-03 | Phase 1 | Complete |
 | AUTH-04 | Phase 1 | Pending |
 | AUTH-05 | Phase 1 | Pending |
-| AUTH-06 | Phase 1 | Pending |
+| AUTH-06 | Phase 1 | Complete |
 | AUTH-07 | Phase 7 | Pending |
 | AUTH-08 | Phase 7 | Pending |
 | NAV-01 | Phase 1 | Pending |

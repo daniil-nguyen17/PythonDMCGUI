@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 1 context gathered
-last_updated: "2026-04-04T05:59:30.671Z"
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-04-04T06:27:32.305Z"
 last_activity: 2026-04-04 — Roadmap created, all 50 v1 requirements mapped across 8 phases
 progress:
   total_phases: 8
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 4
+  completed_plans: 1
   percent: 0
 ---
 
@@ -50,6 +50,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 01 P01 | 2 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -62,6 +63,9 @@ Recent decisions affecting current work:
 - Init: Matplotlib via FigureCanvasKivyAgg — only new PyPI dep; all draws on main thread only
 - Init: RestPnt rename to DAxisPnt required before Phase 5 CSV work (hard pre-requisite flagged by research)
 - Init: Machine type hard-coded at deployment — no runtime selector in UI
+- [Phase 01]: AuthManager uses plain JSON with plain-text PINs (no hashing, no sqlite) per locked project decision
+- [Phase 01]: setup_unlocked derived from role in set_auth() at call time, not stored separately
+- [Phase 01]: MachineState auth fields use dataclass defaults to preserve backward compatibility
 
 ### Pending Todos
 
@@ -75,6 +79,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-04T05:59:30.669Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-auth-and-navigation/01-CONTEXT.md
+Last session: 2026-04-04T06:27:32.303Z
+Stopped at: Completed 01-01-PLAN.md
+Resume file: None

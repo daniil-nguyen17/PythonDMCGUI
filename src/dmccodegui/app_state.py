@@ -19,6 +19,9 @@ class MachineState:
     arrays: Dict[str, List[float]] = field(default_factory=dict)
     taught_points: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
+    # Machine type (Phase 6) — mirrors machine_config.get_active_type()
+    machine_type: str = ""
+
     # Auth fields
     current_user: str = ""
     current_role: str = ""  # values: "operator" | "setup" | "admin" | ""

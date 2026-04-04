@@ -34,8 +34,9 @@
             text_size: self.size
             padding_x: '14dp'
 
-    # User / role area (tap to switch user in future)
+    # User / role area (tap to switch user)
     Button:
+        id: user_btn
         size_hint_x: None
         width: '160dp'
         background_normal: ''
@@ -46,6 +47,7 @@
         halign: 'left'
         valign: 'middle'
         text_size: self.size
+        on_release: root.on_user_tap()
 
     # Banner ticker (fills remaining space)
     Label:

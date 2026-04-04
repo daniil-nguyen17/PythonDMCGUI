@@ -1,6 +1,8 @@
 """StatusBar widget — connection info, user/role, banner ticker, E-STOP."""
 from __future__ import annotations
 
+from typing import Callable, Optional
+
 from kivy.uix.boxlayout import BoxLayout
 from kivy.properties import StringProperty, ListProperty
 
@@ -19,6 +21,22 @@ class StatusBar(BoxLayout):
     _prev_address: str = ""
     _prev_user: str = ""
     _prev_role: str = ""
+
+    # Callback for user area tap (set by main.py)
+    _user_tap_cb: Optional[Callable[[], None]] = None
+
+    def bind_user_tap(self, cb: Callable[[], None]) -> None:
+        """Register a callback invoked when the user/role area is tapped."""
+        self._user_tap_cb = cb
+        # Wire KV user button if it exists
+        user_btn = self.ids.get("user_btn")
+        if user_btn is not None:
+            user_btn.bind(on_release=lambda *_: cb())
+
+    def on_user_tap(self) -> None:
+        """Called from KV when the user/role button is pressed."""
+        if self._user_tap_cb:
+            self._user_tap_cb()
 
     def update_from_state(self, state) -> None:
         """Update properties from a MachineState instance (only when changed)."""

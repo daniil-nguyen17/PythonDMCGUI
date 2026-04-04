@@ -7,6 +7,7 @@ from .run import RunScreen
 from .axes_setup import AxesSetupScreen
 from .parameters import ParametersScreen
 from .diagnostics import DiagnosticsScreen
+from .pin_overlay import PINOverlay
 
 __all__ = [
     "SetupScreen",
@@ -16,4 +17,5 @@ __all__ = [
     "AxesSetupScreen",
     "ParametersScreen",
     "DiagnosticsScreen",
+    "PINOverlay",
 ]

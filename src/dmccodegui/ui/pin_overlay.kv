@@ -1,0 +1,232 @@
+# PINOverlay widget rule
+# Fullscreen dark overlay with centered PIN entry card
+
+<PINOverlay>:
+    auto_dismiss: False
+    size_hint: 1, 1
+    background_color: 0, 0, 0, 0
+    overlay_color: 0.031, 0.047, 0.071, 0.95
+
+    AnchorLayout:
+        anchor_x: 'center'
+        anchor_y: 'center'
+
+        BoxLayout:
+            id: pin_card
+            orientation: 'vertical'
+            size_hint: None, None
+            width: '360dp'
+            height: self.minimum_height
+            padding: '16dp'
+            spacing: '8dp'
+            canvas.before:
+                Color:
+                    rgba: 0.051, 0.071, 0.102, 1
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [12]
+
+            # Username display / selector label
+            Label:
+                text: root.username if root.username else 'Select User'
+                font_size: '20sp'
+                color: 0.875, 0.906, 0.949, 1
+                size_hint_y: None
+                height: '36dp'
+                halign: 'center'
+                valign: 'middle'
+                text_size: self.size
+
+            # PIN dots row
+            Label:
+                text: root.pin_dots
+                font_size: '28sp'
+                color: 0.133, 0.773, 0.369, 1
+                size_hint_y: None
+                height: '40dp'
+                halign: 'center'
+                valign: 'middle'
+                text_size: self.size
+                letter_spacing: 8
+
+            # Error message
+            Label:
+                text: root.error_msg
+                font_size: '13sp'
+                color: 0.88, 0.06, 0.06, 1
+                size_hint_y: None
+                height: '24dp'
+                halign: 'center'
+                valign: 'middle'
+                text_size: self.size
+
+            # Numpad container (shown by default, hidden when user list shown)
+            BoxLayout:
+                id: numpad_layout
+                orientation: 'vertical'
+                size_hint_y: None
+                height: self.minimum_height
+                spacing: '4dp'
+
+                # 3x4 numpad grid
+                GridLayout:
+                    cols: 3
+                    size_hint_y: None
+                    height: self.minimum_height
+                    spacing: '4dp'
+
+                    # Row 1
+                    Button:
+                        text: '1'
+                        size_hint_y: None
+                        height: '64dp'
+                        font_size: '24sp'
+                        background_normal: ''
+                        background_down: ''
+                        background_color: 0.071, 0.094, 0.133, 1
+                        color: 0.875, 0.906, 0.949, 1
+                        on_release: root.press_digit('1')
+                    Button:
+                        text: '2'
+                        size_hint_y: None
+                        height: '64dp'
+                        font_size: '24sp'
+                        background_normal: ''
+                        background_down: ''
+                        background_color: 0.071, 0.094, 0.133, 1
+                        color: 0.875, 0.906, 0.949, 1
+                        on_release: root.press_digit('2')
+                    Button:
+                        text: '3'
+                        size_hint_y: None
+                        height: '64dp'
+                        font_size: '24sp'
+                        background_normal: ''
+                        background_down: ''
+                        background_color: 0.071, 0.094, 0.133, 1
+                        color: 0.875, 0.906, 0.949, 1
+                        on_release: root.press_digit('3')
+
+                    # Row 2
+                    Button:
+                        text: '4'
+                        size_hint_y: None
+                        height: '64dp'
+                        font_size: '24sp'
+                        background_normal: ''
+                        background_down: ''
+                        background_color: 0.071, 0.094, 0.133, 1
+                        color: 0.875, 0.906, 0.949, 1
+                        on_release: root.press_digit('4')
+                    Button:
+                        text: '5'
+                        size_hint_y: None
+                        height: '64dp'
+                        font_size: '24sp'
+                        background_normal: ''
+                        background_down: ''
+                        background_color: 0.071, 0.094, 0.133, 1
+                        color: 0.875, 0.906, 0.949, 1
+                        on_release: root.press_digit('5')
+                    Button:
+                        text: '6'
+                        size_hint_y: None
+                        height: '64dp'
+                        font_size: '24sp'
+                        background_normal: ''
+                        background_down: ''
+                        background_color: 0.071, 0.094, 0.133, 1
+                        color: 0.875, 0.906, 0.949, 1
+                        on_release: root.press_digit('6')
+
+                    # Row 3
+                    Button:
+                        text: '7'
+                        size_hint_y: None
+                        height: '64dp'
+                        font_size: '24sp'
+                        background_normal: ''
+                        background_down: ''
+                        background_color: 0.071, 0.094, 0.133, 1
+                        color: 0.875, 0.906, 0.949, 1
+                        on_release: root.press_digit('7')
+                    Button:
+                        text: '8'
+                        size_hint_y: None
+                        height: '64dp'
+                        font_size: '24sp'
+                        background_normal: ''
+                        background_down: ''
+                        background_color: 0.071, 0.094, 0.133, 1
+                        color: 0.875, 0.906, 0.949, 1
+                        on_release: root.press_digit('8')
+                    Button:
+                        text: '9'
+                        size_hint_y: None
+                        height: '64dp'
+                        font_size: '24sp'
+                        background_normal: ''
+                        background_down: ''
+                        background_color: 0.071, 0.094, 0.133, 1
+                        color: 0.875, 0.906, 0.949, 1
+                        on_release: root.press_digit('9')
+
+                    # Row 4
+                    Button:
+                        text: '<'
+                        size_hint_y: None
+                        height: '64dp'
+                        font_size: '24sp'
+                        background_normal: ''
+                        background_down: ''
+                        background_color: 0.071, 0.094, 0.133, 1
+                        color: 0.875, 0.906, 0.949, 1
+                        on_release: root.press_backspace()
+                    Button:
+                        text: '0'
+                        size_hint_y: None
+                        height: '64dp'
+                        font_size: '24sp'
+                        background_normal: ''
+                        background_down: ''
+                        background_color: 0.071, 0.094, 0.133, 1
+                        color: 0.875, 0.906, 0.949, 1
+                        on_release: root.press_digit('0')
+                    Button:
+                        text: 'OK'
+                        size_hint_y: None
+                        height: '64dp'
+                        font_size: '24sp'
+                        background_normal: ''
+                        background_down: ''
+                        background_color: 0.133, 0.773, 0.369, 1
+                        color: 1, 1, 1, 1
+                        bold: True
+                        on_release: root.press_enter()
+
+            # User list container (hidden by default)
+            ScrollView:
+                size_hint_y: None
+                height: '280dp'
+                opacity: 0
+                disabled: True
+
+                BoxLayout:
+                    id: user_list_layout
+                    orientation: 'vertical'
+                    size_hint_y: None
+                    height: self.minimum_height
+                    spacing: '4dp'
+
+            # Switch User button
+            Button:
+                text: 'Switch User'
+                size_hint_y: None
+                height: '44dp'
+                font_size: '14sp'
+                background_normal: ''
+                background_down: ''
+                background_color: 0.051, 0.071, 0.102, 1
+                color: 0.580, 0.631, 0.710, 1
+                on_release: root.show_user_list()

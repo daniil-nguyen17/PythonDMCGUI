@@ -5,6 +5,7 @@ Replaces the old placeholder grid with:
   - Immediate validation (red=invalid, amber=modified)
   - Batch apply to controller with read-back and NV burn
   - Role-based readonly (Operator cannot edit)
+  - Dynamic PARAM_DEFS per machine type from machine_config
 """
 from __future__ import annotations
 
@@ -14,39 +15,11 @@ from kivy.properties import BooleanProperty, NumericProperty, ObjectProperty
 from kivy.uix.screenmanager import Screen
 
 from dmccodegui.utils.jobs import submit
+import dmccodegui.machine_config as mc
 
 # ---------------------------------------------------------------------------
-# Parameter definitions
+# Validation constants
 # ---------------------------------------------------------------------------
-
-PARAM_DEFS = [
-    # Geometry group
-    {"label": "Knife Thickness", "var": "knfThk", "unit": "mm", "group": "Geometry", "min": 0.1, "max": 50.0},
-    {"label": "Edge Thickness", "var": "edgeThk", "unit": "mm", "group": "Geometry", "min": 0.01, "max": 10.0},
-    # Feedrates group
-    {"label": "Feed Rate A", "var": "fdA", "unit": "mm/s", "group": "Feedrates", "min": 0.1, "max": 500.0},
-    {"label": "Feed Rate B", "var": "fdB", "unit": "mm/s", "group": "Feedrates", "min": 0.1, "max": 500.0},
-    {"label": "Feed Rate C Down", "var": "fdCdn", "unit": "mm/s", "group": "Feedrates", "min": 0.1, "max": 500.0},
-    {"label": "Feed Rate C Up", "var": "fdCup", "unit": "mm/s", "group": "Feedrates", "min": 0.1, "max": 500.0},
-    {"label": "Feed Rate Park", "var": "fdPark", "unit": "mm/s", "group": "Feedrates", "min": 0.1, "max": 500.0},
-    {"label": "Feed Rate D", "var": "fdD", "unit": "mm/s", "group": "Feedrates", "min": 0.1, "max": 500.0},
-    # Calibration group (pitch/ratio/ctsRev x 4 axes)
-    {"label": "Pitch A", "var": "pitchA", "unit": "mm/rev", "group": "Calibration", "min": 0.001, "max": 100.0},
-    {"label": "Pitch B", "var": "pitchB", "unit": "mm/rev", "group": "Calibration", "min": 0.001, "max": 100.0},
-    {"label": "Pitch C", "var": "pitchC", "unit": "mm/rev", "group": "Calibration", "min": 0.001, "max": 100.0},
-    {"label": "Pitch D", "var": "pitchD", "unit": "deg/rev", "group": "Calibration", "min": 0.001, "max": 3600.0},
-    {"label": "Ratio A", "var": "ratioA", "unit": "", "group": "Calibration", "min": 0.001, "max": 1000.0},
-    {"label": "Ratio B", "var": "ratioB", "unit": "", "group": "Calibration", "min": 0.001, "max": 1000.0},
-    {"label": "Ratio C", "var": "ratioC", "unit": "", "group": "Calibration", "min": 0.001, "max": 1000.0},
-    {"label": "Ratio D", "var": "ratioD", "unit": "", "group": "Calibration", "min": 0.001, "max": 1000.0},
-    {"label": "Counts/Rev A", "var": "ctsRevA", "unit": "cts", "group": "Calibration", "min": 1.0, "max": 1000000.0},
-    {"label": "Counts/Rev B", "var": "ctsRevB", "unit": "cts", "group": "Calibration", "min": 1.0, "max": 1000000.0},
-    {"label": "Counts/Rev C", "var": "ctsRevC", "unit": "cts", "group": "Calibration", "min": 1.0, "max": 1000000.0},
-    {"label": "Counts/Rev D", "var": "ctsRevD", "unit": "cts", "group": "Calibration", "min": 1.0, "max": 1000000.0},
-]
-
-# Build lookup dict by var name
-_PARAM_BY_VAR: Dict[str, dict] = {p["var"]: p for p in PARAM_DEFS}
 
 # Groups that reject zero values (calibration params)
 _ZERO_REJECT_GROUPS = {"Calibration"}
@@ -60,6 +33,7 @@ BORDER_AMBER = [0.980, 0.749, 0.043, 0.9]
 BORDER_RED = [0.900, 0.200, 0.200, 0.9]
 
 # Group accent colors for card headers and left-edge stripe
+# Consistent across all machine types (same physical meaning per group name)
 GROUP_COLORS: dict[str, list[float]] = {
     "Geometry":    [0.980, 0.569, 0.043, 1],   # orange
     "Feedrates":   [0.024, 0.714, 0.831, 1],   # cyan
@@ -79,8 +53,9 @@ class ParametersScreen(Screen):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # Param defs dict -- keyed by var name
-        self._param_defs: Dict[str, dict] = _PARAM_BY_VAR.copy()
+        # Param defs dict -- keyed by var name; built from mc.get_param_defs()
+        # at on_pre_enter time (not import time), so it reflects the active type
+        self._param_defs: Dict[str, dict] = {}
         # Last known controller values {var_name: float}
         self._controller_vals: Dict[str, float] = {}
         # User-edited strings not yet applied {var_name: str}
@@ -182,8 +157,9 @@ class ParametersScreen(Screen):
         if self.state is not None and self.state.cycle_running:
             return
 
-        # Snapshot dirty dict before background job
+        # Snapshot dirty dict and param defs before background job
         dirty_snapshot = dict(self._dirty)
+        param_defs_snapshot = mc.get_param_defs()
 
         def _job():
             ctrl = self.controller
@@ -197,9 +173,9 @@ class ParametersScreen(Screen):
                 except Exception:
                     pass
 
-            # Read back all params
+            # Read back all params for active machine type
             new_vals: Dict[str, float] = {}
-            for p in PARAM_DEFS:
+            for p in param_defs_snapshot:
                 var = p['var']
                 try:
                     raw = ctrl.cmd(f"MG {var}")
@@ -229,9 +205,15 @@ class ParametersScreen(Screen):
     # ---------------------------------------------------------------------------
 
     def read_from_controller(self) -> None:
-        """Refresh all parameter values from the controller."""
+        """Refresh all parameter values from the controller.
+
+        Reads only the vars defined for the active machine type.
+        """
         if self.controller is None:
             return
+
+        # Snapshot current param defs for the background job
+        param_defs_snapshot = mc.get_param_defs()
 
         def _job():
             ctrl = self.controller
@@ -239,7 +221,7 @@ class ParametersScreen(Screen):
                 return
 
             new_vals: Dict[str, float] = {}
-            for p in PARAM_DEFS:
+            for p in param_defs_snapshot:
                 var = p['var']
                 try:
                     raw = ctrl.cmd(f"MG {var}")
@@ -299,11 +281,45 @@ class ParametersScreen(Screen):
         return readonly
 
     # ---------------------------------------------------------------------------
+    # Machine type rebuild
+    # ---------------------------------------------------------------------------
+
+    def _rebuild_for_machine_type(self) -> None:
+        """Rebuild parameter cards for the current active machine type.
+
+        Clears and rebuilds all state that depends on PARAM_DEFS so that
+        hot-swapping machine type and entering this screen shows the correct
+        parameters.
+
+        Called at the START of on_pre_enter, before _apply_role_mode and
+        read_from_controller.
+        """
+        # Rebuild instance-level param dict from machine_config
+        try:
+            param_defs = mc.get_param_defs()
+        except ValueError:
+            # machine_config not configured — keep existing state
+            return
+
+        self._param_defs = {p["var"]: p for p in param_defs}
+
+        # Reset dirty tracking and field widgets (cards will be rebuilt)
+        self._field_widgets.clear()
+        self._dirty.clear()
+        self.pending_count = 0
+
+        # Rebuild the card UI
+        self.build_param_cards()
+
+    # ---------------------------------------------------------------------------
     # Screen lifecycle
     # ---------------------------------------------------------------------------
 
     def on_pre_enter(self, *args):
-        """Apply role mode and refresh values when screen is entered."""
+        """Rebuild cards for active machine type, apply role mode, then refresh values."""
+        # Rebuild first — must run before role mode and controller read
+        self._rebuild_for_machine_type()
+
         setup_unlocked = True
         if self.state is not None:
             setup_unlocked = self.state.setup_unlocked
@@ -311,12 +327,16 @@ class ParametersScreen(Screen):
         self.read_from_controller()
 
     def on_kv_post(self, base_widget):
-        """Build parameter cards after KV post."""
+        """Build parameter cards after KV post (initial load only)."""
         super().on_kv_post(base_widget)
         self.build_param_cards()
 
     def build_param_cards(self) -> None:
-        """Build grouped parameter cards dynamically in the cards_container."""
+        """Build grouped parameter cards dynamically in the cards_container.
+
+        Reads from mc.get_param_defs() to get the current machine type's params.
+        Clears the container before rebuilding to handle hot-swap without duplicates.
+        """
         from collections import OrderedDict
 
         try:
@@ -327,6 +347,13 @@ class ParametersScreen(Screen):
         if container is None:
             return
 
+        # Get param defs for active machine type
+        try:
+            param_defs = mc.get_param_defs()
+        except ValueError:
+            # machine_config not configured yet — use empty list (no cards)
+            param_defs = []
+
         from kivy.graphics import Color, RoundedRectangle, Rectangle
         from kivy.uix.boxlayout import BoxLayout
         from kivy.uix.label import Label
@@ -335,10 +362,14 @@ class ParametersScreen(Screen):
 
         # Group params preserving order
         groups: OrderedDict[str, list] = OrderedDict()
-        for p in PARAM_DEFS:
+        for p in param_defs:
             groups.setdefault(p['group'], []).append(p)
 
+        # Clear existing cards (handles rebuild on hot-swap)
         container.clear_widgets()
+
+        # Also clear field widget refs since we're rebuilding
+        self._field_widgets.clear()
 
         for group_name, params in groups.items():
             accent = GROUP_COLORS.get(group_name, [0.5, 0.5, 0.5, 1])

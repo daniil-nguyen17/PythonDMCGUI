@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-04-04T06:30:00.000Z"
-last_activity: 2026-04-04 — Plan 01-02 complete: app shell StatusBar+TabBar+ScreenManager with NoTransition
+stopped_at: Completed 01-03-PLAN.md
+last_updated: "2026-04-04T06:34:35Z"
+last_activity: 2026-04-04 — Plan 01-03 complete: PIN overlay auth flow wired, role-gated tabs, idle auto-lock
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 4
-  completed_plans: 2
-  percent: 5
+  completed_plans: 3
+  percent: 8
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-04)
 ## Current Position
 
 Phase: 1 of 8 (Auth and Navigation)
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-04-04 — Plan 01-02 complete: app shell StatusBar+TabBar+ScreenManager with NoTransition
+Last activity: 2026-04-04 — Plan 01-03 complete: PIN overlay auth flow, role-gated tabs, idle auto-lock
 
-Progress: [█░░░░░░░░░] 5%
+Progress: [█░░░░░░░░░] 8%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [█░░░░░░░░░] 5%
 *Updated after each plan completion*
 | Phase 01 P01 | 2 | 2 tasks | 8 files |
 | Phase 01 P02 | 2 min | 2 tasks | 16 files |
+| Phase 01 P03 | 4 min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,9 @@ Recent decisions affecting current work:
 - [Phase 01-02]: Old screen files kept on disk (removed from imports only) to preserve git history for uncommitted changes
 - [Phase 01-02]: TabBar defaults to admin role until Plan 03 wires real auth
 - [Phase 01-02]: StatusBar.update_from_state uses getattr defaults — tolerates MachineState without current_user/current_role
+- [Phase 01-03]: PINOverlay user list uses opacity/disabled swap — avoids removing/re-adding widgets which can lose KV id bindings
+- [Phase 01-03]: TabBar now defaults to operator role (real auth replaces temporary admin default from Plan 02)
+- [Phase 01-03]: _tabs_for_role is a staticmethod for pure-Python testability without Kivy event loop
 
 ### Pending Todos
 
@@ -83,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-04T06:30:00.000Z
-Stopped at: Completed 01-02-PLAN.md
-Resume file: .planning/phases/01-auth-and-navigation/01-02-SUMMARY.md
+Last session: 2026-04-04T06:34:35Z
+Stopped at: Completed 01-03-PLAN.md
+Resume file: .planning/phases/01-auth-and-navigation/01-03-SUMMARY.md

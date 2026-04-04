@@ -33,12 +33,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Operator sees only the Run tab; Setup sees Run, Axes Setup, and Parameters; tab bar updates immediately on role change
   4. Setup user can tap a PIN overlay on any restricted tab to unlock access, and access re-locks automatically after the configured inactivity timeout
   5. E-STOP button, connection status, and current user/role are visible on every screen at all times
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 - [x] 01-01-PLAN.md — AuthManager + MachineState auth extension (pure Python + tests)
 - [x] 01-02-PLAN.md — New app shell: StatusBar + TabBar + placeholder screens
-- [ ] 01-03-PLAN.md — PIN overlay, auth flow wiring, role-gated tabs, auto-lock
+- [x] 01-03-PLAN.md — PIN overlay, auth flow wiring, role-gated tabs, auto-lock
 - [ ] 01-04-PLAN.md — Visual/functional verification checkpoint
 
 ### Phase 2: RUN Page
@@ -128,7 +128,7 @@ Note: Phase 3 depends on Phase 2; Phase 4 depends on Phase 1 (not Phase 2/3 — 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Auth and Navigation | 1/4 | In Progress|  |
+| 1. Auth and Navigation | 3/4 | In Progress|  |
 | 2. RUN Page | 0/TBD | Not started | - |
 | 3. Live Matplotlib Plot | 0/TBD | Not started | - |
 | 4. Axes Setup and Parameters | 0/TBD | Not started | - |

@@ -19,13 +19,14 @@ class TabBar(BoxLayout):
         ("run", "Run"),
         ("axes_setup", "Axes Setup"),
         ("parameters", "Parameters"),
+        ("profiles", "Profiles"),
         ("diagnostics", "Diagnostics"),
     ]
 
     ROLE_TABS = {
         "operator": ["run"],
-        "setup": ["run", "axes_setup", "parameters"],
-        "admin": ["run", "axes_setup", "parameters", "diagnostics"],
+        "setup": ["run", "axes_setup", "parameters", "profiles"],
+        "admin": ["run", "axes_setup", "parameters", "profiles", "diagnostics"],
     }
 
     _current_role: str = ""

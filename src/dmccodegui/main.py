@@ -51,6 +51,7 @@ KV_FILES = [
     "ui/run.kv",           # RunScreen placeholder
     "ui/axes_setup.kv",    # AxesSetupScreen placeholder
     "ui/parameters.kv",    # ParametersScreen placeholder
+    "ui/profiles.kv",      # ProfilesScreen (CSV import/export)
     "ui/diagnostics.kv",   # DiagnosticsScreen placeholder
     "ui/base.kv",          # RootLayout - always last
 ]

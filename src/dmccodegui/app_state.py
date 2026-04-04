@@ -19,6 +19,11 @@ class MachineState:
     arrays: Dict[str, List[float]] = field(default_factory=dict)
     taught_points: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
+    # Auth fields
+    current_user: str = ""
+    current_role: str = ""  # values: "operator" | "setup" | "admin" | ""
+    setup_unlocked: bool = False
+
     _listeners: List[ChangeListener] = field(default_factory=list, repr=False)
 
     def subscribe(self, fn: ChangeListener) -> Callable[[], None]:
@@ -59,5 +64,18 @@ class MachineState:
 
     def clear_messages(self) -> None:
         self.messages.clear()
+        self.notify()
+
+    # Auth updaters
+    def set_auth(self, user: str, role: str) -> None:
+        """Set authenticated user and role, updating setup lock state."""
+        self.current_user = user
+        self.current_role = role
+        self.setup_unlocked = role in ("setup", "admin")
+        self.notify()
+
+    def lock_setup(self) -> None:
+        """Clear setup access, keeping user/role intact."""
+        self.setup_unlocked = False
         self.notify()
 

@@ -7,10 +7,10 @@ selectable step sizes (10mm/5mm/1mm), teach rest/start points for all axes at on
 (capturing all 4 axes in one operation), and trigger quick action commands.
 
 AXIS DEFINITIONS:
-  A — Feed axis
-  B — Lift axis
-  C — Cross axis
-  D — Rotation axis
+  A — Knife Length
+  B — Knife Curve
+  C — Grinder Up/Down
+  D — Knife Angle
 
 CPM (Counts Per Millimeter):
   Each axis has a CPM value that converts mm steps to encoder counts.
@@ -71,10 +71,10 @@ AXIS_CPM_DEFAULTS: dict[str, float] = {
 
 # Axis display names used in the sidebar
 AXIS_LABELS: dict[str, str] = {
-    "A": "A  Feed",
-    "B": "B  Lift",
-    "C": "C  Cross",
-    "D": "D  Rotation",
+    "A": "A  Knife Length",
+    "B": "B  Knife Curve",
+    "C": "C  Grinder Up/Down",
+    "D": "D  Knife Angle",
 }
 
 # Axis accent colors (r, g, b, a) matching theme.kv comments

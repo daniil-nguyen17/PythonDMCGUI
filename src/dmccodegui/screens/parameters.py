@@ -43,18 +43,6 @@ PARAM_DEFS = [
     {"label": "Counts/Rev B", "var": "ctsRevB", "unit": "cts", "group": "Calibration", "min": 1.0, "max": 1000000.0},
     {"label": "Counts/Rev C", "var": "ctsRevC", "unit": "cts", "group": "Calibration", "min": 1.0, "max": 1000000.0},
     {"label": "Counts/Rev D", "var": "ctsRevD", "unit": "cts", "group": "Calibration", "min": 1.0, "max": 1000000.0},
-    # Positions group -- rest and start points for all 4 axes
-    {"label": "Rest Position A", "var": "restPtA", "unit": "mm", "group": "Positions", "min": -100000.0, "max": 100000.0},
-    {"label": "Rest Position B", "var": "restPtB", "unit": "mm", "group": "Positions", "min": -100000.0, "max": 100000.0},
-    {"label": "Rest Position C", "var": "restPtC", "unit": "mm", "group": "Positions", "min": -100000.0, "max": 100000.0},
-    {"label": "Rest Position D", "var": "restPtD", "unit": "deg", "group": "Positions", "min": -100000.0, "max": 100000.0},
-    {"label": "Start Position A", "var": "startPtA", "unit": "mm", "group": "Positions", "min": -100000.0, "max": 100000.0},
-    {"label": "Start Position B", "var": "startPtB", "unit": "mm", "group": "Positions", "min": -100000.0, "max": 100000.0},
-    {"label": "Start Position C", "var": "startPtC", "unit": "mm", "group": "Positions", "min": -100000.0, "max": 100000.0},
-    {"label": "Start Position D", "var": "startPtD", "unit": "deg", "group": "Positions", "min": -100000.0, "max": 100000.0},
-    # Safety group -- limit back-off and position error tolerance
-    {"label": "Limit Back-Off", "var": "backOff", "unit": "mm", "group": "Safety", "min": 0.1, "max": 100.0},
-    {"label": "Position Error Tolerance", "var": "pertol", "unit": "cts", "group": "Safety", "min": 1.0, "max": 100000.0},
 ]
 
 # Build lookup dict by var name
@@ -64,12 +52,19 @@ _PARAM_BY_VAR: Dict[str, dict] = {p["var"]: p for p in PARAM_DEFS}
 _ZERO_REJECT_GROUPS = {"Calibration"}
 
 # Groups that reject negative values
-_NEGATIVE_REJECT_GROUPS = {"Feedrates", "Calibration", "Safety"}
+_NEGATIVE_REJECT_GROUPS = {"Feedrates", "Calibration"}
 
 # Border color constants
 BORDER_NORMAL = [0.118, 0.145, 0.188, 1]
 BORDER_AMBER = [0.980, 0.749, 0.043, 0.9]
 BORDER_RED = [0.900, 0.200, 0.200, 0.9]
+
+# Group accent colors for card headers and left-edge stripe
+GROUP_COLORS: dict[str, list[float]] = {
+    "Geometry":    [0.980, 0.569, 0.043, 1],   # orange
+    "Feedrates":   [0.024, 0.714, 0.831, 1],   # cyan
+    "Calibration": [0.659, 0.333, 0.965, 1],   # purple
+}
 
 
 class ParametersScreen(Screen):
@@ -332,9 +327,11 @@ class ParametersScreen(Screen):
         if container is None:
             return
 
+        from kivy.graphics import Color, RoundedRectangle, Rectangle
         from kivy.uix.boxlayout import BoxLayout
         from kivy.uix.label import Label
         from kivy.uix.textinput import TextInput
+        from kivy.uix.widget import Widget
 
         # Group params preserving order
         groups: OrderedDict[str, list] = OrderedDict()
@@ -344,16 +341,42 @@ class ParametersScreen(Screen):
         container.clear_widgets()
 
         for group_name, params in groups.items():
-            # Card frame -- use bg_panel styled box
+            accent = GROUP_COLORS.get(group_name, [0.5, 0.5, 0.5, 1])
+
+            # Card wrapper with left color stripe
+            card_wrapper = BoxLayout(
+                orientation='horizontal',
+                size_hint_y=None,
+                spacing=0,
+            )
+            card_wrapper.bind(minimum_height=card_wrapper.setter('height'))
+
+            # Left accent stripe
+            stripe = Widget(size_hint_x=None, width=6, size_hint_y=1)
+            with stripe.canvas.before:
+                Color(rgba=accent)
+                _rect = RoundedRectangle(pos=stripe.pos, size=stripe.size, radius=[3, 0, 0, 3])
+            stripe.bind(pos=lambda w, v, r=_rect: setattr(r, 'pos', v))
+            stripe.bind(size=lambda w, v, r=_rect: setattr(r, 'size', v))
+            card_wrapper.add_widget(stripe)
+
+            # Card body
             card = BoxLayout(
                 orientation='vertical',
-                padding=12,
+                padding=[12, 12, 12, 12],
                 spacing=6,
                 size_hint_y=None,
             )
             card.bind(minimum_height=card.setter('height'))
 
-            # Group header
+            # Card background
+            with card.canvas.before:
+                Color(rgba=[0.051, 0.071, 0.102, 1])
+                _bg = Rectangle(pos=card.pos, size=card.size)
+            card.bind(pos=lambda w, v, r=_bg: setattr(r, 'pos', v))
+            card.bind(size=lambda w, v, r=_bg: setattr(r, 'size', v))
+
+            # Group header with accent color
             header = Label(
                 text=group_name,
                 font_size='22sp',
@@ -362,6 +385,7 @@ class ParametersScreen(Screen):
                 height=40,
                 halign='left',
                 valign='middle',
+                color=accent,
             )
             header.bind(size=header.setter('text_size'))
             card.add_widget(header)
@@ -392,6 +416,7 @@ class ParametersScreen(Screen):
                     size_hint_x=0.15,
                     halign='center',
                     valign='middle',
+                    color=[accent[0], accent[1], accent[2], 0.6],
                 )
                 var_lbl.bind(size=var_lbl.setter('text_size'))
                 row.add_widget(var_lbl)
@@ -422,4 +447,5 @@ class ParametersScreen(Screen):
 
                 card.add_widget(row)
 
-            container.add_widget(card)
+            card_wrapper.add_widget(card)
+            container.add_widget(card_wrapper)

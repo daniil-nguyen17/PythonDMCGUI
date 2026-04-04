@@ -1,4 +1,5 @@
 #:import theme dmccodegui.theme_manager.theme
+#:import dp kivy.metrics.dp
 
 # ──────────────────────────────────────────────────────────────────────────────
 # AxesSetupScreen
@@ -31,7 +32,7 @@
 
             # Axis selector group
             ToggleButton:
-                text: 'A  Feed'
+                text: 'A  Knife Length'
                 group: 'axis_sel'
                 state: 'down'
                 font_size: '20sp'
@@ -48,10 +49,10 @@
                         rgba: (0.980, 0.569, 0.043, 1) if self.state == 'down' else (0, 0, 0, 0)
                     Rectangle:
                         pos: self.x, self.y
-                        size: '4dp', self.height
+                        size: dp(4), self.height
 
             ToggleButton:
-                text: 'B  Lift'
+                text: 'B  Knife Curve'
                 group: 'axis_sel'
                 font_size: '20sp'
                 bold: True
@@ -67,10 +68,10 @@
                         rgba: (0.659, 0.333, 0.965, 1) if self.state == 'down' else (0, 0, 0, 0)
                     Rectangle:
                         pos: self.x, self.y
-                        size: '4dp', self.height
+                        size: dp(4), self.height
 
             ToggleButton:
-                text: 'C  Cross'
+                text: 'C  Grinder Up/Down'
                 group: 'axis_sel'
                 font_size: '20sp'
                 bold: True
@@ -86,10 +87,10 @@
                         rgba: (0.024, 0.714, 0.831, 1) if self.state == 'down' else (0, 0, 0, 0)
                     Rectangle:
                         pos: self.x, self.y
-                        size: '4dp', self.height
+                        size: dp(4), self.height
 
             ToggleButton:
-                text: 'D  Rotation'
+                text: 'D  Knife Angle'
                 group: 'axis_sel'
                 font_size: '20sp'
                 bold: True
@@ -105,7 +106,7 @@
                         rgba: (0.980, 0.749, 0.043, 1) if self.state == 'down' else (0, 0, 0, 0)
                     Rectangle:
                         pos: self.x, self.y
-                        size: '4dp', self.height
+                        size: dp(4), self.height
 
             # Divider between axis select and quick actions
             Widget:
@@ -320,7 +321,7 @@
                         font_size: '36sp'
                         bold: True
                         size_hint: None, None
-                        size: '100dp', '100dp'
+                        size: dp(100), dp(100)
                         background_color: theme.bg_panel
                         color: theme.text_main
                         on_release: root.jog_axis(root._selected_axis, -1)
@@ -335,7 +336,7 @@
                     BoxLayout:
                         orientation: 'vertical'
                         size_hint: None, None
-                        size: '140dp', '100dp'
+                        size: dp(140), dp(100)
                         spacing: '2dp'
 
                         Label:
@@ -383,7 +384,7 @@
                         font_size: '36sp'
                         bold: True
                         size_hint: None, None
-                        size: '100dp', '100dp'
+                        size: dp(100), dp(100)
                         background_color: theme.bg_panel
                         color: theme.text_main
                         on_release: root.jog_axis(root._selected_axis, 1)

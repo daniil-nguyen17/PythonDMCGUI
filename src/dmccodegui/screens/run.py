@@ -17,6 +17,7 @@ from kivy.uix.screenmanager import Screen
 from kivy.uix.widget import Widget
 from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator
+import matplotlib.pyplot  # noqa: F401 — required by kivy_matplotlib_widget internals
 import kivy_matplotlib_widget  # noqa: F401 — registers MatplotFigure in Kivy Factory
 
 from ..app_state import MachineState

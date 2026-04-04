@@ -28,8 +28,6 @@ def test_param_groups_defined():
     assert 'Geometry' in groups, "Missing Geometry group"
     assert 'Feedrates' in groups, "Missing Feedrates group"
     assert 'Calibration' in groups, "Missing Calibration group"
-    assert 'Positions' in groups, "Missing Positions group"
-    assert 'Safety' in groups, "Missing Safety group"
 
 
 def test_param_def_structure():
@@ -40,25 +38,6 @@ def test_param_def_structure():
     for p in PARAM_DEFS:
         missing = required_keys - set(p.keys())
         assert not missing, f"Param {p.get('var', '?')} missing keys: {missing}"
-
-
-def test_positions_group_has_rest_start():
-    """PARAM-01: Positions group contains restPtA/B/C/D and startPtA/B/C/D entries."""
-    _setup_env()
-    from dmccodegui.screens.parameters import PARAM_DEFS
-    pos_vars = {p['var'] for p in PARAM_DEFS if p['group'] == 'Positions'}
-    for axis in ('A', 'B', 'C', 'D'):
-        assert f'restPt{axis}' in pos_vars, f"Missing restPt{axis} in Positions group"
-        assert f'startPt{axis}' in pos_vars, f"Missing startPt{axis} in Positions group"
-
-
-def test_safety_group_has_backoff_pertol():
-    """PARAM-01: Safety group contains backOff and pertol entries."""
-    _setup_env()
-    from dmccodegui.screens.parameters import PARAM_DEFS
-    safety_vars = {p['var'] for p in PARAM_DEFS if p['group'] == 'Safety'}
-    assert 'backOff' in safety_vars, "Missing backOff in Safety group"
-    assert 'pertol' in safety_vars, "Missing pertol in Safety group"
 
 
 # ---------------------------------------------------------------------------

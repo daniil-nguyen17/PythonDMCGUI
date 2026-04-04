@@ -1,16 +1,16 @@
-"""CSV Profile Engine — pure Python, no Kivy dependency.
+"""CSV Profile Engine + ProfilesScreen UI.
 
-Provides export, import parsing, diff computation, and validation for
-knife-profile CSV files. All functions are testable headless.
-
-This module is the foundation for Plan 02 (ProfilesScreen UI).
+Pure-Python CSV engine (export, parse, diff, validate) plus the Kivy
+ProfilesScreen that wires the engine to the controller.  The engine
+functions are testable headless; the Kivy classes are only imported when
+a Kivy event loop is present.
 """
 from __future__ import annotations
 
 import csv
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Optional
 
 from dmccodegui.screens.parameters import PARAM_DEFS
 
@@ -284,3 +284,498 @@ def validate_import(parsed: dict) -> list[str]:
             )
 
     return errors
+
+
+# ---------------------------------------------------------------------------
+# Profiles directory helper
+# ---------------------------------------------------------------------------
+
+def get_profiles_dir() -> Path:
+    """Return the project-root ``profiles/`` directory, creating it if needed.
+
+    The path is resolved from this file's location rather than cwd so it
+    works regardless of the working directory the app is launched from.
+    """
+    # src/dmccodegui/screens/profiles.py  ->  4 parents up = project root
+    project_root = Path(__file__).resolve().parent.parent.parent.parent
+    profiles_dir = project_root / "profiles"
+    profiles_dir.mkdir(exist_ok=True)
+    return profiles_dir
+
+
+# ---------------------------------------------------------------------------
+# Kivy UI classes — only imported when a Kivy event loop is present
+# ---------------------------------------------------------------------------
+
+try:
+    from kivy.clock import Clock
+    from kivy.properties import ObjectProperty, StringProperty
+    from kivy.uix.modalview import ModalView
+    from kivy.uix.screenmanager import Screen
+
+    from dmccodegui.utils import jobs
+
+    # ------------------------------------------------------------------
+    # FileChooserOverlay
+    # ------------------------------------------------------------------
+
+    class FileChooserOverlay(ModalView):
+        """Modal file chooser for selecting a profile CSV.
+
+        The ``on_file_selected`` callback receives the selected file path
+        as its sole argument.
+        """
+
+        on_file_selected: Optional[Callable[[str], None]] = None
+
+        def confirm_selection(self) -> None:
+            """Dismiss overlay and invoke the callback with the chosen path."""
+            try:
+                chooser = self.ids.chooser
+                if chooser.selection:
+                    path = chooser.selection[0]
+                    self.dismiss()
+                    if callable(self.on_file_selected):
+                        self.on_file_selected(path)
+            except Exception:
+                self.dismiss()
+
+    # ------------------------------------------------------------------
+    # DiffDialog
+    # ------------------------------------------------------------------
+
+    class DiffDialog(ModalView):
+        """Modal diff dialog showing changed values before import.
+
+        The ``on_apply`` callback is invoked when the user confirms import.
+        """
+
+        on_apply: Optional[Callable[[], None]] = None
+
+        def build_diff_table(self, changes: list) -> None:
+            """Populate the diff grid with one row per changed parameter.
+
+            Each change dict must have keys: 'name', 'current', 'new'.
+            """
+            from kivy.uix.label import Label
+
+            try:
+                grid = self.ids.diff_grid
+            except Exception:
+                return
+
+            grid.clear_widgets()
+
+            # Header row
+            for text, color in [
+                ("Parameter", [0.4, 0.8, 1.0, 1]),
+                ("Current",   [0.9, 0.9, 0.9, 1]),
+                ("New",       [0.133, 0.773, 0.369, 1]),
+            ]:
+                lbl = Label(
+                    text=text,
+                    bold=True,
+                    font_size="16sp",
+                    color=color,
+                    size_hint_y=None,
+                    height="36dp",
+                    halign="center",
+                    valign="middle",
+                )
+                lbl.bind(size=lbl.setter("text_size"))
+                grid.add_widget(lbl)
+
+            # Data rows
+            for ch in changes:
+                for col_key, col_color in [
+                    ("name",    [0.9, 0.9, 0.9, 1]),
+                    ("current", [0.7, 0.7, 0.7, 1]),
+                    ("new",     [0.133, 0.773, 0.369, 1]),
+                ]:
+                    lbl = Label(
+                        text=str(ch.get(col_key, "")),
+                        font_size="15sp",
+                        color=col_color,
+                        size_hint_y=None,
+                        height="32dp",
+                        halign="center",
+                        valign="middle",
+                    )
+                    lbl.bind(size=lbl.setter("text_size"))
+                    grid.add_widget(lbl)
+
+        def apply_changes(self) -> None:
+            """Dismiss and trigger the on_apply callback."""
+            self.dismiss()
+            if callable(self.on_apply):
+                self.on_apply()
+
+    # ------------------------------------------------------------------
+    # ProfilesScreen
+    # ------------------------------------------------------------------
+
+    class ProfilesScreen(Screen):
+        """Kivy Screen for importing and exporting knife profiles."""
+
+        controller = ObjectProperty(None, allownone=True)
+        state = ObjectProperty(None, allownone=True)
+
+        # Status label text updated after export/import operations
+        status_text = StringProperty("")
+
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self._unsubscribe: Optional[Callable[[], None]] = None
+            # Retain last parsed CSV data between parse and apply steps
+            self._pending_parsed: Optional[dict] = None
+
+        # ------------------------------------------------------------------
+        # Lifecycle
+        # ------------------------------------------------------------------
+
+        def on_pre_enter(self, *args) -> None:
+            """Subscribe to state changes and update import button interlock."""
+            if self.state is not None:
+                self._unsubscribe = self.state.subscribe(
+                    lambda s: Clock.schedule_once(lambda *_: self._update_import_button())
+                )
+            self._update_import_button()
+
+        def on_leave(self, *args) -> None:
+            """Unsubscribe from state changes when leaving the screen."""
+            if self._unsubscribe is not None:
+                self._unsubscribe()
+                self._unsubscribe = None
+
+        # ------------------------------------------------------------------
+        # Role mode (no-op — tab visibility handles role gating)
+        # ------------------------------------------------------------------
+
+        def _apply_role_mode(self, setup_unlocked: bool) -> None:
+            """No-op: tab visibility restricts access to Setup/Admin only."""
+
+        # ------------------------------------------------------------------
+        # Import button interlock
+        # ------------------------------------------------------------------
+
+        def _update_import_button(self) -> None:
+            """Disable import button while a cycle is running."""
+            try:
+                btn = self.ids.import_btn
+            except Exception:
+                return
+            cycle_running = (
+                self.state is not None and self.state.cycle_running
+            )
+            btn.disabled = cycle_running
+            btn.opacity = 0.4 if cycle_running else 1.0
+
+        # ------------------------------------------------------------------
+        # Export flow
+        # ------------------------------------------------------------------
+
+        def on_export_press(self) -> None:
+            """Show the export name popup."""
+            from kivy.uix.popup import Popup
+            from kivy.uix.boxlayout import BoxLayout
+            from kivy.uix.textinput import TextInput
+            from kivy.uix.button import Button
+            from kivy.uix.label import Label
+
+            content = BoxLayout(orientation="vertical", padding="12dp", spacing="10dp")
+            lbl = Label(
+                text="Enter profile name:",
+                font_size="18sp",
+                size_hint_y=None,
+                height="36dp",
+                halign="left",
+                valign="middle",
+            )
+            lbl.bind(size=lbl.setter("text_size"))
+            content.add_widget(lbl)
+
+            ti = TextInput(
+                multiline=False,
+                font_size="20sp",
+                size_hint_y=None,
+                height="48dp",
+            )
+            content.add_widget(ti)
+
+            btn_row = BoxLayout(
+                orientation="horizontal",
+                size_hint_y=None,
+                height="52dp",
+                spacing="12dp",
+            )
+            save_btn = Button(
+                text="Save",
+                font_size="18sp",
+                background_normal="",
+                background_color=(0.133, 0.773, 0.369, 1),
+            )
+            cancel_btn = Button(
+                text="Cancel",
+                font_size="18sp",
+                background_normal="",
+                background_color=(0.4, 0.4, 0.4, 1),
+            )
+            btn_row.add_widget(save_btn)
+            btn_row.add_widget(cancel_btn)
+            content.add_widget(btn_row)
+
+            popup = Popup(
+                title="Export Profile",
+                content=content,
+                size_hint=(0.5, 0.4),
+                auto_dismiss=False,
+            )
+            save_btn.bind(on_release=lambda *_: (popup.dismiss(), self._do_export(ti.text.strip())))
+            cancel_btn.bind(on_release=lambda *_: popup.dismiss())
+            popup.open()
+
+        def _do_export(self, profile_name: str) -> None:
+            """Validate name, check overwrite, then trigger export."""
+            if not profile_name:
+                self.status_text = "Export cancelled: profile name cannot be empty."
+                return
+
+            path = get_profiles_dir() / f"{profile_name}.csv"
+
+            if path.exists():
+                self._confirm_overwrite(path, profile_name)
+            else:
+                self._run_export(path, profile_name)
+
+        def _confirm_overwrite(self, path: Path, profile_name: str) -> None:
+            """Show overwrite confirmation popup."""
+            from kivy.uix.popup import Popup
+            from kivy.uix.boxlayout import BoxLayout
+            from kivy.uix.button import Button
+            from kivy.uix.label import Label
+
+            content = BoxLayout(orientation="vertical", padding="12dp", spacing="10dp")
+            lbl = Label(
+                text=f"'{profile_name}.csv' already exists.\nOverwrite?",
+                font_size="18sp",
+                halign="center",
+                valign="middle",
+            )
+            lbl.bind(size=lbl.setter("text_size"))
+            content.add_widget(lbl)
+
+            btn_row = BoxLayout(
+                orientation="horizontal",
+                size_hint_y=None,
+                height="52dp",
+                spacing="12dp",
+            )
+            overwrite_btn = Button(
+                text="Overwrite",
+                font_size="18sp",
+                background_normal="",
+                background_color=(0.9, 0.3, 0.3, 1),
+            )
+            cancel_btn = Button(
+                text="Cancel",
+                font_size="18sp",
+                background_normal="",
+                background_color=(0.4, 0.4, 0.4, 1),
+            )
+            btn_row.add_widget(overwrite_btn)
+            btn_row.add_widget(cancel_btn)
+            content.add_widget(btn_row)
+
+            popup = Popup(
+                title="Overwrite Profile?",
+                content=content,
+                size_hint=(0.5, 0.35),
+                auto_dismiss=False,
+            )
+            overwrite_btn.bind(on_release=lambda *_: (popup.dismiss(), self._run_export(path, profile_name)))
+            cancel_btn.bind(on_release=lambda *_: popup.dismiss())
+            popup.open()
+
+        def _run_export(self, path: Path, profile_name: str) -> None:
+            """Read all scalars and arrays from controller in background then write CSV."""
+            if self.controller is None:
+                self.status_text = "Export failed: no controller connected."
+                return
+
+            ctrl = self.controller
+
+            def _job():
+                scalars: dict[str, Any] = {}
+                arrays: dict[str, list] = {}
+
+                # Read scalars
+                for p in PARAM_DEFS:
+                    var = p["var"]
+                    try:
+                        raw = ctrl.cmd(f"MG {var}")
+                        scalars[var] = float(raw.strip())
+                    except Exception:
+                        pass
+
+                # Read arrays
+                for array_name in KNOWN_ARRAYS:
+                    try:
+                        values = ctrl.upload_array_auto(array_name)
+                        if values is not None:
+                            arrays[array_name] = list(values)
+                    except Exception:
+                        arrays[array_name] = []
+
+                # Write CSV
+                try:
+                    export_profile(path, profile_name, scalars, arrays)
+                    msg = f"Exported '{profile_name}' to {path.name}"
+                except Exception as exc:
+                    msg = f"Export failed: {exc}"
+
+                Clock.schedule_once(lambda *_: setattr(self, "status_text", msg))
+
+            jobs.submit(_job)
+            self.status_text = "Exporting…"
+
+        # ------------------------------------------------------------------
+        # Import flow
+        # ------------------------------------------------------------------
+
+        def on_import_press(self) -> None:
+            """Open the file chooser overlay."""
+            overlay = FileChooserOverlay(
+                auto_dismiss=False,
+                size_hint=(1, 1),
+            )
+            overlay.ids.chooser.path = str(get_profiles_dir())
+            overlay.ids.chooser.filters = ["*.csv", "*.CSV"]
+            overlay.on_file_selected = self._on_file_selected
+            overlay.open()
+
+        def _on_file_selected(self, path: str) -> None:
+            """Parse the chosen CSV, validate, read controller values, show diff."""
+            try:
+                parsed = parse_profile_csv(Path(path))
+            except Exception as exc:
+                self._show_error_popup(f"Could not read CSV:\n{exc}")
+                return
+
+            errors = validate_import(parsed)
+            if errors:
+                self._show_error_popup("Import validation failed:\n\n" + "\n".join(errors))
+                return
+
+            # Valid — read current controller values then show diff
+            if self.controller is None:
+                self._show_error_popup("Cannot read current values: no controller connected.")
+                return
+
+            ctrl = self.controller
+            self._pending_parsed = parsed
+
+            def _job():
+                current_scalars: dict[str, Any] = {}
+                current_arrays: dict[str, list] = {}
+
+                for p in PARAM_DEFS:
+                    var = p["var"]
+                    try:
+                        raw = ctrl.cmd(f"MG {var}")
+                        current_scalars[var] = float(raw.strip())
+                    except Exception:
+                        pass
+
+                for array_name in KNOWN_ARRAYS:
+                    try:
+                        values = ctrl.upload_array_auto(array_name)
+                        current_arrays[array_name] = list(values) if values else []
+                    except Exception:
+                        current_arrays[array_name] = []
+
+                changes = compute_diff(
+                    parsed["scalars"], current_scalars,
+                    parsed["arrays"], current_arrays,
+                )
+
+                def _on_ui(*_):
+                    self._show_diff_dialog(parsed, changes)
+
+                Clock.schedule_once(_on_ui)
+
+            jobs.submit(_job)
+            self.status_text = "Reading current values…"
+
+        def _show_diff_dialog(self, parsed: dict, changes: list) -> None:
+            """Display the diff dialog and wire Apply button."""
+            dialog = DiffDialog(auto_dismiss=False, size_hint=(0.9, 0.85))
+
+            def _apply():
+                self._apply_import(parsed)
+
+            dialog.on_apply = _apply
+            dialog.open()
+            dialog.build_diff_table(changes)
+
+        def _apply_import(self, parsed: dict) -> None:
+            """Write CSV values to controller and burn NV in background."""
+            if self.controller is None:
+                self.status_text = "Import failed: no controller connected."
+                return
+
+            ctrl = self.controller
+
+            def _job():
+                # Write scalars
+                for var, val in parsed["scalars"].items():
+                    try:
+                        ctrl.cmd(f"{var}={val}")
+                    except Exception:
+                        pass
+
+                # Write arrays
+                for array_name, values in parsed["arrays"].items():
+                    if values:
+                        try:
+                            ctrl.download_array_full(array_name, values)
+                        except Exception:
+                            pass
+
+                # Burn NV memory
+                try:
+                    ctrl.cmd("BV")
+                    msg = f"Imported profile '{parsed.get('profile_name', '')}' — burned to NV."
+                except Exception as exc:
+                    msg = f"Import applied but BV burn failed: {exc}"
+
+                Clock.schedule_once(lambda *_: setattr(self, "status_text", msg))
+
+            jobs.submit(_job)
+            self.status_text = "Applying import…"
+
+        # ------------------------------------------------------------------
+        # Helpers
+        # ------------------------------------------------------------------
+
+        def _show_error_popup(self, message: str) -> None:
+            """Display an error message in a simple popup."""
+            from kivy.uix.popup import Popup
+            from kivy.uix.label import Label
+
+            lbl = Label(
+                text=message,
+                font_size="17sp",
+                halign="center",
+                valign="middle",
+            )
+            lbl.bind(size=lbl.setter("text_size"))
+            popup = Popup(
+                title="Error",
+                content=lbl,
+                size_hint=(0.6, 0.4),
+            )
+            popup.open()
+
+except ImportError:
+    # Kivy not available (headless test environment) — skip UI classes silently.
+    pass

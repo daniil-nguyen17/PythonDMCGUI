@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Auth and Navigation** - PIN login, three-tier roles, tab bar replacing ActionBar+Spinner
 - [x] **Phase 2: RUN Page** - Cycle controls, live axis positions, cycle status, Knife Grind Adjustment, E-STOP everywhere (completed 2026-04-04)
-- [ ] **Phase 3: Live Matplotlib Plot** - Embedded A/B position plot with Pi performance validation
+- [x] **Phase 3: Live Matplotlib Plot** - Embedded A/B position plot with Pi performance validation (completed 2026-04-04)
 - [ ] **Phase 4: Axes Setup and Parameters** - Unified jog/teach screen and grouped parameter editor for Setup role
 - [ ] **Phase 5: CSV Profile System** - Safe import/export of knife profiles with machine-type validation
 - [ ] **Phase 6: Machine-Type Differentiation** - Full support for Flat Grind, Convex Grind, and Serration Grind variants
@@ -67,7 +67,7 @@ Plans:
   1. A/B axis positions trace a live path on the RUN page at 5-10 Hz with a rolling history buffer
   2. E-STOP button remains immediately responsive while the plot is actively updating (no frozen touch)
   3. Plot renders correctly at both 1920x1080 and typical Pi touchscreen resolutions (800x480, 1024x600)
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 03-01-PLAN.md — MatplotFigure widget, rolling buffer, 5 Hz redraw clock + tests
@@ -139,7 +139,7 @@ Note: Phase 3 depends on Phase 2; Phase 4 depends on Phase 1 (not Phase 2/3 — 
 |-------|----------------|--------|-----------|
 | 1. Auth and Navigation | 3/4 | In Progress|  |
 | 2. RUN Page | 4/4 | Complete   | 2026-04-04 |
-| 3. Live Matplotlib Plot | 0/1 | Not started | - |
+| 3. Live Matplotlib Plot | 1/1 | Complete   | 2026-04-04 |
 | 4. Axes Setup and Parameters | 0/TBD | Not started | - |
 | 5. CSV Profile System | 0/TBD | Not started | - |
 | 6. Machine-Type Differentiation | 0/TBD | Not started | - |

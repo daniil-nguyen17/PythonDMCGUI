@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Live Matplotlib Plot** - Embedded A/B position plot with Pi performance validation (completed 2026-04-04)
 - [x] **Phase 4: Axes Setup and Parameters** - Unified jog/teach screen and grouped parameter editor for Setup role (completed 2026-04-04)
 - [x] **Phase 5: CSV Profile System** - Safe import/export of knife profiles with machine-type validation (completed 2026-04-04)
-- [ ] **Phase 6: Machine-Type Differentiation** - Full support for Flat Grind, Convex Grind, and Serration Grind variants
+- [x] **Phase 6: Machine-Type Differentiation** - Full support for Flat Grind, Convex Grind, and Serration Grind variants (completed 2026-04-04)
 - [ ] **Phase 7: Admin and User Management** - Admin screen for user CRUD and PIN assignment
 - [ ] **Phase 8: Pi Kiosk and Deployment** - Kiosk lockout, systemd autostart, SD card packaging
 
@@ -114,7 +114,7 @@ Plans:
   2. On a 4-Axes Convex Grind deployment, the RUN page and Axes Setup show all four axes with Convex Grind parameter groups
   3. On a 3-Axes Serration Grind deployment, the RUN page and Axes Setup show only the three relevant axes with Serration parameter groups
   4. Machine type is fixed at deployment (hard-coded) — no runtime machine-type selector appears in the UI
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 06-01-PLAN.md — Machine config registry + MachineState extension (TDD)
@@ -157,6 +157,6 @@ Note: Phase 3 depends on Phase 2; Phase 4 depends on Phase 1 (not Phase 2/3 — 
 | 3. Live Matplotlib Plot | 1/1 | Complete   | 2026-04-04 |
 | 4. Axes Setup and Parameters | 3/3 | Complete   | 2026-04-04 |
 | 5. CSV Profile System | 3/3 | Complete   | 2026-04-04 |
-| 6. Machine-Type Differentiation | 2/3 | In Progress|  |
+| 6. Machine-Type Differentiation | 3/3 | Complete   | 2026-04-04 |
 | 7. Admin and User Management | 0/TBD | Not started | - |
 | 8. Pi Kiosk and Deployment | 0/TBD | Not started | - |

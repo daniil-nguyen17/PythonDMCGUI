@@ -66,7 +66,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Machine Types
 
 - [x] **MACH-01**: App supports three machine types: 4-Axes Flat Grind, 4-Axes Convex Grind, 3-Axes Serration Grind
-- [ ] **MACH-02**: Each machine type has its own RUN page layout and parameter groups appropriate to its axis count and workflow
+- [x] **MACH-02**: Each machine type has its own RUN page layout and parameter groups appropriate to its axis count and workflow
 - [x] **MACH-03**: Machine type is determined at deployment time (hard-coded per installation, not runtime-selectable)
 
 ### Theme & Touch
@@ -161,7 +161,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CSV-04 | Phase 5 | Complete |
 | CSV-05 | Phase 5 | Complete |
 | MACH-01 | Phase 6 | Complete |
-| MACH-02 | Phase 6 | Pending |
+| MACH-02 | Phase 6 | Complete |
 | MACH-03 | Phase 6 | Complete |
 | UI-01 | Phase 1 | Pending |
 | UI-02 | Phase 1 | Pending |

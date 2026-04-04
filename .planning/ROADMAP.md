@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Auth and Navigation** - PIN login, three-tier roles, tab bar replacing ActionBar+Spinner
 - [x] **Phase 2: RUN Page** - Cycle controls, live axis positions, cycle status, Knife Grind Adjustment, E-STOP everywhere (completed 2026-04-04)
 - [x] **Phase 3: Live Matplotlib Plot** - Embedded A/B position plot with Pi performance validation (completed 2026-04-04)
-- [ ] **Phase 4: Axes Setup and Parameters** - Unified jog/teach screen and grouped parameter editor for Setup role
+- [x] **Phase 4: Axes Setup and Parameters** - Unified jog/teach screen and grouped parameter editor for Setup role (completed 2026-04-04)
 - [ ] **Phase 5: CSV Profile System** - Safe import/export of knife profiles with machine-type validation
 - [ ] **Phase 6: Machine-Type Differentiation** - Full support for Flat Grind, Convex Grind, and Serration Grind variants
 - [ ] **Phase 7: Admin and User Management** - Admin screen for user CRUD and PIN assignment
@@ -82,7 +82,7 @@ Plans:
   3. Quick action buttons (Go to Rest All, Go to Start All, Home All) move all axes with a single tap
   4. Parameters page shows all values grouped into Geometry, Feedrates, Calibration, Positions, and Safety cards — each row shows human-readable name, DMC code, editable field, and unit
   5. Invalid parameter inputs are flagged with a red border immediately on entry; unsaved changes are highlighted amber with a change counter
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 04-01-PLAN.md — AxesSetupScreen: sidebar, jog, teach, quick actions, live polling + tests
@@ -145,7 +145,7 @@ Note: Phase 3 depends on Phase 2; Phase 4 depends on Phase 1 (not Phase 2/3 — 
 | 1. Auth and Navigation | 3/4 | In Progress|  |
 | 2. RUN Page | 4/4 | Complete   | 2026-04-04 |
 | 3. Live Matplotlib Plot | 1/1 | Complete   | 2026-04-04 |
-| 4. Axes Setup and Parameters | 2/3 | In Progress|  |
+| 4. Axes Setup and Parameters | 3/3 | Complete   | 2026-04-04 |
 | 5. CSV Profile System | 0/TBD | Not started | - |
 | 6. Machine-Type Differentiation | 0/TBD | Not started | - |
 | 7. Admin and User Management | 0/TBD | Not started | - |

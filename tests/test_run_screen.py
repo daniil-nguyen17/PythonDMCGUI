@@ -75,3 +75,80 @@ def test_delta_c_adjustment():
     r = RunScreen()
     assert hasattr(r, 'section_count'), "Missing section_count"
     assert hasattr(r, 'delta_c_offsets'), "Missing delta_c_offsets"
+
+
+# ---------------------------------------------------------------------------
+# RUN-07: Live A/B Position Plot tests
+# ---------------------------------------------------------------------------
+
+def test_plot_hz_constant_exists():
+    """RUN-07: PLOT_UPDATE_HZ constant exists and equals 5."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from dmccodegui.screens.run import PLOT_UPDATE_HZ
+    assert PLOT_UPDATE_HZ == 5, f"Expected PLOT_UPDATE_HZ == 5, got {PLOT_UPDATE_HZ}"
+
+
+def test_plot_buffer_size_constant_exists():
+    """RUN-07: PLOT_BUFFER_SIZE constant exists and is in the valid range 500-1000."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from dmccodegui.screens.run import PLOT_BUFFER_SIZE
+    assert 500 <= PLOT_BUFFER_SIZE <= 1000, (
+        f"Expected 500 <= PLOT_BUFFER_SIZE <= 1000, got {PLOT_BUFFER_SIZE}"
+    )
+
+
+def test_plot_buffer_properties():
+    """RUN-07: RunScreen has _plot_buf_x and _plot_buf_y as deques with correct maxlen."""
+    import collections
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from dmccodegui.screens.run import RunScreen, PLOT_BUFFER_SIZE
+    r = RunScreen()
+    assert hasattr(r, '_plot_buf_x'), "RunScreen missing _plot_buf_x"
+    assert hasattr(r, '_plot_buf_y'), "RunScreen missing _plot_buf_y"
+    assert isinstance(r._plot_buf_x, collections.deque), "_plot_buf_x must be a deque"
+    assert isinstance(r._plot_buf_y, collections.deque), "_plot_buf_y must be a deque"
+    assert r._plot_buf_x.maxlen == PLOT_BUFFER_SIZE, (
+        f"_plot_buf_x.maxlen expected {PLOT_BUFFER_SIZE}, got {r._plot_buf_x.maxlen}"
+    )
+    assert r._plot_buf_y.maxlen == PLOT_BUFFER_SIZE, (
+        f"_plot_buf_y.maxlen expected {PLOT_BUFFER_SIZE}, got {r._plot_buf_y.maxlen}"
+    )
+
+
+def test_plot_buffer_only_during_cycle():
+    """RUN-07: _apply_ui only appends to plot buffers when cycle_running is True."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from dmccodegui.screens.run import RunScreen
+    r = RunScreen()
+    # With cycle_running=False (default), buffer should stay empty
+    r.cycle_running = False
+    r._apply_ui({"A": 100.0, "B": 200.0}, {})
+    assert len(r._plot_buf_x) == 0, "Buffer should be empty when cycle_running is False"
+    assert len(r._plot_buf_y) == 0, "Buffer should be empty when cycle_running is False"
+    # With cycle_running=True, buffer should receive one entry
+    r.cycle_running = True
+    r._apply_ui({"A": 100.0, "B": 200.0}, {})
+    assert len(r._plot_buf_x) == 1, f"Expected 1 entry in _plot_buf_x, got {len(r._plot_buf_x)}"
+    assert len(r._plot_buf_y) == 1, f"Expected 1 entry in _plot_buf_y, got {len(r._plot_buf_y)}"
+
+
+def test_trail_clears_on_start():
+    """RUN-07: on_start_pause_toggle('down') clears both plot buffers."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from dmccodegui.screens.run import RunScreen
+    r = RunScreen()
+    # Manually add data to buffers
+    r._plot_buf_x.append(1.0)
+    r._plot_buf_x.append(2.0)
+    r._plot_buf_y.append(10.0)
+    r._plot_buf_y.append(20.0)
+    assert len(r._plot_buf_x) == 2, "Pre-condition: buffer should have 2 entries"
+    # Trigger start — controller is None so background job will fail silently
+    r.on_start_pause_toggle("down")
+    assert len(r._plot_buf_x) == 0, "_plot_buf_x must be cleared on Start"
+    assert len(r._plot_buf_y) == 0, "_plot_buf_y must be cleared on Start"

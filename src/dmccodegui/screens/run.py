@@ -30,7 +30,6 @@ IS_SERRATION = MACHINE_TYPE == "3axis_serration"
 CYCLE_VAR_TOOTH = "tooth"
 CYCLE_VAR_PASS = "pass_num"
 CYCLE_VAR_DEPTH = "depth"
-CYCLE_VAR_COMPLETION = "pctDone"
 
 # ---------------------------------------------------------------------------
 # Delta-C (Knife Grind Adjustment) constants — Plan 02-02 fills the full panel
@@ -223,14 +222,9 @@ class RunScreen(Screen):
         Reads CPM values once in the background, then starts the 10 Hz poll loop.
         Shows disconnected indicators immediately if no controller.
         """
-        if not self.controller or not self.controller.is_connected():
-            self._show_disconnected()
-        else:
-            jobs.submit(self._read_cpm_values)
-
-        if self._update_clock_event:
-            self._update_clock_event.cancel()
-        self._update_clock_event = Clock.schedule_interval(self._update_clock, 1 / 10.0)
+        # Controller polling disabled — no program loaded yet.
+        # Controller polling disabled — no program loaded yet.
+        self._show_disconnected()
 
     def on_leave(self, *args) -> None:
         """Called by Kivy when operator navigates away. Stops the poll loop."""
@@ -275,12 +269,6 @@ class RunScreen(Screen):
                         cycle[key] = float(raw.strip())
                     except Exception:
                         cycle[key] = None
-
-            try:
-                raw = self.controller.cmd(f"MG {CYCLE_VAR_COMPLETION}")
-                cycle["pct"] = float(raw.strip())
-            except Exception:
-                cycle["pct"] = None
 
             Clock.schedule_once(lambda *_: self._apply_ui(pos, cycle))
 

@@ -67,7 +67,10 @@ Plans:
   1. A/B axis positions trace a live path on the RUN page at 5-10 Hz with a rolling history buffer
   2. E-STOP button remains immediately responsive while the plot is actively updating (no frozen touch)
   3. Plot renders correctly at both 1920x1080 and typical Pi touchscreen resolutions (800x480, 1024x600)
-**Plans**: TBD
+**Plans:** 1 plan
+
+Plans:
+- [ ] 03-01-PLAN.md — MatplotFigure widget, rolling buffer, 5 Hz redraw clock + tests
 
 ### Phase 4: Axes Setup and Parameters
 **Goal**: Setup personnel can jog any axis, teach rest and start points, and edit all machine parameters from clean unified screens
@@ -136,7 +139,7 @@ Note: Phase 3 depends on Phase 2; Phase 4 depends on Phase 1 (not Phase 2/3 — 
 |-------|----------------|--------|-----------|
 | 1. Auth and Navigation | 3/4 | In Progress|  |
 | 2. RUN Page | 4/4 | Complete   | 2026-04-04 |
-| 3. Live Matplotlib Plot | 0/TBD | Not started | - |
+| 3. Live Matplotlib Plot | 0/1 | Not started | - |
 | 4. Axes Setup and Parameters | 0/TBD | Not started | - |
 | 5. CSV Profile System | 0/TBD | Not started | - |
 | 6. Machine-Type Differentiation | 0/TBD | Not started | - |

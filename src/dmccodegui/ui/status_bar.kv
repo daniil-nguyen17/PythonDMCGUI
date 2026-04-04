@@ -1,0 +1,73 @@
+# StatusBar widget rule
+# 48dp horizontal bar: connection indicator, user/role, banner ticker, E-STOP
+
+<StatusBar>:
+    orientation: 'horizontal'
+    size_hint_y: None
+    height: '48dp'
+    padding: '6dp', '2dp'
+    spacing: '6dp'
+    canvas.before:
+        Color:
+            rgba: 0.051, 0.071, 0.102, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    # Connection indicator: colored dot + text
+    BoxLayout:
+        size_hint_x: None
+        width: '160dp'
+        spacing: '6dp'
+        canvas:
+            Color:
+                rgba: root.connection_color
+            Ellipse:
+                pos: self.pos[0] + dp(2), self.center_y - dp(5)
+                size: dp(10), dp(10)
+        Label:
+            text: root.connection_text
+            color: root.connection_color
+            font_size: '12sp'
+            halign: 'left'
+            valign: 'middle'
+            text_size: self.size
+            padding_x: '14dp'
+
+    # User / role area (tap to switch user in future)
+    Button:
+        size_hint_x: None
+        width: '160dp'
+        background_normal: ''
+        background_color: 0, 0, 0, 0
+        text: (root.user_text + ' [' + root.role_text + ']') if root.role_text else root.user_text
+        color: 0.580, 0.631, 0.710, 1
+        font_size: '12sp'
+        halign: 'left'
+        valign: 'middle'
+        text_size: self.size
+
+    # Banner ticker (fills remaining space)
+    Label:
+        text: root.banner_text
+        color: 1, 0.95, 0.2, 1
+        font_size: '13sp'
+        halign: 'left'
+        valign: 'middle'
+        text_size: self.size
+
+    # E-STOP button (always visible, always red)
+    Button:
+        text: 'E-STOP'
+        size_hint_x: None
+        width: '100dp'
+        size_hint_y: None
+        height: '44dp'
+        pos_hint: {'center_y': 0.5}
+        background_normal: ''
+        background_down: ''
+        background_color: 0.88, 0.06, 0.06, 1
+        color: 1, 1, 1, 1
+        font_size: '14sp'
+        bold: True
+        on_release: app.e_stop()

@@ -1,0 +1,15 @@
+# TabBar widget rule
+# 48dp horizontal tab bar — populated dynamically by TabBar.set_role()
+
+<TabBar>:
+    orientation: 'horizontal'
+    size_hint_y: None
+    height: '48dp'
+    spacing: '2dp'
+    padding: '2dp', '2dp'
+    canvas.before:
+        Color:
+            rgba: 0.051, 0.071, 0.102, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size

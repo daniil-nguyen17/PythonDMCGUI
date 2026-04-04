@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Completed 02-02-PLAN.md — Knife Grind Adjustment panel: DeltaCBarChart widget, section controls, Apply button"
-last_updated: "2026-04-04T08:22:23.687Z"
+stopped_at: Completed 02-03-PLAN.md — RUN page visual verification and runtime bug fixes
+last_updated: "2026-04-04T08:55:48.996Z"
 last_activity: "2026-04-04 — Plan 01-03 complete: PIN overlay auth flow, role-gated tabs, idle auto-lock"
 progress:
   total_phases: 8
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
   percent: 8
 ---
 
@@ -56,6 +56,7 @@ Progress: [█░░░░░░░░░] 8%
 | Phase 02-run-page P00 | 2 | 2 tasks | 3 files |
 | Phase 02-run-page P01 | 5 | 2 tasks | 3 files |
 | Phase 02-run-page P02 | 159 | 2 tasks | 2 files |
+| Phase 02-run-page P03 | 0 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Recent decisions affecting current work:
 - [Phase 02-01]: delta_c_offsets kept as plain list (not Kivy ListProperty) since Plan 02-02 owns the full widget binding
 - [Phase 02-run-page]: DELTA_C_STEP updated from placeholder 10.0 to plan-specified 50 (int)
 - [Phase 02-run-page]: delta_c_offsets promoted to ListProperty so KV bindings and canvas redraws fire correctly
+- [Phase 02-run-page]: theme.text_muted does not exist on ThemeManager — correct attribute is theme.text_mid
+- [Phase 02-run-page]: CYCLE_VAR_COMPLETION / MG pctDone removed — DMC controller lacks this variable
+- [Phase 02-run-page]: Controller polling disabled in on_pre_enter — deferred until a cycle is actually running
 
 ### Pending Todos
 
@@ -96,6 +100,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-04T08:22:23.684Z
-Stopped at: Completed 02-02-PLAN.md — Knife Grind Adjustment panel: DeltaCBarChart widget, section controls, Apply button
+Last session: 2026-04-04T08:55:48.993Z
+Stopped at: Completed 02-03-PLAN.md — RUN page visual verification and runtime bug fixes
 Resume file: None

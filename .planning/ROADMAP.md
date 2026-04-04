@@ -13,7 +13,7 @@ Starting from a partially-built Kivy application with existing screens for setup
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Auth and Navigation** - PIN login, three-tier roles, tab bar replacing ActionBar+Spinner
-- [ ] **Phase 2: RUN Page** - Cycle controls, live axis positions, cycle status, Knife Grind Adjustment, E-STOP everywhere
+- [x] **Phase 2: RUN Page** - Cycle controls, live axis positions, cycle status, Knife Grind Adjustment, E-STOP everywhere (completed 2026-04-04)
 - [ ] **Phase 3: Live Matplotlib Plot** - Embedded A/B position plot with Pi performance validation
 - [ ] **Phase 4: Axes Setup and Parameters** - Unified jog/teach screen and grouped parameter editor for Setup role
 - [ ] **Phase 5: CSV Profile System** - Safe import/export of knife profiles with machine-type validation
@@ -51,7 +51,7 @@ Plans:
   3. Cycle status panel shows current tooth, pass, depth, speed, elapsed time, and ETA during an active cycle
   4. Progress bar fills continuously from 0% to 100% as the cycle runs
   5. Operation log shows timestamped entries for cycle start, faults, parameter changes, and E-STOP in a scrollable view
-**Plans:** 2/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [ ] 02-00-PLAN.md — Wave 0 test scaffolds (test_run_screen, test_delta_c_bar_chart, test_machine_state_cycle)
@@ -135,7 +135,7 @@ Note: Phase 3 depends on Phase 2; Phase 4 depends on Phase 1 (not Phase 2/3 — 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Auth and Navigation | 3/4 | In Progress|  |
-| 2. RUN Page | 2/4 | In Progress|  |
+| 2. RUN Page | 4/4 | Complete   | 2026-04-04 |
 | 3. Live Matplotlib Plot | 0/TBD | Not started | - |
 | 4. Axes Setup and Parameters | 0/TBD | Not started | - |
 | 5. CSV Profile System | 0/TBD | Not started | - |

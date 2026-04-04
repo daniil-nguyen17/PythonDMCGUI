@@ -1,4 +1,3 @@
-# RunScreen placeholder
 #:import theme dmccodegui.theme_manager.theme
 
 <RunScreen>:
@@ -8,28 +7,545 @@
         Rectangle:
             pos: self.pos
             size: self.size
+
     BoxLayout:
         orientation: 'vertical'
-        spacing: '8dp'
-        Widget:
-            size_hint_y: 0.3
-        Label:
-            text: '>'
-            font_size: '140sp'
-            bold: True
-            color: 0.133, 0.773, 0.369, 1
+
+        # -----------------------------------------------------------------------
+        # Main content area (horizontal: left column + right column)
+        # -----------------------------------------------------------------------
+        BoxLayout:
+            orientation: 'horizontal'
+            spacing: '8dp'
+            padding: ['8dp', '8dp', '8dp', '4dp']
+
+            # -------------------------------------------------------------------
+            # LEFT COLUMN (60%) — plot placeholder + adjustment placeholder
+            # -------------------------------------------------------------------
+            BoxLayout:
+                size_hint_x: 0.6
+                orientation: 'vertical'
+                spacing: '8dp'
+
+                # Plot placeholder card
+                BoxLayout:
+                    canvas.before:
+                        Color:
+                            rgba: theme.bg_panel
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [8,]
+                        Color:
+                            rgba: theme.border
+                        Line:
+                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                            width: 1.2
+                    size_hint_y: 1
+                    padding: ['12dp', '10dp']
+
+                    Label:
+                        text: 'Live Position — A / B Axes'
+                        font_size: '12sp'
+                        bold: True
+                        color: theme.text_mid
+                        halign: 'center'
+                        valign: 'middle'
+                        text_size: self.size
+
+                # Knife Grind Adjustment placeholder card
+                BoxLayout:
+                    id: adjustment_panel
+                    canvas.before:
+                        Color:
+                            rgba: theme.bg_panel
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [8,]
+                        Color:
+                            rgba: theme.border
+                        Line:
+                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                            width: 1.2
+                    size_hint_y: None
+                    height: '220dp'
+                    padding: ['12dp', '10dp']
+
+                    Label:
+                        text: 'Knife Grind Adjustment'
+                        font_size: '12sp'
+                        color: theme.text_mid
+                        halign: 'center'
+                        valign: 'middle'
+                        text_size: self.size
+
+            # -------------------------------------------------------------------
+            # RIGHT COLUMN (40%) — cycle status + axis positions
+            # -------------------------------------------------------------------
+            BoxLayout:
+                size_hint_x: 0.4
+                orientation: 'vertical'
+                spacing: '8dp'
+
+                # Cycle Status card
+                BoxLayout:
+                    canvas.before:
+                        Color:
+                            rgba: theme.bg_panel
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [8,]
+                        Color:
+                            rgba: theme.border
+                        Line:
+                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                            width: 1.2
+                    size_hint_y: None
+                    height: '280dp' if root.is_serration else '180dp'
+                    orientation: 'vertical'
+                    padding: ['10dp', '8dp']
+                    spacing: '4dp'
+
+                    # Section header
+                    Label:
+                        text: 'CYCLE STATUS'
+                        font_size: '11sp'
+                        bold: True
+                        color: theme.text_mid
+                        halign: 'left'
+                        valign: 'middle'
+                        text_size: self.size
+                        size_hint_y: None
+                        height: '20dp'
+
+                    # Serration-only fields: tooth, pass, depth
+                    # opacity=0 and height=0 collapses them on non-serration machines
+                    GridLayout:
+                        cols: 2
+                        spacing: '8dp'
+                        size_hint_y: None
+                        height: '96dp' if root.is_serration else '0dp'
+                        opacity: 1.0 if root.is_serration else 0.0
+
+                        # Tooth
+                        BoxLayout:
+                            orientation: 'vertical'
+                            size_hint_y: None
+                            height: '44dp'
+                            Label:
+                                text: 'TOOTH'
+                                font_size: '10sp'
+                                color: 0.396, 0.455, 0.545, 1
+                                halign: 'left'
+                                valign: 'bottom'
+                                text_size: self.size
+                            Label:
+                                id: lbl_tooth
+                                text: root.cycle_tooth
+                                font_size: '20sp'
+                                bold: True
+                                color: 0.235, 0.639, 0.996, 1
+                                halign: 'left'
+                                valign: 'top'
+                                text_size: self.size
+                                opacity: 1.0 if root.cycle_running else 0.4
+
+                        # Pass
+                        BoxLayout:
+                            orientation: 'vertical'
+                            size_hint_y: None
+                            height: '44dp'
+                            Label:
+                                text: 'PASS'
+                                font_size: '10sp'
+                                color: 0.396, 0.455, 0.545, 1
+                                halign: 'left'
+                                valign: 'bottom'
+                                text_size: self.size
+                            Label:
+                                id: lbl_pass
+                                text: root.cycle_pass
+                                font_size: '20sp'
+                                bold: True
+                                color: theme.text_main
+                                halign: 'left'
+                                valign: 'top'
+                                text_size: self.size
+                                opacity: 1.0 if root.cycle_running else 0.4
+
+                        # Depth (spans 2 cols)
+                        BoxLayout:
+                            orientation: 'vertical'
+                            size_hint_y: None
+                            height: '44dp'
+                            Label:
+                                text: 'DEPTH'
+                                font_size: '10sp'
+                                color: 0.396, 0.455, 0.545, 1
+                                halign: 'left'
+                                valign: 'bottom'
+                                text_size: self.size
+                            Label:
+                                id: lbl_depth
+                                text: root.cycle_depth
+                                font_size: '20sp'
+                                bold: True
+                                color: theme.text_main
+                                halign: 'left'
+                                valign: 'top'
+                                text_size: self.size
+                                opacity: 1.0 if root.cycle_running else 0.4
+
+                        # Spacer cell to maintain 2-col alignment
+                        Widget:
+                            size_hint_y: None
+                            height: '44dp'
+
+                    # Common fields: elapsed + ETA
+                    GridLayout:
+                        cols: 2
+                        spacing: '8dp'
+                        size_hint_y: None
+                        height: '56dp'
+
+                        BoxLayout:
+                            orientation: 'vertical'
+                            Label:
+                                text: 'ELAPSED'
+                                font_size: '10sp'
+                                color: 0.396, 0.455, 0.545, 1
+                                halign: 'left'
+                                valign: 'bottom'
+                                text_size: self.size
+                            Label:
+                                id: lbl_elapsed
+                                text: root.cycle_elapsed
+                                font_size: '20sp'
+                                bold: True
+                                color: theme.text_main
+                                halign: 'left'
+                                valign: 'top'
+                                text_size: self.size
+                                opacity: 1.0 if root.cycle_running else 0.4
+
+                        BoxLayout:
+                            orientation: 'vertical'
+                            Label:
+                                text: 'ETA'
+                                font_size: '10sp'
+                                color: 0.396, 0.455, 0.545, 1
+                                halign: 'left'
+                                valign: 'bottom'
+                                text_size: self.size
+                            Label:
+                                id: lbl_eta
+                                text: root.cycle_eta
+                                font_size: '20sp'
+                                bold: True
+                                color: theme.text_main
+                                halign: 'left'
+                                valign: 'top'
+                                text_size: self.size
+                                opacity: 1.0 if root.cycle_running else 0.4
+
+                    # Progress bar + percentage label
+                    BoxLayout:
+                        orientation: 'vertical'
+                        size_hint_y: None
+                        height: '32dp'
+                        spacing: '2dp'
+
+                        ProgressBar:
+                            id: cycle_progress
+                            min: 0
+                            max: 100
+                            value: root.cycle_completion_pct
+                            size_hint_y: None
+                            height: '10dp'
+
+                        Label:
+                            text: '{0}% complete'.format(int(root.cycle_completion_pct))
+                            font_size: '10sp'
+                            color: 0.278, 0.333, 0.412, 1
+                            halign: 'left'
+                            valign: 'top'
+                            text_size: self.size
+                            size_hint_y: None
+                            height: '18dp'
+
+                # Axis Positions card
+                BoxLayout:
+                    canvas.before:
+                        Color:
+                            rgba: theme.bg_panel
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [8,]
+                        Color:
+                            rgba: theme.border
+                        Line:
+                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                            width: 1.2
+                    size_hint_y: 1
+                    orientation: 'vertical'
+                    padding: ['12dp', '8dp']
+                    spacing: '2dp'
+
+                    Label:
+                        text: 'AXIS POSITIONS'
+                        font_size: '11sp'
+                        bold: True
+                        color: theme.text_mid
+                        halign: 'left'
+                        valign: 'middle'
+                        text_size: self.size
+                        size_hint_y: None
+                        height: '24dp'
+
+                    # Axis A row
+                    BoxLayout:
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: '52dp'
+                        padding: ['4dp', '2dp']
+                        spacing: '8dp'
+
+                        # Letter badge — A (orange)
+                        BoxLayout:
+                            size_hint_x: None
+                            width: '32dp'
+                            canvas.before:
+                                Color:
+                                    rgba: 0.196, 0.118, 0.039, 1
+                                RoundedRectangle:
+                                    pos: self.pos
+                                    size: self.size
+                                    radius: [6,]
+                            Label:
+                                text: 'A'
+                                font_size: '14sp'
+                                bold: True
+                                color: 0.984, 0.573, 0.235, 1
+                                halign: 'center'
+                                valign: 'middle'
+                                text_size: self.size
+
+                        # Position value + CPM note
+                        BoxLayout:
+                            orientation: 'vertical'
+                            padding: ['8dp', '0dp']
+
+                            Label:
+                                id: pos_a
+                                text: root.pos_a
+                                font_size: '18sp'
+                                bold: True
+                                color: theme.text_main
+                                halign: 'left'
+                                valign: 'bottom'
+                                text_size: self.size
+
+                            Label:
+                                id: cpm_a
+                                text: root.cpm_a
+                                font_size: '10sp'
+                                color: 0.396, 0.455, 0.545, 1
+                                halign: 'left'
+                                valign: 'top'
+                                text_size: self.size
+
+                    # Axis B row
+                    BoxLayout:
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: '52dp'
+                        padding: ['4dp', '2dp']
+                        spacing: '8dp'
+
+                        # Letter badge — B (purple)
+                        BoxLayout:
+                            size_hint_x: None
+                            width: '32dp'
+                            canvas.before:
+                                Color:
+                                    rgba: 0.161, 0.118, 0.235, 1
+                                RoundedRectangle:
+                                    pos: self.pos
+                                    size: self.size
+                                    radius: [6,]
+                            Label:
+                                text: 'B'
+                                font_size: '14sp'
+                                bold: True
+                                color: 0.655, 0.545, 0.984, 1
+                                halign: 'center'
+                                valign: 'middle'
+                                text_size: self.size
+
+                        BoxLayout:
+                            orientation: 'vertical'
+                            padding: ['8dp', '0dp']
+
+                            Label:
+                                id: pos_b
+                                text: root.pos_b
+                                font_size: '18sp'
+                                bold: True
+                                color: theme.text_main
+                                halign: 'left'
+                                valign: 'bottom'
+                                text_size: self.size
+
+                            Label:
+                                id: cpm_b
+                                text: root.cpm_b
+                                font_size: '10sp'
+                                color: 0.396, 0.455, 0.545, 1
+                                halign: 'left'
+                                valign: 'top'
+                                text_size: self.size
+
+                    # Axis C row
+                    BoxLayout:
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: '52dp'
+                        padding: ['4dp', '2dp']
+                        spacing: '8dp'
+
+                        # Letter badge — C (cyan)
+                        BoxLayout:
+                            size_hint_x: None
+                            width: '32dp'
+                            canvas.before:
+                                Color:
+                                    rgba: 0.039, 0.176, 0.157, 1
+                                RoundedRectangle:
+                                    pos: self.pos
+                                    size: self.size
+                                    radius: [6,]
+                            Label:
+                                text: 'C'
+                                font_size: '14sp'
+                                bold: True
+                                color: 0.176, 0.831, 0.749, 1
+                                halign: 'center'
+                                valign: 'middle'
+                                text_size: self.size
+
+                        BoxLayout:
+                            orientation: 'vertical'
+                            padding: ['8dp', '0dp']
+
+                            Label:
+                                id: pos_c
+                                text: root.pos_c
+                                font_size: '18sp'
+                                bold: True
+                                color: theme.text_main
+                                halign: 'left'
+                                valign: 'bottom'
+                                text_size: self.size
+
+                            Label:
+                                id: cpm_c
+                                text: root.cpm_c
+                                font_size: '10sp'
+                                color: 0.396, 0.455, 0.545, 1
+                                halign: 'left'
+                                valign: 'top'
+                                text_size: self.size
+
+                    # Axis D row
+                    BoxLayout:
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: '52dp'
+                        padding: ['4dp', '2dp']
+                        spacing: '8dp'
+
+                        # Letter badge — D (yellow)
+                        BoxLayout:
+                            size_hint_x: None
+                            width: '32dp'
+                            canvas.before:
+                                Color:
+                                    rgba: 0.196, 0.157, 0.039, 1
+                                RoundedRectangle:
+                                    pos: self.pos
+                                    size: self.size
+                                    radius: [6,]
+                            Label:
+                                text: 'D'
+                                font_size: '14sp'
+                                bold: True
+                                color: 0.984, 0.749, 0.145, 1
+                                halign: 'center'
+                                valign: 'middle'
+                                text_size: self.size
+
+                        BoxLayout:
+                            orientation: 'vertical'
+                            padding: ['8dp', '0dp']
+
+                            Label:
+                                id: pos_d
+                                text: root.pos_d
+                                font_size: '18sp'
+                                bold: True
+                                color: theme.text_main
+                                halign: 'left'
+                                valign: 'bottom'
+                                text_size: self.size
+
+                            Label:
+                                id: cpm_d
+                                text: root.cpm_d
+                                font_size: '10sp'
+                                color: 0.396, 0.455, 0.545, 1
+                                halign: 'left'
+                                valign: 'top'
+                                text_size: self.size
+
+        # -----------------------------------------------------------------------
+        # BOTTOM ACTION BAR
+        # -----------------------------------------------------------------------
+        BoxLayout:
+            orientation: 'horizontal'
             size_hint_y: None
-            height: '160dp'
-            halign: 'center'
-            valign: 'middle'
-            text_size: self.size
-        Label:
-            text: 'RUN'
-            color: theme.text_main
-            font_size: '58sp'
-            size_hint_y: None
-            height: '80dp'
-            halign: 'center'
-            valign: 'middle'
-            text_size: self.size
-        Widget:
+            height: '72dp'
+            spacing: '12dp'
+            padding: ['12dp', '6dp', '12dp', '6dp']
+
+            canvas.before:
+                Color:
+                    rgba: theme.bg_panel
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+
+            ToggleButton:
+                id: start_pause_btn
+                text: 'PAUSE' if self.state == 'down' else 'START'
+                font_size: '16sp'
+                bold: True
+                size_hint_x: 1
+                background_normal: ''
+                background_down: ''
+                background_color: (0.47, 0.25, 0.06, 1) if self.state == 'down' else (0.09, 0.40, 0.20, 1)
+                color: (0.992, 0.910, 0.541, 1) if self.state == 'down' else (0.733, 0.969, 0.827, 1)
+                on_release: root.on_start_pause_toggle(self.state)
+
+            Button:
+                id: go_to_rest_btn
+                text: 'GO TO REST'
+                font_size: '16sp'
+                bold: True
+                size_hint_x: 0.7
+                background_normal: ''
+                background_color: 0.118, 0.227, 0.373, 1
+                color: 0.576, 0.773, 0.992, 1
+                on_release: root.on_go_to_rest()

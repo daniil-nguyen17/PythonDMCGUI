@@ -29,6 +29,24 @@ CYCLE_VAR_PASS = "pass_num"
 CYCLE_VAR_DEPTH = "depth"
 CYCLE_VAR_COMPLETION = "pctDone"
 
+# ---------------------------------------------------------------------------
+# Delta-C (Knife Grind Adjustment) constants — Plan 02-02 fills the full panel
+# ---------------------------------------------------------------------------
+DELTA_C_WRITABLE_START: int = 0    # First writable index in the deltaC array on controller
+DELTA_C_WRITABLE_END: int = 99     # Last writable index (inclusive) — 100 elements total
+DELTA_C_ARRAY_SIZE: int = DELTA_C_WRITABLE_END - DELTA_C_WRITABLE_START + 1  # = 100
+DELTA_C_STEP: float = 10.0         # Default adjustment increment in controller counts
+
+
+class DeltaCBarChart:
+    """Placeholder stub for the bar-chart widget built in Plan 02-02.
+
+    RunScreen references this in test_delta_c_bar_chart.py. The real widget
+    is a Kivy Widget subclass that draws bars and tracks selected_index.
+    Plan 02-02 replaces this stub with the full implementation.
+    """
+    selected_index: int = 0
+
 
 def _format_mmss(seconds: float) -> str:
     """Format a duration in seconds as MM:SS string."""
@@ -83,7 +101,7 @@ class RunScreen(Screen):
     is_serration = BooleanProperty(IS_SERRATION)
 
     # Knife Grind Adjustment properties (Plan 02-02 fills this panel)
-    section_count = NumericProperty(0)
+    section_count = NumericProperty(1)
     delta_c_offsets: list = []  # per-section C-axis offset values (Plan 02-02)
 
     # -----------------------------------------------------------------------
@@ -322,6 +340,49 @@ class RunScreen(Screen):
 
         if self.controller and self.controller.is_connected():
             jobs.submit(_go_rest)
+
+    # -----------------------------------------------------------------------
+    # Delta-C (Knife Grind Adjustment) stubs — Plan 02-02 completes these
+    # -----------------------------------------------------------------------
+
+    def on_section_count_change(self, value: int) -> None:
+        """Clamp section count to 1-10 and resize delta_c_offsets list.
+
+        Plan 02-02 wires this to the section count spinner in the KV panel.
+        """
+        clamped = max(1, min(10, int(value)))
+        self.section_count = clamped
+        # Resize offsets list, preserving existing values, padding with 0.0
+        old = list(self.delta_c_offsets)
+        self.delta_c_offsets = (old + [0.0] * clamped)[:clamped]
+
+    def _offsets_to_delta_c(self) -> list[float]:
+        """Convert per-section offset values into a full-length delta-C controller array.
+
+        Divides DELTA_C_ARRAY_SIZE evenly across section_count sections. Each
+        position in the output array receives the offset value for its section.
+
+        Returns a list of DELTA_C_ARRAY_SIZE floats suitable for uploading to
+        the controller via controller.download_array().
+
+        Plan 02-02 uses this to write adjusted C-axis positions before each pass.
+        """
+        n = max(1, int(self.section_count))
+        size = DELTA_C_ARRAY_SIZE
+        offsets = list(self.delta_c_offsets)
+        # Pad offsets if shorter than section_count
+        while len(offsets) < n:
+            offsets.append(0.0)
+
+        result: list[float] = []
+        chunk = size // n
+        for i in range(n):
+            start = i * chunk
+            end = start + chunk if i < n - 1 else size  # last section takes remainder
+            val = offsets[i]
+            result.extend([val] * (end - start))
+
+        return result
 
     # -----------------------------------------------------------------------
     # Utilities

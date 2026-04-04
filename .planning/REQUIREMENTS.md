@@ -122,62 +122,62 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | — | Pending |
-| AUTH-02 | — | Pending |
-| AUTH-03 | — | Pending |
-| AUTH-04 | — | Pending |
-| AUTH-05 | — | Pending |
-| AUTH-06 | — | Pending |
-| AUTH-07 | — | Pending |
-| AUTH-08 | — | Pending |
-| NAV-01 | — | Pending |
-| NAV-02 | — | Pending |
-| NAV-03 | — | Pending |
-| NAV-04 | — | Pending |
-| NAV-05 | — | Pending |
-| RUN-01 | — | Pending |
-| RUN-02 | — | Pending |
-| RUN-03 | — | Pending |
-| RUN-04 | — | Pending |
-| RUN-05 | — | Pending |
-| RUN-06 | — | Pending |
-| RUN-07 | — | Pending |
-| AXES-01 | — | Pending |
-| AXES-02 | — | Pending |
-| AXES-03 | — | Pending |
-| AXES-04 | — | Pending |
-| AXES-05 | — | Pending |
-| AXES-06 | — | Pending |
-| PARAM-01 | — | Pending |
-| PARAM-02 | — | Pending |
-| PARAM-03 | — | Pending |
-| PARAM-04 | — | Pending |
-| PARAM-05 | — | Pending |
-| PARAM-06 | — | Pending |
-| PARAM-07 | — | Pending |
-| CSV-01 | — | Pending |
-| CSV-02 | — | Pending |
-| CSV-03 | — | Pending |
-| CSV-04 | — | Pending |
-| CSV-05 | — | Pending |
-| MACH-01 | — | Pending |
-| MACH-02 | — | Pending |
-| MACH-03 | — | Pending |
-| UI-01 | — | Pending |
-| UI-02 | — | Pending |
-| UI-03 | — | Pending |
-| UI-04 | — | Pending |
-| DEPLOY-01 | — | Pending |
-| DEPLOY-02 | — | Pending |
-| DEPLOY-03 | — | Pending |
-| DEPLOY-04 | — | Pending |
-| DEPLOY-05 | — | Pending |
+| AUTH-01 | Phase 1 | Pending |
+| AUTH-02 | Phase 1 | Pending |
+| AUTH-03 | Phase 1 | Pending |
+| AUTH-04 | Phase 1 | Pending |
+| AUTH-05 | Phase 1 | Pending |
+| AUTH-06 | Phase 1 | Pending |
+| AUTH-07 | Phase 7 | Pending |
+| AUTH-08 | Phase 7 | Pending |
+| NAV-01 | Phase 1 | Pending |
+| NAV-02 | Phase 1 | Pending |
+| NAV-03 | Phase 1 | Pending |
+| NAV-04 | Phase 1 | Pending |
+| NAV-05 | Phase 1 | Pending |
+| RUN-01 | Phase 2 | Pending |
+| RUN-02 | Phase 2 | Pending |
+| RUN-03 | Phase 2 | Pending |
+| RUN-04 | Phase 2 | Pending |
+| RUN-05 | Phase 2 | Pending |
+| RUN-06 | Phase 2 | Pending |
+| RUN-07 | Phase 3 | Pending |
+| AXES-01 | Phase 4 | Pending |
+| AXES-02 | Phase 4 | Pending |
+| AXES-03 | Phase 4 | Pending |
+| AXES-04 | Phase 4 | Pending |
+| AXES-05 | Phase 4 | Pending |
+| AXES-06 | Phase 4 | Pending |
+| PARAM-01 | Phase 4 | Pending |
+| PARAM-02 | Phase 4 | Pending |
+| PARAM-03 | Phase 4 | Pending |
+| PARAM-04 | Phase 4 | Pending |
+| PARAM-05 | Phase 4 | Pending |
+| PARAM-06 | Phase 4 | Pending |
+| PARAM-07 | Phase 4 | Pending |
+| CSV-01 | Phase 5 | Pending |
+| CSV-02 | Phase 5 | Pending |
+| CSV-03 | Phase 5 | Pending |
+| CSV-04 | Phase 5 | Pending |
+| CSV-05 | Phase 5 | Pending |
+| MACH-01 | Phase 6 | Pending |
+| MACH-02 | Phase 6 | Pending |
+| MACH-03 | Phase 6 | Pending |
+| UI-01 | Phase 1 | Pending |
+| UI-02 | Phase 1 | Pending |
+| UI-03 | Phase 1 | Pending |
+| UI-04 | Phase 1 | Pending |
+| DEPLOY-01 | Phase 8 | Pending |
+| DEPLOY-02 | Phase 8 | Pending |
+| DEPLOY-03 | Phase 8 | Pending |
+| DEPLOY-04 | Phase 8 | Pending |
+| DEPLOY-05 | Phase 8 | Pending |
 
 **Coverage:**
-- v1 requirements: 49 total
-- Mapped to phases: 0
-- Unmapped: 49
+- v1 requirements: 50 total
+- Mapped to phases: 50
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-04*
-*Last updated: 2026-04-04 after initial definition*
+*Last updated: 2026-04-04 after roadmap creation — all 50 requirements mapped*

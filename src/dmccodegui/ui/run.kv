@@ -1,5 +1,6 @@
 #:import theme dmccodegui.theme_manager.theme
 #:import DeltaCBarChart dmccodegui.screens.run
+#:import BCompBarChart dmccodegui.screens.run
 #:import run_module dmccodegui.screens.run
 #:import kivy_matplotlib_widget kivy_matplotlib_widget
 
@@ -55,9 +56,12 @@
                         do_scale: False
                         touch_mode: 'none'
 
-                # Knife Grind Adjustment panel
+                # ---------------------------------------------------------------
+                # Delta-C: Knife Grind Adjustment panel (Flat/Convex only)
+                # Starts visible; hidden on Serration via _apply_machine_type_widgets
+                # ---------------------------------------------------------------
                 BoxLayout:
-                    id: adjustment_panel
+                    id: delta_c_panel
                     canvas.before:
                         Color:
                             rgba: theme.bg_panel
@@ -190,6 +194,102 @@
                             color: 0.576, 0.773, 0.992, 1
                             size_hint_x: 0.2
                             on_release: root.on_apply_delta_c()
+
+                # ---------------------------------------------------------------
+                # bComp: Serration Grind Adjustment panel (Serration only)
+                # Starts hidden; shown on Serration via _apply_machine_type_widgets
+                # ---------------------------------------------------------------
+                BoxLayout:
+                    id: bcomp_panel
+                    canvas.before:
+                        Color:
+                            rgba: theme.bg_panel
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [8,]
+                        Color:
+                            rgba: theme.border
+                        Line:
+                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                            width: 1.2
+                    size_hint_y: None
+                    height: '220dp'
+                    orientation: 'vertical'
+                    padding: '10dp'
+                    spacing: '6dp'
+                    opacity: 0
+                    disabled: True
+
+                    # Header row: title
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '28dp'
+
+                        Label:
+                            text: 'SERRATION COMPENSATION (bComp)'
+                            font_size: '11sp'
+                            color: theme.text_mid
+                            bold: True
+                            halign: 'left'
+                            text_size: self.size
+                            valign: 'middle'
+
+                    # bComp bar chart area
+                    BCompBarChart:
+                        id: bcomp_chart
+                        offsets: root.bcomp_offsets
+                        size_hint_y: None
+                        height: '110dp'
+
+                    # Controls row: selected value + up/down + apply
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '40dp'
+                        spacing: '8dp'
+
+                        # Selected serration display
+                        Label:
+                            text: 'Selected: ' + root.selected_bcomp_value + ' cts'
+                            font_size: '12sp'
+                            color: theme.text_main
+                            halign: 'left'
+                            text_size: self.size
+                            valign: 'middle'
+                            size_hint_x: 0.4
+
+                        # Down adjustment button
+                        Button:
+                            text: '- ' + str(run_module.BCOMP_STEP)
+                            font_size: '13sp'
+                            bold: True
+                            background_normal: ''
+                            background_color: 0.15, 0.08, 0.02, 1
+                            color: 0.984, 0.573, 0.235, 1
+                            size_hint_x: 0.2
+                            on_release: root.on_bcomp_adjust_down()
+
+                        # Up adjustment button
+                        Button:
+                            text: '+ ' + str(run_module.BCOMP_STEP)
+                            font_size: '13sp'
+                            bold: True
+                            background_normal: ''
+                            background_color: 0.02, 0.12, 0.06, 1
+                            color: 0.133, 0.773, 0.369, 1
+                            size_hint_x: 0.2
+                            on_release: root.on_bcomp_adjust_up()
+
+                        # Apply button
+                        Button:
+                            text: 'APPLY'
+                            font_size: '13sp'
+                            bold: True
+                            background_normal: ''
+                            background_color: 0.118, 0.227, 0.373, 1
+                            color: 0.576, 0.773, 0.992, 1
+                            size_hint_x: 0.2
+                            on_release: root.on_apply_bcomp()
 
             # -------------------------------------------------------------------
             # RIGHT COLUMN (40%) — cycle status + axis positions
@@ -570,8 +670,9 @@
                                 valign: 'top'
                                 text_size: self.size
 
-                    # Axis D row
+                    # Axis D row — hidden on Serration via _apply_machine_type_widgets
                     BoxLayout:
+                        id: pos_d_row
                         orientation: 'horizontal'
                         size_hint_y: None
                         height: '52dp'

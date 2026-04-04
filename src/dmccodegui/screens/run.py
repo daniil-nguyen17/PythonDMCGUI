@@ -23,13 +23,8 @@ import kivy_matplotlib_widget  # noqa: F401 — registers MatplotFigure in Kivy 
 from ..app_state import MachineState
 from ..controller import GalilController
 from ..utils import jobs
+import dmccodegui.machine_config as mc
 
-
-# ---------------------------------------------------------------------------
-# Machine type configuration — Phase 6 will replace this with a runtime setting
-# ---------------------------------------------------------------------------
-MACHINE_TYPE = "4axis_flat"  # Options: "4axis_flat", "4axis_convex", "3axis_serration"
-IS_SERRATION = MACHINE_TYPE == "3axis_serration"
 
 # Controller variable names for cycle status (configurable for different controller programs)
 CYCLE_VAR_TOOTH = "tooth"
@@ -55,21 +50,27 @@ DELTA_C_WRITABLE_END: int = 99     # Last writable index (inclusive) — 100 ele
 DELTA_C_ARRAY_SIZE: int = DELTA_C_WRITABLE_END - DELTA_C_WRITABLE_START + 1  # = 100
 DELTA_C_STEP: int = 50             # Adjustment increment per button press in controller counts
 
+# ---------------------------------------------------------------------------
+# bComp (Serration Grind Adjustment) constants
+# ---------------------------------------------------------------------------
+BCOMP_STEP: int = 50               # Adjustment increment per button press in controller counts
 
-class DeltaCBarChart(Widget):
-    """Bar-chart widget that draws per-section deltaC offsets on a zero baseline.
 
-    Each bar represents one section of the knife. Positive offsets extend above
-    the centre line; negative offsets extend below. Tapping a bar selects it
-    (highlighted in orange); the RunScreen up/down buttons adjust the selected
-    bar's offset.
+class _BaseBarChart(Widget):
+    """Shared base for DeltaCBarChart and BCompBarChart.
+
+    Draws a per-section bar chart on a zero baseline. Positive offsets extend
+    above the centre line; negative offsets extend below. Tapping a bar selects
+    it (highlighted in orange).
+
+    Subclasses set ``STEP`` as a class attribute.
 
     Properties
     ----------
     offsets : ListProperty([])
-        One float per section.  Bound to RunScreen.delta_c_offsets in KV.
+        One float per section.
     selected_index : NumericProperty(-1)
-        Index of the currently selected bar.  -1 means nothing selected.
+        Index of the currently selected bar. -1 means nothing selected.
     max_offset : NumericProperty(500)
         Absolute offset value that maps to half the widget height (clamps bars).
     """
@@ -77,6 +78,8 @@ class DeltaCBarChart(Widget):
     offsets = ListProperty([])
     selected_index = NumericProperty(-1)
     max_offset = NumericProperty(500)
+
+    STEP: int = 50  # Override in subclasses
 
     # ------------------------------------------------------------------
     # Reactive triggers — any change to size/pos/offsets/selection redraws
@@ -155,6 +158,48 @@ class DeltaCBarChart(Widget):
         return True
 
 
+class DeltaCBarChart(_BaseBarChart):
+    """Bar-chart widget that draws per-section deltaC offsets on a zero baseline.
+
+    Each bar represents one section of the knife. Positive offsets extend above
+    the centre line; negative offsets extend below. Tapping a bar selects it
+    (highlighted in orange); the RunScreen up/down buttons adjust the selected
+    bar's offset.
+
+    Properties
+    ----------
+    offsets : ListProperty([])
+        One float per section.  Bound to RunScreen.delta_c_offsets in KV.
+    selected_index : NumericProperty(-1)
+        Index of the currently selected bar.  -1 means nothing selected.
+    max_offset : NumericProperty(500)
+        Absolute offset value that maps to half the widget height (clamps bars).
+    """
+
+    STEP: int = DELTA_C_STEP
+
+
+class BCompBarChart(_BaseBarChart):
+    """Bar-chart widget that draws per-serration bComp offsets on a zero baseline.
+
+    Mirrors DeltaCBarChart exactly but reads/writes the ``bComp`` DMC array
+    instead of ``deltaC``. Used only on 3-Axes Serration Grind machines.
+
+    Array size is driven by the ``numSerr`` variable (number of serrations).
+
+    Properties
+    ----------
+    offsets : ListProperty([])
+        One float per serration.  Bound to RunScreen.bcomp_offsets in KV.
+    selected_index : NumericProperty(-1)
+        Index of the currently selected bar.  -1 means nothing selected.
+    max_offset : NumericProperty(500)
+        Absolute offset value that maps to half the widget height (clamps bars).
+    """
+
+    STEP: int = BCOMP_STEP
+
+
 def _format_mmss(seconds: float) -> str:
     """Format a duration in seconds as MM:SS string."""
     if seconds < 0:
@@ -204,13 +249,18 @@ class RunScreen(Screen):
     cpm_c = StringProperty("")
     cpm_d = StringProperty("")
 
-    # Machine type flag — controls serration field visibility in KV
-    is_serration = BooleanProperty(IS_SERRATION)
+    # Machine type flag — updated dynamically on every on_pre_enter via mc.is_serration()
+    # Controls serration field visibility in KV (cycle status tooth/pass/depth)
+    is_serration = BooleanProperty(False)
 
-    # Knife Grind Adjustment properties
+    # Knife Grind Adjustment properties (Delta-C — Flat/Convex)
     section_count = NumericProperty(1)
     delta_c_offsets = ListProperty([0.0])        # one offset per section
     selected_section_value = StringProperty("0") # display value for the selected bar
+
+    # Serration Grind Adjustment properties (bComp — Serration only)
+    bcomp_offsets = ListProperty([0.0])          # one offset per serration tooth
+    selected_bcomp_value = StringProperty("0")   # display value for the selected bar
 
     # -----------------------------------------------------------------------
     # Internal state
@@ -238,11 +288,16 @@ class RunScreen(Screen):
 
         Binds the DeltaCBarChart selection observer so selected_section_value
         stays in sync with whichever bar the operator taps.
+        Binds the BCompBarChart selection observer for selected_bcomp_value.
         Initializes the MatplotFigure plot widget for the live A/B position trail.
         """
         chart = self.ids.get("delta_c_chart")
         if chart is not None:
             chart.bind(selected_index=self._on_chart_selection_changed)
+
+        bcomp_chart = self.ids.get("bcomp_chart")
+        if bcomp_chart is not None:
+            bcomp_chart.bind(selected_index=self._on_bcomp_chart_selection_changed)
 
         plot_wgt = self.ids.get("ab_plot")
         if plot_wgt is not None:
@@ -261,10 +316,14 @@ class RunScreen(Screen):
     def on_pre_enter(self, *args) -> None:
         """Called by Kivy when operator navigates to this screen.
 
-        Reads CPM values once in the background, then starts the 10 Hz poll loop.
+        Applies machine type widget visibility, reads CPM values once in the
+        background, then starts the 10 Hz poll loop.
         Shows disconnected indicators immediately if no controller.
         Also starts the 5 Hz plot redraw clock.
         """
+        # Apply machine-type-specific widget visibility first
+        self._apply_machine_type_widgets()
+
         # Controller polling disabled — no program loaded yet.
         self._show_disconnected()
         # Start 10 Hz position poll (guarded — _update_clock checks is_connected)
@@ -282,6 +341,44 @@ class RunScreen(Screen):
             self._plot_clock_event = None
 
     # -----------------------------------------------------------------------
+    # Machine type widget switching
+    # -----------------------------------------------------------------------
+
+    def _apply_machine_type_widgets(self) -> None:
+        """Toggle panel and row visibility based on the active machine type.
+
+        Called on every on_pre_enter so hot-swapping machine type takes effect
+        immediately when the operator re-enters this screen.
+
+        Uses opacity/disabled swap (NOT widget add/remove) to preserve KV ids.
+        """
+        serration = False
+        try:
+            serration = mc.is_serration()
+        except ValueError:
+            # machine_config not yet configured — fall back to non-serration layout
+            pass
+
+        self.is_serration = serration
+
+        # Delta-C panel: visible on Flat/Convex, hidden on Serration
+        delta_c_panel = self.ids.get("delta_c_panel")
+        if delta_c_panel is not None:
+            delta_c_panel.opacity = 0.0 if serration else 1.0
+            delta_c_panel.disabled = serration
+
+        # bComp panel: visible on Serration, hidden on Flat/Convex
+        bcomp_panel = self.ids.get("bcomp_panel")
+        if bcomp_panel is not None:
+            bcomp_panel.opacity = 1.0 if serration else 0.0
+            bcomp_panel.disabled = not serration
+
+        # D axis position row: hidden on Serration
+        pos_d_row = self.ids.get("pos_d_row")
+        if pos_d_row is not None:
+            pos_d_row.opacity = 0.0 if serration else 1.0
+
+    # -----------------------------------------------------------------------
     # Polling loop
     # -----------------------------------------------------------------------
 
@@ -296,10 +393,20 @@ class RunScreen(Screen):
         """Background thread: read axis positions and cycle status from controller.
 
         Posts results to main thread via Clock.schedule_once.
+        On Serration machines, reads bComp array data instead of deltaC.
+        On Flat/Convex machines, skips D-axis read is not needed — still reads D
+        for position display; the D row is hidden via opacity in the UI.
         """
+        serration = False
+        try:
+            serration = mc.is_serration()
+        except ValueError:
+            pass
+
         try:
             pos: dict[str, float] = {}
-            for axis in ("A", "B", "C", "D"):
+            axes_to_poll = ("A", "B", "C") if serration else ("A", "B", "C", "D")
+            for axis in axes_to_poll:
                 try:
                     raw = self.controller.cmd(f"MG _TP{axis}")
                     pos[axis] = float(raw.strip())
@@ -307,7 +414,7 @@ class RunScreen(Screen):
                     pos[axis] = None  # type: ignore[assignment]
 
             cycle: dict[str, object] = {}
-            if IS_SERRATION:
+            if serration:
                 for var, key in (
                     (CYCLE_VAR_TOOTH, "tooth"),
                     (CYCLE_VAR_PASS, "pass"),
@@ -326,6 +433,12 @@ class RunScreen(Screen):
 
     def _apply_ui(self, pos: dict, cycle: dict) -> None:
         """Main thread: update all reactive Kivy properties from poll results."""
+        serration = False
+        try:
+            serration = mc.is_serration()
+        except ValueError:
+            pass
+
         # Axis positions — format as integer with comma thousands separator
         for axis, prop in (("A", "pos_a"), ("B", "pos_b"), ("C", "pos_c"), ("D", "pos_d")):
             val = pos.get(axis)
@@ -358,7 +471,7 @@ class RunScreen(Screen):
                 pass
 
         # Serration-specific fields
-        if IS_SERRATION:
+        if serration:
             tooth = cycle.get("tooth")
             if tooth is not None:
                 try:
@@ -531,7 +644,7 @@ class RunScreen(Screen):
             jobs.submit(_go_rest)
 
     # -----------------------------------------------------------------------
-    # Delta-C (Knife Grind Adjustment)
+    # Delta-C (Knife Grind Adjustment) — Flat/Convex machines
     # -----------------------------------------------------------------------
 
     def on_section_count_change(self, value: int) -> None:
@@ -633,6 +746,106 @@ class RunScreen(Screen):
             result.extend([val] * (end - start))
 
         return result
+
+    # -----------------------------------------------------------------------
+    # bComp (Serration Grind Adjustment) — Serration machines only
+    # -----------------------------------------------------------------------
+
+    def _on_bcomp_chart_selection_changed(self, chart_widget, selected_index: int) -> None:
+        """Observer bound to bcomp_chart.selected_index via on_kv_post.
+
+        Updates selected_bcomp_value so the 'Selected: X cts' label refreshes
+        whenever the operator taps a bar or the selection is cleared.
+        """
+        idx = int(selected_index)
+        if 0 <= idx < len(self.bcomp_offsets):
+            self.selected_bcomp_value = str(int(self.bcomp_offsets[idx]))
+        else:
+            self.selected_bcomp_value = "0"
+
+    def on_bcomp_adjust_up(self) -> None:
+        """Add BCOMP_STEP to the currently selected bComp bar's offset."""
+        chart = self.ids.get("bcomp_chart")
+        if chart is None:
+            return
+        idx = int(chart.selected_index)
+        if idx < 0 or idx >= len(self.bcomp_offsets):
+            return
+        offsets = list(self.bcomp_offsets)
+        offsets[idx] += BCOMP_STEP
+        self.bcomp_offsets = offsets
+        self.selected_bcomp_value = str(int(self.bcomp_offsets[idx]))
+
+    def on_bcomp_adjust_down(self) -> None:
+        """Subtract BCOMP_STEP from the currently selected bComp bar's offset."""
+        chart = self.ids.get("bcomp_chart")
+        if chart is None:
+            return
+        idx = int(chart.selected_index)
+        if idx < 0 or idx >= len(self.bcomp_offsets):
+            return
+        offsets = list(self.bcomp_offsets)
+        offsets[idx] -= BCOMP_STEP
+        self.bcomp_offsets = offsets
+        self.selected_bcomp_value = str(int(self.bcomp_offsets[idx]))
+
+    def _read_bcomp(self) -> None:
+        """Background thread: read bComp array from controller.
+
+        Array size is determined by reading numSerr from the controller.
+        Posts results back to main thread.
+        """
+        if not self.controller or not self.controller.is_connected():
+            return
+
+        ctrl = self.controller
+
+        def _do_read():
+            try:
+                # Get the number of serration teeth from controller
+                raw_num = ctrl.cmd("MG numSerr").strip()
+                num_serr = max(1, int(float(raw_num)))
+            except Exception:
+                num_serr = len(self.bcomp_offsets) or 1
+
+            offsets: list[float] = []
+            for i in range(num_serr):
+                try:
+                    raw = ctrl.cmd(f"MG bComp[{i}]").strip()
+                    offsets.append(float(raw))
+                except Exception:
+                    offsets.append(0.0)
+
+            def _apply(*_):
+                self.bcomp_offsets = offsets
+                if self.bcomp_offsets:
+                    self.selected_bcomp_value = str(int(self.bcomp_offsets[0]))
+
+            Clock.schedule_once(_apply)
+
+        jobs.submit(_do_read)
+
+    def on_apply_bcomp(self) -> None:
+        """Write bComp offsets to controller bComp array and burn NV.
+
+        Submits the write commands on the background job thread.
+        """
+        if not self.controller or not self.controller.is_connected():
+            return
+
+        offsets_snapshot = list(self.bcomp_offsets)
+        ctrl = self.controller
+
+        def _send():
+            try:
+                for i, val in enumerate(offsets_snapshot):
+                    ctrl.cmd(f"bComp[{i}]={int(val)}")
+                ctrl.cmd("BV")
+            except Exception as e:
+                print(f"[RunScreen] Apply bComp error: {e}")
+                Clock.schedule_once(lambda *_: self._alert(f"Apply bComp failed: {e}"))
+
+        jobs.submit(_send)
 
     # -----------------------------------------------------------------------
     # Utilities

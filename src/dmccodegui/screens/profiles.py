@@ -12,20 +12,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from dmccodegui.screens.parameters import PARAM_DEFS
-
 # ---------------------------------------------------------------------------
 # Module-level constants
 # ---------------------------------------------------------------------------
 
-MACHINE_TYPE: str = "4-Axes Flat Grind"
-"""Hard-coded machine type. Phase 6 will add a proper machine-type module."""
-
 KNOWN_ARRAYS: list[str] = ["deltaA", "deltaB", "deltaC", "deltaD"]
 """Array variable names that can be exported/imported in profiles."""
-
-# Internal lookup: var name -> param def dict
-_PARAM_BY_VAR: dict[str, dict] = {p["var"]: p for p in PARAM_DEFS}
 
 
 # ---------------------------------------------------------------------------
@@ -37,7 +29,7 @@ def export_profile(
     profile_name: str,
     scalars: dict[str, Any],
     arrays: dict[str, list[float]],
-    machine_type: str = MACHINE_TYPE,
+    machine_type: Optional[str] = None,
 ) -> None:
     """Write a knife profile to a CSV file.
 
@@ -51,8 +43,11 @@ def export_profile(
         profile_name: Human-readable name stored in _profile_name row.
         scalars: Dict mapping var names to numeric values.
         arrays: Dict mapping array names to lists of floats.
-        machine_type: Machine type string (defaults to MACHINE_TYPE constant).
+        machine_type: Machine type string. Defaults to mc.get_active_type() if None.
     """
+    if machine_type is None:
+        import dmccodegui.machine_config as mc
+        machine_type = mc.get_active_type() or "Unknown"
     with open(path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
 
@@ -89,11 +84,15 @@ def parse_profile_csv(path: Path) -> dict:
 
     Rules:
         - Rows starting with '_' are metadata.
-        - Rows whose key is a known scalar var (in PARAM_DEFS) are scalars.
+        - Rows whose key is a known scalar var (in mc.get_param_defs()) are scalars.
         - Rows with key in KNOWN_ARRAYS and >1 value column are arrays.
         - Empty rows are silently skipped.
         - Unrecognized rows are silently ignored.
     """
+    import dmccodegui.machine_config as mc
+    param_defs = mc.get_param_defs()
+    _param_by_var = {p["var"]: p for p in param_defs}
+
     result: dict = {
         "machine_type": "",
         "profile_name": "",
@@ -131,7 +130,7 @@ def parse_profile_csv(path: Path) -> dict:
                 continue
 
             # Scalar rows (known var name, single value)
-            if key in _PARAM_BY_VAR and len(row) >= 2:
+            if key in _param_by_var and len(row) >= 2:
                 try:
                     result["scalars"][key] = float(row[1])
                 except ValueError:
@@ -249,20 +248,25 @@ def validate_import(parsed: dict) -> list[str]:
         List of error strings. Empty list means the profile is valid.
         Unknown scalar var names are silently ignored.
     """
+    import dmccodegui.machine_config as mc
+    current_type = mc.get_active_type()
+    param_defs = mc.get_param_defs()
+    _param_by_var = {p["var"]: p for p in param_defs}
+
     errors: list[str] = []
 
     # Step 1: Machine type check
-    if parsed.get("machine_type", "") != MACHINE_TYPE:
+    if parsed.get("machine_type", "") != current_type:
         errors.append(
             f"Machine type mismatch: CSV has '{parsed.get('machine_type', '')}', "
-            f"expected '{MACHINE_TYPE}'"
+            f"expected '{current_type}'"
         )
         return errors  # stop validation here
 
     # Step 2: Scalar range and numeric checks
     scalars = parsed.get("scalars", {})
     for var_name, value in scalars.items():
-        param = _PARAM_BY_VAR.get(var_name)
+        param = _param_by_var.get(var_name)
         if param is None:
             # Unknown var — silently ignore per locked decision
             continue
@@ -605,11 +609,12 @@ try:
             ctrl = self.controller
 
             def _job():
+                import dmccodegui.machine_config as mc
                 scalars: dict[str, Any] = {}
                 arrays: dict[str, list] = {}
 
                 # Read scalars
-                for p in PARAM_DEFS:
+                for p in mc.get_param_defs():
                     var = p["var"]
                     try:
                         raw = ctrl.cmd(f"MG {var}")
@@ -675,10 +680,11 @@ try:
             self._pending_parsed = parsed
 
             def _job():
+                import dmccodegui.machine_config as mc
                 current_scalars: dict[str, Any] = {}
                 current_arrays: dict[str, list] = {}
 
-                for p in PARAM_DEFS:
+                for p in mc.get_param_defs():
                     var = p["var"]
                     try:
                         raw = ctrl.cmd(f"MG {var}")

@@ -10,14 +10,21 @@ from pathlib import Path
 
 import pytest
 
+import dmccodegui.machine_config as mc
 from dmccodegui.screens.profiles import (
     KNOWN_ARRAYS,
-    MACHINE_TYPE,
     compute_diff,
     export_profile,
     parse_profile_csv,
     validate_import,
 )
+
+
+@pytest.fixture(autouse=True)
+def _init_machine_config(tmp_path):
+    """Initialize machine_config with a temp settings file before each test."""
+    mc.init(str(tmp_path / "settings.json"))
+    mc.set_active_type("4-Axes Flat Grind")
 
 
 # ---------------------------------------------------------------------------
@@ -47,7 +54,7 @@ class TestExportMetadataRows:
         rows = list(csv.reader(path.open(newline="", encoding="utf-8")))
         machine_rows = [r for r in rows if r and r[0] == "_machine_type"]
         assert len(machine_rows) == 1
-        assert machine_rows[0][1] == MACHINE_TYPE
+        assert machine_rows[0][1] == mc.get_active_type()
 
     def test_export_writes_profile_name(self, tmp_path):
         path = tmp_path / "profile.csv"
@@ -126,7 +133,7 @@ class TestParseReturnsMetadata:
         path = tmp_path / "p.csv"
         export_profile(path, "RoundTrip", _make_scalars(), _make_arrays())
         result = parse_profile_csv(path)
-        assert result["machine_type"] == MACHINE_TYPE
+        assert result["machine_type"] == mc.get_active_type()
         assert result["profile_name"] == "RoundTrip"
         assert "T" in result["export_date"]  # ISO date
 
@@ -250,7 +257,7 @@ class TestValidateImport:
 
     def _valid_parsed(self) -> dict:
         return {
-            "machine_type": MACHINE_TYPE,
+            "machine_type": mc.get_active_type(),
             "profile_name": "TestProfile",
             "export_date": "2026-01-01T00:00:00",
             "scalars": {"knfThk": 25.5, "edgeThk": 0.8},
@@ -310,3 +317,12 @@ class TestValidateImport:
         parsed["scalars"]["unknownVar"] = 999.0
         errors = validate_import(parsed)
         assert errors == []
+
+    def test_validate_import_uses_active_type(self):
+        """validate_import checks against mc.get_active_type(), not a stale constant."""
+        mc.set_active_type("3-Axes Serration Grind")
+        parsed = self._valid_parsed()  # uses mc.get_active_type() which is now Serration
+        errors = validate_import(parsed)
+        assert errors == []
+        # Reset
+        mc.set_active_type("4-Axes Flat Grind")

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Completed 02-01-PLAN.md — RUN page foundation: MachineState cycle fields, RunScreen Python class, full KV layout"
-last_updated: "2026-04-04T08:17:11.844Z"
+stopped_at: "Completed 02-02-PLAN.md — Knife Grind Adjustment panel: DeltaCBarChart widget, section controls, Apply button"
+last_updated: "2026-04-04T08:22:23.687Z"
 last_activity: "2026-04-04 — Plan 01-03 complete: PIN overlay auth flow, role-gated tabs, idle auto-lock"
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 8
-  completed_plans: 6
+  completed_plans: 7
   percent: 8
 ---
 
@@ -55,6 +55,7 @@ Progress: [█░░░░░░░░░] 8%
 | Phase 01 P03 | 4 min | 2 tasks | 8 files |
 | Phase 02-run-page P00 | 2 | 2 tasks | 3 files |
 | Phase 02-run-page P01 | 5 | 2 tasks | 3 files |
+| Phase 02-run-page P02 | 159 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,8 @@ Recent decisions affecting current work:
 - [Phase 02-run-page]: test_machine_state_cycle.py kept Kivy-free — pure dataclass tests run in any CI environment without display
 - [Phase 02-01]: DELTA_C constants and DeltaCBarChart stub added in Plan 02-01 to satisfy pre-written tests; full implementation deferred to Plan 02-02
 - [Phase 02-01]: delta_c_offsets kept as plain list (not Kivy ListProperty) since Plan 02-02 owns the full widget binding
+- [Phase 02-run-page]: DELTA_C_STEP updated from placeholder 10.0 to plan-specified 50 (int)
+- [Phase 02-run-page]: delta_c_offsets promoted to ListProperty so KV bindings and canvas redraws fire correctly
 
 ### Pending Todos
 
@@ -93,6 +96,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-04T08:17:11.842Z
-Stopped at: Completed 02-01-PLAN.md — RUN page foundation: MachineState cycle fields, RunScreen Python class, full KV layout
+Last session: 2026-04-04T08:22:23.684Z
+Stopped at: Completed 02-02-PLAN.md — Knife Grind Adjustment panel: DeltaCBarChart widget, section controls, Apply button
 Resume file: None

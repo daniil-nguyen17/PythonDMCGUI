@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: RUN Page** - Cycle controls, live axis positions, cycle status, Knife Grind Adjustment, E-STOP everywhere (completed 2026-04-04)
 - [x] **Phase 3: Live Matplotlib Plot** - Embedded A/B position plot with Pi performance validation (completed 2026-04-04)
 - [x] **Phase 4: Axes Setup and Parameters** - Unified jog/teach screen and grouped parameter editor for Setup role (completed 2026-04-04)
-- [ ] **Phase 5: CSV Profile System** - Safe import/export of knife profiles with machine-type validation
+- [x] **Phase 5: CSV Profile System** - Safe import/export of knife profiles with machine-type validation (completed 2026-04-04)
 - [ ] **Phase 6: Machine-Type Differentiation** - Full support for Flat Grind, Convex Grind, and Serration Grind variants
 - [ ] **Phase 7: Admin and User Management** - Admin screen for user CRUD and PIN assignment
 - [ ] **Phase 8: Pi Kiosk and Deployment** - Kiosk lockout, systemd autostart, SD card packaging
@@ -98,7 +98,7 @@ Plans:
   2. Setup user can import a CSV to load a knife profile — a confirmation dialog showing a diff of changes appears before anything is sent to the controller
   3. Import is blocked and shows a clear error when the CSV's machine type header does not match the current machine
   4. Import button is disabled (greyed out) while a grinding cycle is actively running
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 05-01-PLAN.md — Pure Python CSV engine: export, parse, diff, validate (TDD)
@@ -151,7 +151,7 @@ Note: Phase 3 depends on Phase 2; Phase 4 depends on Phase 1 (not Phase 2/3 — 
 | 2. RUN Page | 4/4 | Complete   | 2026-04-04 |
 | 3. Live Matplotlib Plot | 1/1 | Complete   | 2026-04-04 |
 | 4. Axes Setup and Parameters | 3/3 | Complete   | 2026-04-04 |
-| 5. CSV Profile System | 2/3 | In Progress|  |
+| 5. CSV Profile System | 3/3 | Complete   | 2026-04-04 |
 | 6. Machine-Type Differentiation | 0/TBD | Not started | - |
 | 7. Admin and User Management | 0/TBD | Not started | - |
 | 8. Pi Kiosk and Deployment | 0/TBD | Not started | - |

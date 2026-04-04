@@ -57,9 +57,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### CSV Profiles
 
-- [ ] **CSV-01**: User can export all current parameter values and array data to a CSV file
-- [ ] **CSV-02**: User can import a CSV file to load a knife profile (DMC array names as headers, values as rows)
-- [ ] **CSV-03**: CSV import validates machine type compatibility before applying
+- [x] **CSV-01**: User can export all current parameter values and array data to a CSV file
+- [x] **CSV-02**: User can import a CSV file to load a knife profile (DMC array names as headers, values as rows)
+- [x] **CSV-03**: CSV import validates machine type compatibility before applying
 - [ ] **CSV-04**: CSV import is blocked during an active grinding cycle (safety interlock)
 - [ ] **CSV-05**: CSV profiles are only importable/exportable by Setup and Admin roles
 
@@ -155,9 +155,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PARAM-05 | Phase 4 | Complete |
 | PARAM-06 | Phase 4 | Complete |
 | PARAM-07 | Phase 4 | Complete |
-| CSV-01 | Phase 5 | Pending |
-| CSV-02 | Phase 5 | Pending |
-| CSV-03 | Phase 5 | Pending |
+| CSV-01 | Phase 5 | Complete |
+| CSV-02 | Phase 5 | Complete |
+| CSV-03 | Phase 5 | Complete |
 | CSV-04 | Phase 5 | Pending |
 | CSV-05 | Phase 5 | Pending |
 | MACH-01 | Phase 6 | Pending |

@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-04-04T06:27:32.305Z"
-last_activity: 2026-04-04 — Roadmap created, all 50 v1 requirements mapped across 8 phases
+status: in-progress
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-04-04T06:30:00.000Z"
+last_activity: 2026-04-04 — Plan 01-02 complete: app shell StatusBar+TabBar+ScreenManager with NoTransition
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
-  percent: 0
+  completed_plans: 2
+  percent: 5
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-04)
 ## Current Position
 
 Phase: 1 of 8 (Auth and Navigation)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-04-04 — Roadmap created, all 50 v1 requirements mapped across 8 phases
+Plan: 2 of 4 in current phase
+Status: In progress
+Last activity: 2026-04-04 — Plan 01-02 complete: app shell StatusBar+TabBar+ScreenManager with NoTransition
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 5%
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 01 P01 | 2 | 2 tasks | 8 files |
+| Phase 01 P02 | 2 min | 2 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,9 @@ Recent decisions affecting current work:
 - [Phase 01]: AuthManager uses plain JSON with plain-text PINs (no hashing, no sqlite) per locked project decision
 - [Phase 01]: setup_unlocked derived from role in set_auth() at call time, not stored separately
 - [Phase 01]: MachineState auth fields use dataclass defaults to preserve backward compatibility
+- [Phase 01-02]: Old screen files kept on disk (removed from imports only) to preserve git history for uncommitted changes
+- [Phase 01-02]: TabBar defaults to admin role until Plan 03 wires real auth
+- [Phase 01-02]: StatusBar.update_from_state uses getattr defaults — tolerates MachineState without current_user/current_role
 
 ### Pending Todos
 
@@ -79,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-04T06:27:32.303Z
-Stopped at: Completed 01-01-PLAN.md
-Resume file: None
+Last session: 2026-04-04T06:30:00.000Z
+Stopped at: Completed 01-02-PLAN.md
+Resume file: .planning/phases/01-auth-and-navigation/01-02-SUMMARY.md

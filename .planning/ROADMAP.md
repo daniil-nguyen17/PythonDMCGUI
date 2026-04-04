@@ -33,11 +33,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Operator sees only the Run tab; Setup sees Run, Axes Setup, and Parameters; tab bar updates immediately on role change
   4. Setup user can tap a PIN overlay on any restricted tab to unlock access, and access re-locks automatically after the configured inactivity timeout
   5. E-STOP button, connection status, and current user/role are visible on every screen at all times
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 Plans:
-- [ ] 01-01-PLAN.md — AuthManager + MachineState auth extension (pure Python + tests)
-- [ ] 01-02-PLAN.md — New app shell: StatusBar + TabBar + placeholder screens
+- [x] 01-01-PLAN.md — AuthManager + MachineState auth extension (pure Python + tests)
+- [x] 01-02-PLAN.md — New app shell: StatusBar + TabBar + placeholder screens
 - [ ] 01-03-PLAN.md — PIN overlay, auth flow wiring, role-gated tabs, auto-lock
 - [ ] 01-04-PLAN.md — Visual/functional verification checkpoint
 

@@ -20,11 +20,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Navigation
 
-- [ ] **NAV-01**: App uses a persistent tab bar (Run, Axes Setup, Parameters, Diagnostics) replacing the ActionBar + Spinner pattern
-- [ ] **NAV-02**: E-STOP button is accessible from every screen via a persistent top bar or footer element
-- [ ] **NAV-03**: Tab visibility is role-aware — Operator sees Run tab only; Setup sees Run + Axes + Parameters; Admin sees all
-- [ ] **NAV-04**: Connection status (connected/disconnected + machine name) is always visible in the top bar
-- [ ] **NAV-05**: Current user name and role are always visible in the top bar with a switch-user button
+- [x] **NAV-01**: App uses a persistent tab bar (Run, Axes Setup, Parameters, Diagnostics) replacing the ActionBar + Spinner pattern
+- [x] **NAV-02**: E-STOP button is accessible from every screen via a persistent top bar or footer element
+- [x] **NAV-03**: Tab visibility is role-aware — Operator sees Run tab only; Setup sees Run + Axes + Parameters; Admin sees all
+- [x] **NAV-04**: Connection status (connected/disconnected + machine name) is always visible in the top bar
+- [x] **NAV-05**: Current user name and role are always visible in the top bar with a switch-user button
 
 ### RUN Page
 
@@ -71,10 +71,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Theme & Touch
 
-- [ ] **UI-01**: Consistent dark theme across all screens (BG_DARK navy palette from existing theme.kv)
-- [ ] **UI-02**: Axis accent color coding maintained throughout: A=orange, B=purple, C=cyan, D=yellow
-- [ ] **UI-03**: All interactive elements meet minimum 44dp touch target size
-- [ ] **UI-04**: No animated transitions between screens — instant switches only
+- [x] **UI-01**: Consistent dark theme across all screens (BG_DARK navy palette from existing theme.kv)
+- [x] **UI-02**: Axis accent color coding maintained throughout: A=orange, B=purple, C=cyan, D=yellow
+- [x] **UI-03**: All interactive elements meet minimum 44dp touch target size
+- [x] **UI-04**: No animated transitions between screens — instant switches only
 
 ### Deployment
 

@@ -4,13 +4,16 @@ from __future__ import annotations
 import time
 
 from kivy.clock import Clock
+from kivy.graphics import Color, Line, Rectangle
 from kivy.properties import (
     BooleanProperty,
+    ListProperty,
     NumericProperty,
     ObjectProperty,
     StringProperty,
 )
 from kivy.uix.screenmanager import Screen
+from kivy.uix.widget import Widget
 
 from ..app_state import MachineState
 from ..controller import GalilController
@@ -35,17 +38,106 @@ CYCLE_VAR_COMPLETION = "pctDone"
 DELTA_C_WRITABLE_START: int = 0    # First writable index in the deltaC array on controller
 DELTA_C_WRITABLE_END: int = 99     # Last writable index (inclusive) — 100 elements total
 DELTA_C_ARRAY_SIZE: int = DELTA_C_WRITABLE_END - DELTA_C_WRITABLE_START + 1  # = 100
-DELTA_C_STEP: float = 10.0         # Default adjustment increment in controller counts
+DELTA_C_STEP: int = 50             # Adjustment increment per button press in controller counts
 
 
-class DeltaCBarChart:
-    """Placeholder stub for the bar-chart widget built in Plan 02-02.
+class DeltaCBarChart(Widget):
+    """Bar-chart widget that draws per-section deltaC offsets on a zero baseline.
 
-    RunScreen references this in test_delta_c_bar_chart.py. The real widget
-    is a Kivy Widget subclass that draws bars and tracks selected_index.
-    Plan 02-02 replaces this stub with the full implementation.
+    Each bar represents one section of the knife. Positive offsets extend above
+    the centre line; negative offsets extend below. Tapping a bar selects it
+    (highlighted in orange); the RunScreen up/down buttons adjust the selected
+    bar's offset.
+
+    Properties
+    ----------
+    offsets : ListProperty([])
+        One float per section.  Bound to RunScreen.delta_c_offsets in KV.
+    selected_index : NumericProperty(-1)
+        Index of the currently selected bar.  -1 means nothing selected.
+    max_offset : NumericProperty(500)
+        Absolute offset value that maps to half the widget height (clamps bars).
     """
-    selected_index: int = 0
+
+    offsets = ListProperty([])
+    selected_index = NumericProperty(-1)
+    max_offset = NumericProperty(500)
+
+    # ------------------------------------------------------------------
+    # Reactive triggers — any change to size/pos/offsets/selection redraws
+    # ------------------------------------------------------------------
+
+    def on_offsets(self, *args) -> None:
+        self._draw()
+
+    def on_selected_index(self, *args) -> None:
+        self._draw()
+
+    def on_size(self, *args) -> None:
+        self._draw()
+
+    def on_pos(self, *args) -> None:
+        self._draw()
+
+    # ------------------------------------------------------------------
+    # Drawing
+    # ------------------------------------------------------------------
+
+    def _draw(self) -> None:
+        """Clear and redraw all bars using Kivy canvas instructions."""
+        self.canvas.clear()
+        offsets = list(self.offsets)
+        n = len(offsets)
+        if n == 0:
+            return
+
+        bar_w = self.width / n
+        mid_y = self.y + self.height / 2.0
+        half_h = self.height / 2.0
+
+        with self.canvas:
+            # Zero baseline — thin grey horizontal line
+            Color(0.4, 0.4, 0.4, 1)
+            Rectangle(pos=(self.x, mid_y - 0.5), size=(self.width, 1))
+
+            for i, offset in enumerate(offsets):
+                # Bar height proportional to |offset| / max_offset, minimum 2px
+                if self.max_offset > 0:
+                    raw_h = abs(offset) / self.max_offset * half_h
+                else:
+                    raw_h = 0.0
+                bar_h = max(2.0, raw_h)
+
+                # Colour: orange if selected, blue otherwise
+                if i == int(self.selected_index):
+                    Color(1.0, 0.65, 0.0, 1)
+                else:
+                    Color(0.235, 0.510, 0.960, 1)
+
+                bar_x = self.x + i * bar_w
+                if offset >= 0:
+                    # Positive: draw above the zero line
+                    Rectangle(pos=(bar_x + 1, mid_y), size=(bar_w - 2, bar_h))
+                else:
+                    # Negative: draw below the zero line
+                    Rectangle(pos=(bar_x + 1, mid_y - bar_h), size=(bar_w - 2, bar_h))
+
+    # ------------------------------------------------------------------
+    # Touch handling
+    # ------------------------------------------------------------------
+
+    def on_touch_down(self, touch) -> bool:
+        """Select the bar that was tapped."""
+        if not self.collide_point(touch.x, touch.y):
+            return False
+        n = len(self.offsets)
+        if n == 0:
+            return True
+        bar_w = self.width / n
+        idx = int((touch.x - self.x) / bar_w)
+        idx = max(0, min(n - 1, idx))
+        self.selected_index = idx
+        return True
 
 
 def _format_mmss(seconds: float) -> str:
@@ -100,9 +192,10 @@ class RunScreen(Screen):
     # Machine type flag — controls serration field visibility in KV
     is_serration = BooleanProperty(IS_SERRATION)
 
-    # Knife Grind Adjustment properties (Plan 02-02 fills this panel)
+    # Knife Grind Adjustment properties
     section_count = NumericProperty(1)
-    delta_c_offsets: list = []  # per-section C-axis offset values (Plan 02-02)
+    delta_c_offsets = ListProperty([0.0])        # one offset per section
+    selected_section_value = StringProperty("0") # display value for the selected bar
 
     # -----------------------------------------------------------------------
     # Internal state
@@ -113,6 +206,16 @@ class RunScreen(Screen):
     # -----------------------------------------------------------------------
     # Lifecycle
     # -----------------------------------------------------------------------
+
+    def on_kv_post(self, base_widget) -> None:
+        """Called by Kivy after all KV ids are assigned.
+
+        Binds the DeltaCBarChart selection observer so selected_section_value
+        stays in sync with whichever bar the operator taps.
+        """
+        chart = self.ids.get("delta_c_chart")
+        if chart is not None:
+            chart.bind(selected_index=self._on_chart_selection_changed)
 
     def on_pre_enter(self, *args) -> None:
         """Called by Kivy when operator navigates to this screen.
@@ -342,35 +445,96 @@ class RunScreen(Screen):
             jobs.submit(_go_rest)
 
     # -----------------------------------------------------------------------
-    # Delta-C (Knife Grind Adjustment) stubs — Plan 02-02 completes these
+    # Delta-C (Knife Grind Adjustment)
     # -----------------------------------------------------------------------
 
     def on_section_count_change(self, value: int) -> None:
         """Clamp section count to 1-10 and resize delta_c_offsets list.
 
-        Plan 02-02 wires this to the section count spinner in the KV panel.
+        Preserves existing offset values; pads with 0.0 for new sections;
+        truncates when count decreases.
         """
         clamped = max(1, min(10, int(value)))
         self.section_count = clamped
-        # Resize offsets list, preserving existing values, padding with 0.0
         old = list(self.delta_c_offsets)
         self.delta_c_offsets = (old + [0.0] * clamped)[:clamped]
 
+    def _on_chart_selection_changed(self, chart_widget, selected_index: int) -> None:
+        """Observer bound to delta_c_chart.selected_index via on_kv_post.
+
+        Updates selected_section_value so the 'Selected: X cts' label refreshes
+        whenever the operator taps a bar or the selection is cleared.
+        """
+        idx = int(selected_index)
+        if 0 <= idx < len(self.delta_c_offsets):
+            self.selected_section_value = str(int(self.delta_c_offsets[idx]))
+        else:
+            self.selected_section_value = "0"
+
+    def on_adjust_up(self) -> None:
+        """Add DELTA_C_STEP to the currently selected bar's offset."""
+        chart = self.ids.get("delta_c_chart")
+        if chart is None:
+            return
+        idx = int(chart.selected_index)
+        if idx < 0 or idx >= len(self.delta_c_offsets):
+            return
+        offsets = list(self.delta_c_offsets)
+        offsets[idx] += DELTA_C_STEP
+        self.delta_c_offsets = offsets
+        self.selected_section_value = str(int(self.delta_c_offsets[idx]))
+
+    def on_adjust_down(self) -> None:
+        """Subtract DELTA_C_STEP from the currently selected bar's offset."""
+        chart = self.ids.get("delta_c_chart")
+        if chart is None:
+            return
+        idx = int(chart.selected_index)
+        if idx < 0 or idx >= len(self.delta_c_offsets):
+            return
+        offsets = list(self.delta_c_offsets)
+        offsets[idx] -= DELTA_C_STEP
+        self.delta_c_offsets = offsets
+        self.selected_section_value = str(int(self.delta_c_offsets[idx]))
+
+    def on_apply_delta_c(self) -> None:
+        """Convert section offsets to a 100-element deltaC array and send to controller.
+
+        Only writes the writable index range [DELTA_C_WRITABLE_START, DELTA_C_WRITABLE_END].
+        Submits the download_array call on the background job thread.
+        """
+        if not self.controller or not self.controller.is_connected():
+            return
+        values = self._offsets_to_delta_c()
+
+        def _send():
+            try:
+                self.controller.download_array(
+                    "deltaC",
+                    DELTA_C_WRITABLE_START,
+                    values,
+                )
+            except Exception as e:
+                print(f"[RunScreen] Apply deltaC error: {e}")
+                Clock.schedule_once(lambda *_: self._alert(f"Apply failed: {e}"))
+
+        jobs.submit(_send)
+
     def _offsets_to_delta_c(self) -> list[float]:
-        """Convert per-section offset values into a full-length delta-C controller array.
+        """Expand per-section offsets into the full DELTA_C_ARRAY_SIZE-element array.
 
-        Divides DELTA_C_ARRAY_SIZE evenly across section_count sections. Each
-        position in the output array receives the offset value for its section.
+        Each section covers ``DELTA_C_ARRAY_SIZE // section_count`` indices.  The
+        last section absorbs any remainder so the output length is always
+        exactly DELTA_C_ARRAY_SIZE.
 
-        Returns a list of DELTA_C_ARRAY_SIZE floats suitable for uploading to
-        the controller via controller.download_array().
-
-        Plan 02-02 uses this to write adjusted C-axis positions before each pass.
+        Returns
+        -------
+        list[float]
+            Length DELTA_C_ARRAY_SIZE (== DELTA_C_WRITABLE_END - DELTA_C_WRITABLE_START + 1).
         """
         n = max(1, int(self.section_count))
         size = DELTA_C_ARRAY_SIZE
         offsets = list(self.delta_c_offsets)
-        # Pad offsets if shorter than section_count
         while len(offsets) < n:
             offsets.append(0.0)
 
@@ -378,7 +542,7 @@ class RunScreen(Screen):
         chunk = size // n
         for i in range(n):
             start = i * chunk
-            end = start + chunk if i < n - 1 else size  # last section takes remainder
+            end = start + chunk if i < n - 1 else size
             val = offsets[i]
             result.extend([val] * (end - start))
 

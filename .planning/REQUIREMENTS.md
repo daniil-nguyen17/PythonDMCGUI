@@ -47,13 +47,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Parameters
 
-- [ ] **PARAM-01**: Parameters are organized into grouped cards: Geometry, Feedrates, Calibration, Positions, Safety
-- [ ] **PARAM-02**: Each parameter row shows human-readable name, DMC variable code, editable input field, and unit
-- [ ] **PARAM-03**: Invalid inputs (out of range, wrong type) are highlighted inline with red border immediately on entry
-- [ ] **PARAM-04**: Modified (unsaved) values are visually indicated with amber highlight and a change counter in the bottom bar
-- [ ] **PARAM-05**: "Apply to Controller" button sends all modified parameters to the controller at once
-- [ ] **PARAM-06**: "Read from Controller" button refreshes all parameter values from the controller
-- [ ] **PARAM-07**: Parameters page is only editable by Setup and Admin roles; Operator can view but not modify
+- [x] **PARAM-01**: Parameters are organized into grouped cards: Geometry, Feedrates, Calibration, Positions, Safety
+- [x] **PARAM-02**: Each parameter row shows human-readable name, DMC variable code, editable input field, and unit
+- [x] **PARAM-03**: Invalid inputs (out of range, wrong type) are highlighted inline with red border immediately on entry
+- [x] **PARAM-04**: Modified (unsaved) values are visually indicated with amber highlight and a change counter in the bottom bar
+- [x] **PARAM-05**: "Apply to Controller" button sends all modified parameters to the controller at once
+- [x] **PARAM-06**: "Read from Controller" button refreshes all parameter values from the controller
+- [x] **PARAM-07**: Parameters page is only editable by Setup and Admin roles; Operator can view but not modify
 
 ### CSV Profiles
 
@@ -148,13 +148,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AXES-04 | Phase 4 | Complete |
 | AXES-05 | Phase 4 | Complete |
 | AXES-06 | Phase 4 | Complete |
-| PARAM-01 | Phase 4 | Pending |
-| PARAM-02 | Phase 4 | Pending |
-| PARAM-03 | Phase 4 | Pending |
-| PARAM-04 | Phase 4 | Pending |
-| PARAM-05 | Phase 4 | Pending |
-| PARAM-06 | Phase 4 | Pending |
-| PARAM-07 | Phase 4 | Pending |
+| PARAM-01 | Phase 4 | Complete |
+| PARAM-02 | Phase 4 | Complete |
+| PARAM-03 | Phase 4 | Complete |
+| PARAM-04 | Phase 4 | Complete |
+| PARAM-05 | Phase 4 | Complete |
+| PARAM-06 | Phase 4 | Complete |
+| PARAM-07 | Phase 4 | Complete |
 | CSV-01 | Phase 5 | Pending |
 | CSV-02 | Phase 5 | Pending |
 | CSV-03 | Phase 5 | Pending |

@@ -98,7 +98,7 @@ Plans:
   2. Pressing Stop from the Run page sends both ST ABCD and HX — the DMC program thread stops, not just the motors
   3. Start Grind, Go To Rest, Go To Start, More Stone, and Less Stone buttons are visually disabled when hmiState reports active motion — they cannot be tapped until the controller reports idle
   4. E-STOP is accessible from the Run page without navigating away from any active screen
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 11-01-PLAN.md — Priority job infrastructure (submit_urgent, reset_handle, program_running poll)
 - [ ] 11-02-PLAN.md — Wire E-STOP, Stop, RECOVER buttons and motion gate on RunScreen
@@ -157,7 +157,7 @@ Plans:
 | 8. Pi Kiosk and Deployment | v1.1 | 0/TBD | Deferred | - |
 | 9. DMC Foundation | v2.0 | 3/3 | Complete | 2026-04-06 |
 | 10. State Poll | v2.0 | 3/3 | Complete | 2026-04-06 |
-| 11. E-STOP Safety | v2.0 | 0/2 | Planning | - |
+| 11. E-STOP Safety | 1/2 | In Progress|  | - |
 | 12. Run Page Wiring | v2.0 | 0/TBD | Not started | - |
 | 13. Setup Loop | v2.0 | 0/TBD | Not started | - |
 | 14. State-Driven UI | v2.0 | 0/TBD | Not started | - |

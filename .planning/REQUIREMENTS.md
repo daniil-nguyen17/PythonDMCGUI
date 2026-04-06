@@ -25,7 +25,7 @@ Requirements for Flat Grind HMI-controller integration. Each maps to roadmap pha
 
 ### Safety
 
-- [ ] **SAFE-01**: E-STOP sends ST ABCD immediately via priority path, not queued behind normal jobs
+- [x] **SAFE-01**: E-STOP sends ST ABCD immediately via priority path, not queued behind normal jobs
 - [ ] **SAFE-02**: Stop/Pause sends ST ABCD + HX to halt both motor motion and DMC program thread
 - [ ] **SAFE-03**: All motion-triggering buttons are disabled when controller reports active motion (gate on hmiState)
 
@@ -120,7 +120,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | POLL-02 | Phase 10 | Complete |
 | POLL-03 | Phase 10 | Complete |
 | POLL-04 | Phase 10 | Complete |
-| SAFE-01 | Phase 11 | Pending |
+| SAFE-01 | Phase 11 | Complete |
 | SAFE-02 | Phase 11 | Pending |
 | SAFE-03 | Phase 11 | Pending |
 | RUN-01 | Phase 12 | Pending |

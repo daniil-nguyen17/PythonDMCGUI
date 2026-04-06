@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Flat Grind Integration
 status: planning
-stopped_at: Phase 11 context gathered
-last_updated: "2026-04-06T05:27:52.444Z"
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-04-06T06:18:22.842Z"
 last_activity: 2026-04-06 — Roadmap created
 progress:
   total_phases: 7
   completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 8
+  completed_plans: 7
 ---
 
 # Project State
@@ -67,6 +67,7 @@ Progress (v2.0): [░░░░░░░░░░] 0% (0/6 phases)
 | Phase 10-state-poll P01 | 18 | 2 tasks | 5 files |
 | Phase 10-state-poll P02 | 16 | 2 tasks | 5 files |
 | Phase 10-state-poll P03 | 8 | 2 tasks | 3 files |
+| Phase 11-e-stop-safety P01 | 3 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -96,6 +97,8 @@ Decisions affecting current work (v2.0):
 - [Phase 10-state-poll]: TYPE_CHECKING guard in poll.py avoids circular import: hmi/__init__.py does not eagerly import poll
 - [Phase 10-state-poll]: 7 separate MG commands per poll cycle (not batch) — safe individual reads per RESEARCH.md recommendation
 - [Phase 10-state-poll]: test_plot_buffer_only_during_cycle updated to use _apply_state with MachineState API instead of deleted _apply_ui
+- [Phase 11-e-stop-safety]: _cancel_event cleared by worker after urgent job runs — avoids race with caller clearing before job executes
+- [Phase 11-e-stop-safety]: program_running defaults True on _XQ failure — conservative: RECOVER button stays disabled when controller state uncertain
 
 ### Research Flags (require hardware validation)
 
@@ -114,7 +117,7 @@ Decisions affecting current work (v2.0):
 
 ## Session Continuity
 
-Last session: 2026-04-06T05:27:52.442Z
-Stopped at: Phase 11 context gathered
-Resume file: .planning/phases/11-e-stop-safety/11-CONTEXT.md
+Last session: 2026-04-06T06:18:22.840Z
+Stopped at: Completed 11-01-PLAN.md
+Resume file: None
 Next action: `/gsd:plan-phase 9`

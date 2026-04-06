@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Flat Grind Integration
 status: planning
-stopped_at: Phase 9 context gathered
-last_updated: "2026-04-06T03:19:24.523Z"
+stopped_at: Completed 09-dmc-foundation-01-PLAN.md
+last_updated: "2026-04-06T03:41:35.697Z"
 last_activity: 2026-04-06 — Roadmap created
 progress:
   total_phases: 7
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 3
+  completed_plans: 2
 ---
 
 # Project State
@@ -61,6 +61,8 @@ Progress (v2.0): [░░░░░░░░░░] 0% (0/6 phases)
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 09-dmc-foundation P01 | 22 | 2 tasks | 4 files |
+| Phase 09 P02 | 2 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -79,6 +81,10 @@ Decisions affecting current work (v2.0):
 - State authority is hmiState from controller — Python-side cycle_running is derived, not authoritative
 - Single gclib handle serialized through jobs FIFO worker — no concurrent handle access regardless of 2.4.x thread-safety claim
 - BV (variable save to flash) only on explicit user save — never in poll loops, never automatic
+- [Phase 09-dmc-foundation]: dmc_vars.py is the single source of truth for DMC variable names — screen files must import from here, never use raw string literals
+- [Phase 09-dmc-foundation]: xfail marker on stale-string test keeps suite green until plan 09-03 migrates screen files
+- [Phase 09]: hmiState set in #HOME subroutine at entry (=4) and before EN (=1); SULOOP overrides after return to restore hmiState=3
+- [Phase 09]: Exit-setup button (@IN[32]) gets no HMI variable — deferred to Phase 13 SETP-08
 
 ### Research Flags (require hardware validation)
 
@@ -97,7 +103,7 @@ Decisions affecting current work (v2.0):
 
 ## Session Continuity
 
-Last session: 2026-04-06T03:19:24.521Z
-Stopped at: Phase 9 context gathered
-Resume file: .planning/phases/09-dmc-foundation/09-CONTEXT.md
+Last session: 2026-04-06T03:41:34.924Z
+Stopped at: Completed 09-dmc-foundation-01-PLAN.md
+Resume file: None
 Next action: `/gsd:plan-phase 9`

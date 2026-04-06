@@ -9,12 +9,12 @@ Requirements for Flat Grind HMI-controller integration. Each maps to roadmap pha
 
 ### DMC Program
 
-- [ ] **DMC-01**: DMC program declares HMI trigger variables (hmiGrnd, hmiSetp, hmiMore, hmiLess, hmiNewS, hmiHome, hmiJog, hmiCalc) with default=1 in #PARAMS
-- [ ] **DMC-02**: DMC main polling loop (#WtAtRt) OR's each @IN[] check with its corresponding HMI variable
-- [ ] **DMC-03**: DMC resets each HMI variable to 1 as the first line inside each triggered block (before any motion)
-- [ ] **DMC-04**: DMC declares hmiState variable and sets it to distinct integer values at each state boundary (IDLE, GRINDING, SETUP, HOMING, etc.)
-- [ ] **DMC-05**: DMC setup loop (#SULOOP) OR's physical button checks with HMI variables for home, jog, varcalc, and exit
-- [ ] **DMC-06**: Array names in Python code match DMC declarations (startPt/restPt, not StartPnt/RestPnt)
+- [x] **DMC-01**: DMC program declares HMI trigger variables (hmiGrnd, hmiSetp, hmiMore, hmiLess, hmiNewS, hmiHome, hmiJog, hmiCalc) with default=1 in #PARAMS
+- [x] **DMC-02**: DMC main polling loop (#WtAtRt) OR's each @IN[] check with its corresponding HMI variable
+- [x] **DMC-03**: DMC resets each HMI variable to 1 as the first line inside each triggered block (before any motion)
+- [x] **DMC-04**: DMC declares hmiState variable and sets it to distinct integer values at each state boundary (IDLE, GRINDING, SETUP, HOMING, etc.)
+- [x] **DMC-05**: DMC setup loop (#SULOOP) OR's physical button checks with HMI variables for home, jog, varcalc, and exit
+- [x] **DMC-06**: Array names in Python code match DMC declarations (startPt/restPt, not StartPnt/RestPnt)
 
 ### State Polling
 
@@ -110,12 +110,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DMC-01 | Phase 9 | Pending |
-| DMC-02 | Phase 9 | Pending |
-| DMC-03 | Phase 9 | Pending |
-| DMC-04 | Phase 9 | Pending |
-| DMC-05 | Phase 9 | Pending |
-| DMC-06 | Phase 9 | Pending |
+| DMC-01 | Phase 9 | Complete |
+| DMC-02 | Phase 9 | Complete |
+| DMC-03 | Phase 9 | Complete |
+| DMC-04 | Phase 9 | Complete |
+| DMC-05 | Phase 9 | Complete |
+| DMC-06 | Phase 9 | Complete |
 | POLL-01 | Phase 10 | Pending |
 | POLL-02 | Phase 10 | Pending |
 | POLL-03 | Phase 10 | Pending |

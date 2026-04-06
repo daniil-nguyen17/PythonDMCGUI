@@ -812,18 +812,17 @@
                     pos: self.pos
                     size: self.size
 
-            ToggleButton:
-                id: start_pause_btn
-                text: 'PAUSE' if self.state == 'down' else 'START'
+            Button:
+                id: start_grind_btn
+                text: 'START GRIND'
                 font_size: '16sp'
                 bold: True
                 size_hint_x: 1
                 background_normal: ''
-                background_down: ''
-                background_color: (0.47, 0.25, 0.06, 1) if self.state == 'down' else (0.09, 0.40, 0.20, 1)
-                color: (0.992, 0.910, 0.541, 1) if self.state == 'down' else (0.733, 0.969, 0.827, 1)
+                background_color: 0.09, 0.40, 0.20, 1
+                color: 0.733, 0.969, 0.827, 1
                 disabled: root.motion_active
-                on_release: root.on_start_pause_toggle(self.state)
+                on_release: root.on_start_grind()
 
             Button:
                 id: stop_btn
@@ -840,13 +839,25 @@
                 on_release: root.on_stop()
 
             Button:
-                id: go_to_rest_btn
-                text: 'GO TO REST'
-                font_size: '16sp'
+                id: more_stone_btn
+                text: 'MORE STONE'
+                font_size: '14sp'
                 bold: True
-                size_hint_x: 0.7
+                size_hint_x: 0.6
                 background_normal: ''
                 background_color: 0.118, 0.227, 0.373, 1
                 color: 0.576, 0.773, 0.992, 1
                 disabled: root.motion_active
-                on_release: root.on_go_to_rest()
+                on_release: root.on_more_stone()
+
+            Button:
+                id: less_stone_btn
+                text: 'LESS STONE'
+                font_size: '14sp'
+                bold: True
+                size_hint_x: 0.6
+                background_normal: ''
+                background_color: 0.118, 0.100, 0.200, 1
+                color: 0.780, 0.650, 0.990, 1
+                disabled: root.motion_active
+                on_release: root.on_less_stone()

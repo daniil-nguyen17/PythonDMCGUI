@@ -28,9 +28,22 @@ An operator walks up, taps their PIN, runs parts while watching a live A/B posit
 
 ### Active
 
-- [ ] Raspberry Pi kiosk mode: boot straight into app, full-screen, no desktop/browser/file explorer access for operators
-- [ ] Windows deployment support alongside Pi (app runs, kiosk behavior not applied)
-- [ ] Easy SD card deployment: install program on SD card, insert into Pi, runs on startup
+- [ ] HMI-controller integration for 4-Axes Flat Grind machine — all buttons wired to DMC state machine
+- [ ] DMC code modified with HMI trigger variables (one-shot pattern) alongside physical inputs
+- [ ] RUN page buttons (Start Grind, Go To Rest, Go To Start) send correct gclib commands
+- [ ] Setup flow integration — entering Setup/Axes/Parameters triggers DMC setup mode
+- [ ] More/Less Stone compensation buttons wired to controller
+- [ ] New Session (stone change) flow from HMI
+- [ ] Live position tracking connected to controller ring buffers
+- [ ] State synchronization — HMI reflects controller state (main loop, grinding, setup)
+
+### Future
+
+- [ ] Raspberry Pi kiosk mode (deferred from v1.0, pending hardware validation)
+- [ ] Windows deployment support alongside Pi
+- [ ] Easy SD card deployment
+- [ ] Serration Grind machine integration (after Flat Grind complete)
+- [ ] Convex Grind machine integration (after Serration complete)
 
 ### Out of Scope
 
@@ -42,9 +55,26 @@ An operator walks up, taps their PIN, runs parts while watching a live A/B posit
 - Undo/redo for parameter edits (controller is source of truth; "Read from Controller" is the real undo)
 - Animated screen transitions (adds latency on industrial tool)
 
+## Current Milestone: v2.0 Flat Grind Integration
+
+**Goal:** Make the HMI fully operational with the DMC controller on the 4-Axes Flat Grind machine — every button triggers real machine actions, the controller state machine stays in sync, and an operator can run a complete grind cycle from the touchscreen.
+
+**Target features:**
+- DMC code modified with HMI one-shot trigger variables (hmiGrnd, hmiSetp, hmiMore, hmiLess, hmiNewS, hmiHome, hmiJog, hmiCalc)
+- RUN page: Start Grind, Go To Rest, Go To Start wired to #GRIND, #GOREST, #GOSTR
+- Setup page: triggers DMC #SETUP mode, jog controls, save points, parameter recalc
+- More/Less Stone: compensation adjustments via #MOREGRI/#LESSGRI
+- New Session: stone change flow via #NEWSESS
+- Live position plot connected to controller axis positions
+- State sync: HMI knows if controller is in main loop, grinding, setup, etc.
+
+**Machine order:** Flat Grind first → Serration → Convex Grind
+
 ## Context
 
-- **Current state:** v1.0 shipped — 13,412 LOC (30 Python + 21 KV files), 2,013 LOC tests, 160 commits
+- **Current state:** v2.0 started — v1.0 shipped (13,412 LOC, 160 commits), now wiring HMI to real DMC controller
+- **DMC code:** `4 Axis Stainless grind.dmc` — state machine: #AUTO → #CONFIG → #PARAMS → #COMPED → #HOME → #MAIN → polling loop. Physical buttons on @IN[] pins, adding HMI variables as OR conditions
+- **HMI variable pattern:** Named vars with `hmi` prefix (8-char DMC limit), default=1, HMI sends var=0 to trigger, DMC resets to 1 after entering the block
 - **Tech stack:** Python 3.10+, Kivy 2.2+, gclib, matplotlib, kivy_matplotlib_widget
 - **Controller:** All three machine types use the same Galil controller model, communicating via gclib. DMC programs run on the controller; the GUI sets arrays/variables and issues PA/BG commands
 - **Threading model:** Background thread pool for all controller I/O, results posted back to UI thread via Clock.schedule_once. Plot redraws on separate 5 Hz clock from 10 Hz poll clock
@@ -71,10 +101,12 @@ An operator walks up, taps their PIN, runs parts while watching a live A/B posit
 | CSV for profiles, not database | Simple, portable, operators understand CSV files, matches DMC array format | ✓ Good — diff preview and machine-type validation work well |
 | Matplotlib for live plot | Already a Python ecosystem tool, integrates with Kivy via kivy_matplotlib_widget | ✓ Good — 5 Hz redraw with draw_idle(), touch disabled for E-STOP safety |
 | Tab navigation replacing ActionBar + Spinner | Cleaner, more touchscreen-friendly, matches mockup direction | ✓ Good — role-gated tabs update instantly on auth change |
-| Kiosk mode on Pi | Operators should not access desktop, browser, or file explorer | — Pending (Phase 8 deferred) |
+| Kiosk mode on Pi | Operators should not access desktop, browser, or file explorer | — Deferred to after v2.0 |
+| HMI one-shot variable pattern | OR physical @IN[] with hmi vars (default=1, send 0 to trigger, reset to 1) | — Pending |
+| Flat Grind first, then Serration, then Convex | Build and validate one machine type end-to-end before moving to next | — Pending |
 | Hard-coded machine config | Machines don't change once production starts; eliminates config file management | ✓ Good — settings.json stores type, first-launch picker for initial selection |
 | Separate plot clock from poll clock | Decouples 5 Hz redraws from 10 Hz controller polling to protect E-STOP latency | ✓ Good — established in Phase 3 |
 | Config.set before all Kivy imports | Kivy config is frozen on first Window import; kiosk fullscreen must be set in main.py top block | ✓ Good — pattern established, Pi kiosk config will extend it |
 
 ---
-*Last updated: 2026-04-06 after v1.0 milestone*
+*Last updated: 2026-04-06 after v2.0 milestone start*

@@ -1,13 +1,13 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Deployment
+milestone: v2.0
+milestone_name: Flat Grind Integration
 status: planning
-stopped_at: v1.0 milestone complete — Phase 8 deferred pending hardware validation
+stopped_at: Defining requirements for v2.0
 last_updated: "2026-04-06"
-last_activity: "2026-04-06 — v1.0 MVP milestone shipped, Phase 8 deferred"
+last_activity: "2026-04-06 — Milestone v2.0 started"
 progress:
-  total_phases: 1
+  total_phases: 0
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-06)
 
 **Core value:** An operator walks up, taps their PIN, runs parts while watching a live A/B position plot, and goes home — zero friction, zero confusion, zero access to things they shouldn't touch.
-**Current focus:** Hardware validation of v1.0 features, then Phase 8 (Pi Kiosk and Deployment)
+**Current focus:** Wire HMI to DMC controller for 4-Axes Flat Grind machine
 
 ## Current Position
 
-Milestone: v1.1 Deployment
-Phase: 8 of 8 (Pi Kiosk and Deployment) — deferred, awaiting hardware validation
-Status: v1.0 shipped, testing on real DMC controller before proceeding
-Last activity: 2026-04-06 — v1.0 MVP milestone shipped
+Milestone: v2.0 Flat Grind Integration
+Phase: Not started (defining requirements)
+Status: Defining requirements
+Last activity: 2026-04-06 — Milestone v2.0 started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -50,25 +50,6 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: —
 
 *Updated after each plan completion*
-| Phase 01 P01 | 2 | 2 tasks | 8 files |
-| Phase 01 P02 | 2 min | 2 tasks | 16 files |
-| Phase 01 P03 | 4 min | 2 tasks | 8 files |
-| Phase 02-run-page P00 | 2 | 2 tasks | 3 files |
-| Phase 02-run-page P01 | 5 | 2 tasks | 3 files |
-| Phase 02-run-page P02 | 159 | 2 tasks | 2 files |
-| Phase 02-run-page P03 | 0 | 1 tasks | 2 files |
-| Phase 03-live-matplotlib-plot P01 | 3 | 2 tasks | 3 files |
-| Phase 04-axes-setup-and-parameters P01 | 20 | 2 tasks | 3 files |
-| Phase 04 P02 | 244 | 2 tasks | 3 files |
-| Phase 04-axes-setup-and-parameters P03 | 30 | 2 tasks | 6 files |
-| Phase 05 P01 | 2 | 1 tasks | 2 files |
-| Phase 05 P02 | 12 | 2 tasks | 7 files |
-| Phase 05 P03 | 0 | 1 tasks | 0 files |
-| Phase 06 P01 | 103 | 2 tasks | 3 files |
-| Phase 06 P02 | 4 | 2 tasks | 5 files |
-| Phase 06 P03 | 11 | 3 tasks | 7 files |
-| Phase 07 P01 | 122 | 2 tasks | 4 files |
-| Phase 07 P02 | 3 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -77,9 +58,10 @@ Progress: [░░░░░░░░░░] 0%
 Decisions are logged in PROJECT.md Key Decisions table.
 v1.0 phase-level decisions archived in `.planning/milestones/v1.0-ROADMAP.md`.
 
-Decisions affecting current work (v1.1):
-- Phase 8 deferred until hardware validation of Phases 1-7 on real DMC controller
-- Pi OS Bookworm Wayland/X11 transition — kiosk lockout procedure depends on Pi OS version at deploy time
+Decisions affecting current work (v2.0):
+- HMI one-shot variable pattern: named vars with `hmi` prefix, default=1, send 0 to trigger, reset to 1
+- Flat Grind first, then Serration, then Convex
+- Phase 8 (kiosk) deferred until after v2.0
 
 ### Pending Todos
 
@@ -87,11 +69,11 @@ None yet.
 
 ### Blockers/Concerns
 
-- Phase 8 (Kiosk): Pi OS Bookworm Wayland/X11 transition — exact kiosk lockout procedure depends on Pi OS version at deploy time
-- Hardware validation: All 7 feature phases need testing on real DMC controller before kiosk lockdown
+- Need real DMC controller hardware to fully test integration
+- DMC variable names limited to 8 characters
 
 ## Session Continuity
 
-Last session: 2026-04-06T01:35:14.345Z
-Stopped at: Phase 8 deferred — awaiting hardware validation on real DMC controller
-Resume file: .planning/phases/08-pi-kiosk-and-deployment/08-CONTEXT.md
+Last session: 2026-04-06
+Stopped at: Defining requirements for v2.0
+Resume file: —

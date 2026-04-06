@@ -25,6 +25,7 @@ JS #CONFIG
 JS #PARAMS
 JS #COMPED
 JS #HOME
+XQ #THRD2, 1
 WT 500
 MG "AUTO INIT COMPLETE"
 
@@ -150,6 +151,8 @@ MG "A OVERRUN COMPLETE - 4MM PAST HEEL"
 #DONE
 MG "GRIND COMPLETE"
 JS #GOREST
+ctSesKni = ctSesKni + 1
+ctStnKni = ctStnKni + 1
 ST ABCD
 ZS
 JP #MAIN
@@ -325,6 +328,7 @@ EN
 MG "NEW STONE CHANGING - knife count reset to 0"
 JS #HOME;             
 ctSesKni = 0;                    ' reset knife count for new stone session
+ctStnKni = 0;                    ' reset stone knife count on new session
 IF @IN[32] = 0
   ST ABCD
   MO ABCD
@@ -475,6 +479,8 @@ currA    = 0
 fltflg   = 0
 cycDone  = 0
 ctSesKni = 0
+ctStnKni = 0
+lastSt   = 0
 ctKniNow = 0
 mainSp   = 10000
 idx      = 0
@@ -536,4 +542,18 @@ thkCt   = knfThk * cpmC;              ' knife thickness in C counts
 
 MG "VARCALC DONE"
 BV;                                   ' save all to EEPROM
+EN
+
+' ============================================================
+'  THREAD 2 - hmiState observer
+'  Runs on Galil thread 2 for continuous state monitoring
+'  Started by XQ #THRD2,1 in #AUTO
+' ============================================================
+#THRD2
+#T2LOOP
+WT 100
+' --- Thread 2 observes hmiState for future requirements ---
+' Currently a passive observer; state transitions are set
+' by the main thread subroutines.
+JP #T2LOOP
 EN

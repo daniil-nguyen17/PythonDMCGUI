@@ -26,18 +26,18 @@ Requirements for Flat Grind HMI-controller integration. Each maps to roadmap pha
 ### Safety
 
 - [x] **SAFE-01**: E-STOP sends ST ABCD immediately via priority path, not queued behind normal jobs
-- [ ] **SAFE-02**: Stop/Pause sends ST ABCD + HX to halt both motor motion and DMC program thread
-- [ ] **SAFE-03**: All motion-triggering buttons are disabled when controller reports active motion (gate on hmiState)
+- [x] **SAFE-02**: Stop/Pause sends ST ABCD + HX to halt both motor motion and DMC program thread
+- [x] **SAFE-03**: All motion-triggering buttons are disabled when controller reports active motion (gate on hmiState)
 
 ### Run Page
 
-- [ ] **RUN-01**: User can start a grind cycle by pressing Start Grind button (sends hmiGrnd=0)
+- [x] **RUN-01**: User can start a grind cycle by pressing Start Grind button (sends hmiGrnd=0)
 - [ ] **RUN-02**: User can send machine to rest position by pressing Go To Rest
 - [ ] **RUN-03**: User can send machine to start position by pressing Go To Start
-- [ ] **RUN-04**: User can stop an active grind cycle via Stop button (ST ABCD + HX)
-- [ ] **RUN-05**: User can adjust grind stone compensation via More Stone / Less Stone buttons
+- [x] **RUN-04**: User can stop an active grind cycle via Stop button (ST ABCD + HX)
+- [x] **RUN-05**: User can adjust grind stone compensation via More Stone / Less Stone buttons
 - [ ] **RUN-06**: User can start a new session (stone change) with two-step confirmation (Setup/Admin role required)
-- [ ] **RUN-07**: Live A/B position plot fills with real controller data during grind cycle
+- [x] **RUN-07**: Live A/B position plot fills with real controller data during grind cycle
 
 ### Setup Integration
 
@@ -121,15 +121,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | POLL-03 | Phase 10 | Complete |
 | POLL-04 | Phase 10 | Complete |
 | SAFE-01 | Phase 11 | Complete |
-| SAFE-02 | Phase 11 | Pending |
-| SAFE-03 | Phase 11 | Pending |
-| RUN-01 | Phase 12 | Pending |
+| SAFE-02 | Phase 11 | Complete |
+| SAFE-03 | Phase 11 | Complete |
+| RUN-01 | Phase 12 | Complete |
 | RUN-02 | Phase 12 | Pending |
 | RUN-03 | Phase 12 | Pending |
-| RUN-04 | Phase 12 | Pending |
-| RUN-05 | Phase 12 | Pending |
+| RUN-04 | Phase 12 | Complete |
+| RUN-05 | Phase 12 | Complete |
 | RUN-06 | Phase 12 | Pending |
-| RUN-07 | Phase 12 | Pending |
+| RUN-07 | Phase 12 | Complete |
 | SETP-01 | Phase 13 | Pending |
 | SETP-02 | Phase 13 | Pending |
 | SETP-03 | Phase 13 | Pending |

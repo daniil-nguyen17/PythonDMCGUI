@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Flat Grind Integration
 status: planning
-stopped_at: Phase 12 context gathered
-last_updated: "2026-04-06T09:10:54.907Z"
+stopped_at: Completed 12-run-page-wiring 12-01-PLAN.md
+last_updated: "2026-04-06T10:22:01.559Z"
 last_activity: 2026-04-06 — Roadmap created
 progress:
   total_phases: 7
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
+  completed_phases: 4
+  total_plans: 9
+  completed_plans: 9
 ---
 
 # Project State
@@ -69,6 +69,7 @@ Progress (v2.0): [░░░░░░░░░░] 0% (0/6 phases)
 | Phase 10-state-poll P03 | 8 | 2 tasks | 3 files |
 | Phase 11-e-stop-safety P01 | 3 | 2 tasks | 5 files |
 | Phase 11-e-stop-safety P02 | 4 | 2 tasks | 6 files |
+| Phase 12-run-page-wiring P01 | 3 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,8 @@ Decisions affecting current work (v2.0):
 - [Phase 11-e-stop-safety]: recover() captures exception into default arg (_m=msg) to avoid Python 3.13 NameError after except block clears exception variable
 - [Phase 11-e-stop-safety]: SH ABCD sent before XQ #AUTO in recover() — re-enables servos after HX so axes can move when program restarts
 - [Phase 11-e-stop-safety]: AxesSetup 3 Hz poll loop removed — positions read once on tab enter and after each jog/teach; no continuous scheduling in screen classes
+- [Phase 12-run-page-wiring]: Buffer clear in on_start_grind happens after connection guard — only when controller is connected and cycle will start
+- [Phase 12-run-page-wiring]: on_more_stone and on_less_stone use read-fire-sleep(0.4)-read pattern for startPtC readback without optimistic state updates
 
 ### Research Flags (require hardware validation)
 
@@ -124,7 +127,7 @@ Decisions affecting current work (v2.0):
 
 ## Session Continuity
 
-Last session: 2026-04-06T09:10:54.898Z
-Stopped at: Phase 12 context gathered
-Resume file: .planning/phases/12-run-page-wiring/12-CONTEXT.md
+Last session: 2026-04-06T10:22:01.557Z
+Stopped at: Completed 12-run-page-wiring 12-01-PLAN.md
+Resume file: None
 Next action: `/gsd:plan-phase 9`

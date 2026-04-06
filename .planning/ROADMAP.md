@@ -37,7 +37,7 @@ Full context: `.planning/phases/08-CONTEXT.md`
 - [x] **Phase 9: DMC Foundation** — Modify DMC program and add Python HMI constants/state fields — hard prerequisite for all wiring (completed 2026-04-06)
 - [x] **Phase 10: State Poll** — Wire 10 Hz poll to read hmiState and axis positions from real controller (completed 2026-04-06)
 - [x] **Phase 11: E-STOP Safety** — Validate priority stop path and motion-state gate before any motion commands are wired (completed 2026-04-06)
-- [ ] **Phase 12: Run Page Wiring** — Wire all operator Run page buttons to real DMC subroutines
+- [x] **Phase 12: Run Page Wiring** — Wire all operator Run page buttons to real DMC subroutines (completed 2026-04-06)
 - [ ] **Phase 13: Setup Loop** — Wire Setup page entry, homing, jog, teach points, parameters write, and exit
 - [ ] **Phase 14: State-Driven UI** — Button enable/disable, status labels, setup badge, and live plot validation
 
@@ -158,7 +158,7 @@ Plans:
 | 9. DMC Foundation | v2.0 | 3/3 | Complete | 2026-04-06 |
 | 10. State Poll | v2.0 | 3/3 | Complete | 2026-04-06 |
 | 11. E-STOP Safety | 2/2 | Complete   | 2026-04-06 | - |
-| 12. Run Page Wiring | v2.0 | 0/TBD | Not started | - |
+| 12. Run Page Wiring | 1/1 | Complete   | 2026-04-06 | - |
 | 13. Setup Loop | v2.0 | 0/TBD | Not started | - |
 | 14. State-Driven UI | v2.0 | 0/TBD | Not started | - |
 

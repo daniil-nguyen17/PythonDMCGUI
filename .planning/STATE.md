@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Flat Grind Integration
 status: planning
-stopped_at: Completed 13-setup-loop 13-03-PLAN.md
-last_updated: "2026-04-06T11:15:25.618Z"
+stopped_at: Completed 13-setup-loop 13-02-PLAN.md
+last_updated: "2026-04-06T11:15:35.999Z"
 last_activity: 2026-04-06 — Roadmap created
 progress:
   total_phases: 7
@@ -116,6 +116,9 @@ Decisions affecting current work (v2.0):
 - [Phase 13-setup-loop]: time.sleep(0.5) in _job() inner function ensures delay between hmiCalc fire and readback on same background thread
 - [Phase 13-setup-loop]: mc.get_param_defs patched in varcalc tests instead of mc.set_active_type to avoid machine_config global state pollution across test runs
 - [Phase 13-setup-loop]: _SETUP_SCREENS frozenset in parameters.py mirrors axes_setup.py pattern — both setup screens use identical exit guard logic
+- [Phase 13-setup-loop]: Smart enter skips hmiSetp=0 when dmc_state already STATE_SETUP — sibling-screen navigation stays in setup
+- [Phase 13-setup-loop]: _SETUP_SCREENS frozenset defines setup siblings (axes_setup + parameters) — on_leave only fires hmiExSt=0 outside this set
+- [Phase 13-setup-loop]: _BG in-progress gate inside do_jog() prevents overlapping jog commands
 
 ### Research Flags (require hardware validation)
 
@@ -134,7 +137,7 @@ Decisions affecting current work (v2.0):
 
 ## Session Continuity
 
-Last session: 2026-04-06T11:15:11.950Z
-Stopped at: Completed 13-setup-loop 13-03-PLAN.md
+Last session: 2026-04-06T11:15:35.996Z
+Stopped at: Completed 13-setup-loop 13-02-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 9`

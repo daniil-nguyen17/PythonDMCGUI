@@ -121,13 +121,16 @@ def test_jog_counts_calculation():
     """jog_axis('A', +1) with step_mm=10.0 and cpm=1200 produces PR A=12000."""
     from unittest.mock import MagicMock, patch, call
     from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.hmi.dmc_vars import STATE_SETUP
 
     screen = AxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
-    # MG _BGA returns 0.0 (motion complete) so poll exits immediately
+    # MG _BGA returns 0.0 (not in progress) so in-progress gate passes immediately
     ctrl.cmd.return_value = " 0.0000 "
     screen.controller = ctrl
+    screen.state = MagicMock()
+    screen.state.dmc_state = STATE_SETUP  # must be in setup for jog to proceed
 
     screen._axis_cpm = {"A": 1200.0, "B": 1200.0, "C": 800.0, "D": 500.0}
     screen._cpm_ready = True
@@ -142,9 +145,10 @@ def test_jog_counts_calculation():
     submitted_fns[0]()
 
     cmds = [c[0][0] for c in ctrl.cmd.call_args_list]
-    assert cmds[0] == "PRA=12000"
-    assert cmds[1] == "BGA"
-    assert "MG _BGA" in cmds  # motion-complete poll
+    # First cmd is the in-progress gate check (added in Plan 02)
+    assert cmds[0] == "MG _BGA"
+    assert "PRA=12000" in cmds
+    assert "BGA" in cmds
     assert cmds[-1] == "MG _TDA"  # readback position after motion complete
 
 
@@ -152,12 +156,15 @@ def test_jog_counts_negative():
     """jog_axis('A', -1) with step_mm=5.0 and cpm=1200 produces PR A=-6000."""
     from unittest.mock import MagicMock, patch, call
     from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.hmi.dmc_vars import STATE_SETUP
 
     screen = AxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     ctrl.cmd.return_value = " 0.0000 "
     screen.controller = ctrl
+    screen.state = MagicMock()
+    screen.state.dmc_state = STATE_SETUP
     screen._axis_cpm = {"A": 1200.0, "B": 1200.0, "C": 800.0, "D": 500.0}
     screen._cpm_ready = True
     screen._current_step_mm = 5.0
@@ -170,8 +177,10 @@ def test_jog_counts_negative():
     assert len(submitted_fns) == 1
     submitted_fns[0]()
     cmds = [c[0][0] for c in ctrl.cmd.call_args_list]
-    assert cmds[0] == "PRA=-6000"
-    assert cmds[1] == "BGA"
+    # First cmd is the in-progress gate check (added in Plan 02)
+    assert cmds[0] == "MG _BGA"
+    assert "PRA=-6000" in cmds
+    assert "BGA" in cmds
     assert cmds[-1] == "MG _TDA"  # readback after motion complete
 
 
@@ -346,7 +355,7 @@ def test_teach_skips_when_cycle_running():
 
 
 def test_quick_action_go_rest():
-    """go_to_rest_all() submits swGoRest=1 to controller."""
+    """go_to_rest_all() fires hmiGoRs=0 (HMI trigger, not dead sw var)."""
     from unittest.mock import MagicMock, patch
     from dmccodegui.screens.axes_setup import AxesSetupScreen
 
@@ -363,11 +372,11 @@ def test_quick_action_go_rest():
 
     assert len(submitted_fns) == 1
     submitted_fns[0]()
-    ctrl.cmd.assert_called_once_with("swGoRest=1")
+    ctrl.cmd.assert_called_once_with("hmiGoRs=0")
 
 
 def test_quick_action_go_start():
-    """go_to_start_all() submits swGoStart=1 to controller."""
+    """go_to_start_all() fires hmiGoSt=0 (HMI trigger, not dead sw var)."""
     from unittest.mock import MagicMock, patch
     from dmccodegui.screens.axes_setup import AxesSetupScreen
 
@@ -384,11 +393,11 @@ def test_quick_action_go_start():
 
     assert len(submitted_fns) == 1
     submitted_fns[0]()
-    ctrl.cmd.assert_called_once_with("swGoStart=1")
+    ctrl.cmd.assert_called_once_with("hmiGoSt=0")
 
 
 def test_quick_action_home_all():
-    """home_all() submits swHomeAll=1 to controller."""
+    """home_all() fires hmiHome=0 (HMI trigger, not dead sw var)."""
     from unittest.mock import MagicMock, patch
     from dmccodegui.screens.axes_setup import AxesSetupScreen
 
@@ -405,7 +414,7 @@ def test_quick_action_home_all():
 
     assert len(submitted_fns) == 1
     submitted_fns[0]()
-    ctrl.cmd.assert_called_once_with("swHomeAll=1")
+    ctrl.cmd.assert_called_once_with("hmiHome=0")
 
 
 # ── No-polling verification ──────────────────────────────────────────────────

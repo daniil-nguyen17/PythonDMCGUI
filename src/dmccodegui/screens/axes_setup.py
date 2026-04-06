@@ -31,10 +31,10 @@ AXIS VISIBILITY:
   Serration machines by reading mc.get_axis_list(). Called on every
   on_pre_enter so hot-swap works.
 
-QUICK ACTIONS (software variable commands):
-  go_to_rest_all()  → swGoRest=1
-  go_to_start_all() → swGoStart=1
-  home_all()        → swHomeAll=1
+QUICK ACTIONS (HMI one-shot trigger commands):
+  go_to_rest_all()  → hmiGoRs=0
+  go_to_start_all() → hmiGoSt=0
+  home_all()        → hmiHome=0
 
 NO POLLING:
   Positions are read once on tab enter and refreshed after each jog or
@@ -44,6 +44,7 @@ JOG:
   Uses PR (position relative) + BG per axis.
   counts = int(direction * step_mm * cpm)
   Command format: "PR{axis}={counts}" followed by "BG{axis}"
+  Gated on dmc_state == STATE_SETUP and no in-progress motion (_BG != 0).
 
 THREADING MODEL:
   All controller I/O in background thread via jobs.submit().
@@ -66,9 +67,16 @@ from kivy.clock import Clock
 from ..app_state import MachineState
 from ..controller import GalilController
 from ..utils import jobs
-from ..hmi.dmc_vars import HMI_SETP, HMI_TRIGGER_FIRE, HMI_TRIGGER_DEFAULT
+from ..hmi.dmc_vars import (
+    HMI_SETP, HMI_TRIGGER_FIRE, HMI_TRIGGER_DEFAULT,
+    HMI_GO_REST, HMI_GO_START, HMI_EXIT_SETUP, HMI_HOME, HMI_NEWS,
+    STATE_SETUP,
+)
 import dmccodegui.machine_config as mc
 
+# Screens that are siblings within the setup flow.
+# Navigating between these does NOT trigger the exit-setup HMI command.
+_SETUP_SCREENS: frozenset[str] = frozenset({"axes_setup", "parameters"})
 
 # Default CPM values per axis. Read from controller on enter; fall back if read fails.
 AXIS_CPM_DEFAULTS: dict[str, float] = {
@@ -150,6 +158,9 @@ class AxesSetupScreen(Screen):
         Also rebuilds axis row visibility to match the active machine type —
         this enables hot-swap: changing machine type and re-entering the
         screen immediately shows the correct layout.
+
+        Smart enter: if dmc_state is already STATE_SETUP (e.g. navigating from
+        a sibling setup screen), skip hmiSetp=0 and just refresh values.
         """
         # Clear CPM so stale values from a previous visit can't be used
         self._axis_cpm = {}
@@ -161,18 +172,34 @@ class AxesSetupScreen(Screen):
         # Update saved-value column labels for current mode
         self._update_saved_labels()
 
-        # Fire hmiSetp to tell controller we're in setup mode, then read values
+        # Fire hmiSetp only if we are NOT already in setup mode.
+        # When dmc_state is already STATE_SETUP (e.g. navigating between setup
+        # sibling screens), skip the trigger and just refresh values.
         if self.controller and self.controller.is_connected():
-            jobs.submit(self._enter_setup_and_read)
+            already_in_setup = (
+                self.state is not None and self.state.dmc_state == STATE_SETUP
+            )
+            if already_in_setup:
+                jobs.submit(self._read_initial_values)
+            else:
+                jobs.submit(self._enter_setup_and_read)
 
     def on_leave(self, *args):
-        """Reset hmiSetp=1 to exit setup mode and clear CPM ready flag."""
+        """Fire hmiExSt=0 only when leaving to a non-setup screen.
+
+        Navigating between setup siblings (axes_setup, parameters) does NOT
+        trigger exit-setup — the controller stays in STATE_SETUP the whole time.
+        """
         self._cpm_ready = False
-        if self.controller and self.controller.is_connected():
-            try:
-                self.controller.cmd(f"{HMI_SETP}={HMI_TRIGGER_DEFAULT}")
-            except Exception:
-                pass
+        next_screen = ""
+        if self.manager:
+            next_screen = self.manager.current
+        if next_screen not in _SETUP_SCREENS:
+            if self.controller and self.controller.is_connected():
+                try:
+                    self.controller.cmd(f"{HMI_EXIT_SETUP}={HMI_TRIGGER_FIRE}")
+                except Exception:
+                    pass
 
     # ── Axis row visibility ──────────────────────────────────────────────────
 
@@ -263,8 +290,19 @@ class AxesSetupScreen(Screen):
         Uses PR (Position Relative) + BG per axis so only the target axis moves.
         Commands: "PR{axis}={counts}" then "BG{axis}".
         Both commands are sent in one background job to keep them sequential.
+
+        Gates (in order):
+          1. Controller connected
+          2. dmc_state == STATE_SETUP (not in idle/grinding)
+          3. _cpm_ready (CPM read from controller)
+          4. cpm > 0 for the axis
+          5. _BG{axis} == 0 (no jog in progress) — checked inside do_jog()
         """
         if not self.controller or not self.controller.is_connected():
+            return
+
+        # State gate: jog only allowed in setup mode
+        if self.state and self.state.dmc_state != STATE_SETUP:
             return
 
         if not self._cpm_ready:
@@ -293,6 +331,14 @@ class AxesSetupScreen(Screen):
 
         def do_jog():
             try:
+                # In-progress gate: skip if previous jog still running
+                try:
+                    raw = ctrl.cmd(f"MG _BG{axis}").strip()
+                    if float(raw) != 0:
+                        return
+                except Exception:
+                    return
+
                 ctrl.cmd(f"PR{axis}={counts}")
                 ctrl.cmd(f"BG{axis}")
                 # Poll position live while axis is moving, update label each tick
@@ -466,31 +512,65 @@ class AxesSetupScreen(Screen):
     # ── Quick actions ─────────────────────────────────────────────────────────
 
     def go_to_rest_all(self) -> None:
-        """Send software variable command to move all axes to rest position."""
-        self._send_sw_var("swGoRest=1")
+        """Fire HMI trigger to move all axes to rest position."""
+        self._fire_hmi_trigger(HMI_GO_REST, "Go To Rest")
 
     def go_to_start_all(self) -> None:
-        """Send software variable command to move all axes to start position."""
-        self._send_sw_var("swGoStart=1")
+        """Fire HMI trigger to move all axes to start position."""
+        self._fire_hmi_trigger(HMI_GO_START, "Go To Start")
 
     def home_all(self) -> None:
-        """Send software variable command to home all axes."""
-        self._send_sw_var("swHomeAll=1")
+        """Fire HMI trigger to home all axes."""
+        self._fire_hmi_trigger(HMI_HOME, "Home All")
 
-    def _send_sw_var(self, command: str) -> None:
-        """Submit a single software-variable command via background thread."""
+    def _fire_hmi_trigger(self, trigger_var: str, label: str) -> None:
+        """Fire an HMI one-shot trigger via background thread."""
         if not self.controller or not self.controller.is_connected():
             return
-
         ctrl = self.controller
 
-        def do_send():
+        def do_fire():
             try:
-                ctrl.cmd(command)
+                ctrl.cmd(f"{trigger_var}={HMI_TRIGGER_FIRE}")
             except Exception as e:
-                print(f"[AxesSetup] Command '{command}' failed: {e}")
+                print(f"[AxesSetup] {label} failed: {e}")
 
-        jobs.submit(do_send)
+        jobs.submit(do_fire)
+
+    # ── New Session ───────────────────────────────────────────────────────────
+
+    def on_new_session(self) -> None:
+        """Show confirmation dialog for new session (stone change).
+
+        Gated on setup_unlocked role — operators cannot start a new session.
+        """
+        if self.state and not self.state.setup_unlocked:
+            return  # operator role — silently ignore
+        from kivy.uix.popup import Popup
+        from kivy.uix.button import Button
+        from kivy.uix.boxlayout import BoxLayout
+        from kivy.uix.label import Label
+
+        content = BoxLayout(orientation='vertical', spacing=8, padding=8)
+        content.add_widget(Label(
+            text="Start new session?\nThis will home all axes\nand reset knife counts.",
+            halign='center',
+        ))
+        btns = BoxLayout(size_hint_y=None, height=48, spacing=8)
+        popup = Popup(title="New Session", content=content, size_hint=(0.6, 0.4), auto_dismiss=False)
+
+        def confirm(*_):
+            popup.dismiss()
+            self._fire_new_session()
+
+        btns.add_widget(Button(text="Confirm", on_release=confirm))
+        btns.add_widget(Button(text="Cancel", on_release=popup.dismiss))
+        content.add_widget(btns)
+        popup.open()
+
+    def _fire_new_session(self) -> None:
+        """Fire hmiNewS=0 to start a new session."""
+        self._fire_hmi_trigger(HMI_NEWS, "New Session")
 
     # ── Initial load ──────────────────────────────────────────────────────────
 

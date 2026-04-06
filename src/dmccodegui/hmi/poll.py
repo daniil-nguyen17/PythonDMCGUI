@@ -130,9 +130,16 @@ class ControllerPoller:
         # All reads succeeded — reset failure counter
         self._fail_count = 0
 
+        # Read _XQ separately — failure does NOT increment _fail_count or trigger disconnect
+        try:
+            xq_raw = int(float(ctrl.cmd("MG _XQ").strip()))
+            program_running = (xq_raw >= 0)
+        except Exception:
+            program_running = True  # Conservative: assume running if read fails
+
         # Post state update to main thread
         Clock.schedule_once(
-            lambda dt: self._apply(dmc_state, a, b, c, d, ses_kni, stn_kni)
+            lambda dt: self._apply(dmc_state, a, b, c, d, ses_kni, stn_kni, program_running)
         )
 
     # ------------------------------------------------------------------
@@ -148,6 +155,7 @@ class ControllerPoller:
         d: float,
         ses_kni: int,
         stn_kni: int,
+        program_running: bool = True,
     ) -> None:
         """Main thread: write all polled values to MachineState and notify listeners.
 
@@ -168,6 +176,7 @@ class ControllerPoller:
         state.pos["D"] = d
         state.session_knife_count = ses_kni
         state.stone_knife_count = stn_kni
+        state.program_running = program_running
 
         state.notify()
 

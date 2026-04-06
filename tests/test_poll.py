@@ -301,5 +301,104 @@ class TestDisconnectClosesHandle(unittest.TestCase):
         ctrl2.disconnect.assert_called_once()
 
 
+# ---------------------------------------------------------------------------
+# Phase 11 — program_running tests
+# ---------------------------------------------------------------------------
+
+class TestProgramRunningDefault(unittest.TestCase):
+    """test_program_running_default_false"""
+
+    def test_program_running_default_false(self):
+        """MachineState().program_running defaults to False."""
+        from dmccodegui.app_state import MachineState
+        state = MachineState()
+        self.assertFalse(state.program_running)
+
+
+class TestApplySetsProgramRunning(unittest.TestCase):
+    """test_apply_sets_program_running"""
+
+    def test_apply_sets_program_running_true(self):
+        """_apply(..., program_running=True) sets state.program_running to True."""
+        poller, ctrl, state = _make_poller()
+        # Call _apply directly with program_running=True
+        poller._apply(1, 0.0, 0.0, 0.0, 0.0, 0, 0, True)
+        self.assertTrue(state.program_running)
+
+    def test_apply_sets_program_running_false(self):
+        """_apply(..., program_running=False) sets state.program_running to False."""
+        poller, ctrl, state = _make_poller()
+        state.program_running = True  # Set to True first
+        poller._apply(1, 0.0, 0.0, 0.0, 0.0, 0, 0, False)
+        self.assertFalse(state.program_running)
+
+
+class TestXQReadFailureDefaultsTrue(unittest.TestCase):
+    """test_xq_read_failure_defaults_program_running_true"""
+
+    def test_xq_read_failure_defaults_program_running_true(self):
+        """If MG _XQ fails in _do_read, program_running defaults to True (conservative)."""
+        # Provide good responses for the 7 normal reads
+        good_responses = [
+            " 1.0000\r\n",   # MG hmiState
+            " 0.0000\r\n",   # MG _TPA
+            " 0.0000\r\n",   # MG _TPB
+            " 0.0000\r\n",   # MG _TPC
+            " 0.0000\r\n",   # MG _TPD
+            " 0.0000\r\n",   # MG ctSesKni
+            " 0.0000\r\n",   # MG ctStnKni
+        ]
+
+        call_count = [0]
+
+        def side_effect(cmd):
+            call_count[0] += 1
+            if "MG _XQ" in cmd:
+                raise RuntimeError("XQ read failure")
+            idx = (call_count[0] - 1) % len(good_responses)
+            return good_responses[idx]
+
+        ctrl = _make_mock_controller(cmd_side_effect=side_effect)
+        state = _make_mock_state()
+        poller, _, _ = _make_poller(ctrl, state)
+
+        _run_do_read_sync(poller)
+
+        self.assertTrue(state.program_running,
+                        "program_running should be True (conservative) when _XQ read fails")
+
+    def test_xq_failure_does_not_increment_fail_count(self):
+        """_XQ read failure must NOT increment _fail_count (isolated try/except)."""
+        good_responses = [
+            " 1.0000\r\n",
+            " 0.0000\r\n",
+            " 0.0000\r\n",
+            " 0.0000\r\n",
+            " 0.0000\r\n",
+            " 0.0000\r\n",
+            " 0.0000\r\n",
+        ]
+
+        call_count = [0]
+
+        def side_effect(cmd):
+            call_count[0] += 1
+            if "MG _XQ" in cmd:
+                raise RuntimeError("XQ read failure")
+            idx = (call_count[0] - 1) % len(good_responses)
+            return good_responses[idx]
+
+        ctrl = _make_mock_controller(cmd_side_effect=side_effect)
+        state = _make_mock_state()
+        poller, _, _ = _make_poller(ctrl, state)
+
+        # Run multiple times — _fail_count should never increment because of _XQ
+        for _ in range(5):
+            _run_do_read_sync(poller)
+
+        self.assertEqual(poller._fail_count, 0,
+                         "_fail_count must stay 0 — _XQ failures are isolated")
+
+
 if __name__ == "__main__":
     unittest.main()

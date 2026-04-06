@@ -44,6 +44,10 @@ class MachineState:
     session_knife_count: int = 0  # Increments each grind; resets on new stone session
     stone_knife_count: int = 0    # Increments each grind; resets only when stone changes
 
+    # E-STOP safety field (Phase 11)
+    # True when _XQ >= 0 (DMC program thread active on controller)
+    program_running: bool = False
+
     _listeners: List[ChangeListener] = field(default_factory=list, repr=False)
 
     @property

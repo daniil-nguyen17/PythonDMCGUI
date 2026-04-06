@@ -123,7 +123,7 @@ Plans:
 ### Phase 13: Setup Loop
 **Goal**: A Setup user can enter controller setup mode from the HMI, home the machine, jog all axes, teach rest and start points, write parameter values to the controller, trigger recalculation, and return to main loop — entirely from the touchscreen.
 **Depends on**: Phase 9, Phase 10, Phase 11
-**Requirements**: SETP-01, SETP-02, SETP-03, SETP-04, SETP-05, SETP-06, SETP-07, SETP-08
+**Requirements**: SETP-01, SETP-02, SETP-03, SETP-04, SETP-05, SETP-06, SETP-07, SETP-08, RUN-02, RUN-03, RUN-06
 **Success Criteria** (what must be TRUE):
   1. Tapping Enter Setup on the HMI sends hmiSetp=0 and the controller enters its #SETUP loop — hmiState reflects SETUP state within one poll tick
   2. Tapping Home (Setup/Admin only) sends hmiHome=0 and all axes move to their home positions — confirmed on real hardware
@@ -153,7 +153,7 @@ Plans:
 ### Phase 15: Run Page Missing Controls
 **Goal**: The Run page Stone Compensation controls move from the bottom action bar into a dedicated card in the right column with a persistent startPtC readback label, and requirements RUN-02, RUN-03, RUN-06 are re-mapped to Phase 13 where they are already implemented.
 **Depends on**: Phase 12
-**Requirements**: RUN-02, RUN-03, RUN-06 (re-mapped to Phase 13 — layout only)
+**Requirements**: (layout only — RUN-02, RUN-03, RUN-06 re-mapped to Phase 13)
 **Gap Closure**: Closes gaps from v2.0 audit
 **Success Criteria** (what must be TRUE):
   1. More Stone and Less Stone buttons appear in a Stone Compensation card in the right column, not in the bottom action bar
@@ -161,7 +161,7 @@ Plans:
   3. RUN-02, RUN-03, RUN-06 traceability updated to Phase 13 (complete)
 **Plans:** 1 plan
 Plans:
-- [ ] 15-01-PLAN.md — Stone Compensation card layout and traceability re-mapping
+- [x] 15-01-PLAN.md — Stone Compensation card layout and traceability re-mapping
 
 ### Phase 16: ProfilesScreen Setup Loop Fix
 **Goal**: ProfilesScreen correctly enters and exits controller setup mode using the same smart-enter/exit pattern as AxesSetupScreen and ParametersScreen.

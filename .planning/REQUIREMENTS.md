@@ -32,11 +32,11 @@ Requirements for Flat Grind HMI-controller integration. Each maps to roadmap pha
 ### Run Page
 
 - [x] **RUN-01**: User can start a grind cycle by pressing Start Grind button (sends hmiGrnd=0)
-- [ ] **RUN-02**: User can send machine to rest position by pressing Go To Rest
-- [ ] **RUN-03**: User can send machine to start position by pressing Go To Start
+- [x] **RUN-02**: User can send machine to rest position by pressing Go To Rest
+- [x] **RUN-03**: User can send machine to start position by pressing Go To Start
 - [x] **RUN-04**: User can stop an active grind cycle via Stop button (ST ABCD + HX)
 - [x] **RUN-05**: User can adjust grind stone compensation via More Stone / Less Stone buttons
-- [ ] **RUN-06**: User can start a new session (stone change) with two-step confirmation (Setup/Admin role required)
+- [x] **RUN-06**: User can start a new session (stone change) with two-step confirmation (Setup/Admin role required)
 - [x] **RUN-07**: Live A/B position plot fills with real controller data during grind cycle
 
 ### Setup Integration
@@ -124,11 +124,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SAFE-02 | Phase 11 | Complete |
 | SAFE-03 | Phase 11 | Complete |
 | RUN-01 | Phase 12 | Complete |
-| RUN-02 | Phase 15 | Pending |
-| RUN-03 | Phase 15 | Pending |
+| RUN-02 | Phase 13 | Complete |
+| RUN-03 | Phase 13 | Complete |
 | RUN-04 | Phase 12 | Complete |
 | RUN-05 | Phase 12 | Complete |
-| RUN-06 | Phase 15 | Pending |
+| RUN-06 | Phase 13 | Complete |
 | RUN-07 | Phase 12 | Complete |
 | SETP-01 | Phase 16 | Pending |
 | SETP-02 | Phase 13 | Complete |

@@ -1,63 +1,154 @@
 # Requirements: DMC Grinding GUI
 
 **Defined:** 2026-04-06
-**Core Value:** An operator walks up, taps their PIN, runs parts while watching a live A/B position plot, and goes home — zero friction, zero confusion.
+**Core Value:** An operator walks up, taps their PIN, runs parts while watching a live A/B position plot, and goes home — zero friction, zero confusion, zero access to things they shouldn't touch.
 
-## v1.1 Requirements
+## v2.0 Requirements
 
-Requirements for deployment release. Carried forward from v1.0 known gaps.
+Requirements for Flat Grind HMI-controller integration. Each maps to roadmap phases.
 
-### Deployment
+### DMC Program
 
-- [ ] **DEPLOY-01**: App runs in kiosk mode on Raspberry Pi — boots straight into the app with no desktop, browser, or file explorer access
-- [ ] **DEPLOY-02**: Kiosk mode is operator-locked — no way to exit the app without Setup/Admin credentials
-- [ ] **DEPLOY-03**: Deployment is SD card based — install program on SD card, insert into Pi, app runs on boot
-- [ ] **DEPLOY-04**: App also runs on Windows 11 as a standard desktop application
-- [ ] **DEPLOY-05**: No external JSON/YAML config files required for deployment — machine config is embedded in the application
+- [ ] **DMC-01**: DMC program declares HMI trigger variables (hmiGrnd, hmiSetp, hmiMore, hmiLess, hmiNewS, hmiHome, hmiJog, hmiCalc) with default=1 in #PARAMS
+- [ ] **DMC-02**: DMC main polling loop (#WtAtRt) OR's each @IN[] check with its corresponding HMI variable
+- [ ] **DMC-03**: DMC resets each HMI variable to 1 as the first line inside each triggered block (before any motion)
+- [ ] **DMC-04**: DMC declares hmiState variable and sets it to distinct integer values at each state boundary (IDLE, GRINDING, SETUP, HOMING, etc.)
+- [ ] **DMC-05**: DMC setup loop (#SULOOP) OR's physical button checks with HMI variables for home, jog, varcalc, and exit
+- [ ] **DMC-06**: Array names in Python code match DMC declarations (startPt/restPt, not StartPnt/RestPnt)
 
-## v2 Requirements
+### State Polling
 
-Deferred to future release. Tracked but not in current roadmap.
+- [ ] **POLL-01**: HMI polls hmiState from controller at 10 Hz and updates MachineState.dmc_state
+- [ ] **POLL-02**: HMI polls axis positions (A, B, C, D) from controller and displays live values on Run page
+- [ ] **POLL-03**: HMI detects controller connection loss and displays disconnected status
+- [ ] **POLL-04**: HMI reads knife count (ctSesKni) from controller and displays on Run page
+
+### Safety
+
+- [ ] **SAFE-01**: E-STOP sends ST ABCD immediately via priority path, not queued behind normal jobs
+- [ ] **SAFE-02**: Stop/Pause sends ST ABCD + HX to halt both motor motion and DMC program thread
+- [ ] **SAFE-03**: All motion-triggering buttons are disabled when controller reports active motion (gate on hmiState)
+
+### Run Page
+
+- [ ] **RUN-01**: User can start a grind cycle by pressing Start Grind button (sends hmiGrnd=0)
+- [ ] **RUN-02**: User can send machine to rest position by pressing Go To Rest
+- [ ] **RUN-03**: User can send machine to start position by pressing Go To Start
+- [ ] **RUN-04**: User can stop an active grind cycle via Stop button (ST ABCD + HX)
+- [ ] **RUN-05**: User can adjust grind stone compensation via More Stone / Less Stone buttons
+- [ ] **RUN-06**: User can start a new session (stone change) with two-step confirmation (Setup/Admin role required)
+- [ ] **RUN-07**: Live A/B position plot fills with real controller data during grind cycle
+
+### Setup Integration
+
+- [ ] **SETP-01**: User can enter Setup mode on the controller from the HMI (sends hmiSetp=0)
+- [ ] **SETP-02**: User can trigger homing sequence from Axes Setup page (sends hmiHome=0, Setup/Admin role required)
+- [ ] **SETP-03**: User can jog axes from Axes Setup page with movement on real controller
+- [ ] **SETP-04**: User can teach Rest point — saves current axis positions to restPt[] array on controller
+- [ ] **SETP-05**: User can teach Start point — saves current axis positions to startPt[] array on controller
+- [ ] **SETP-06**: User can write parameter values from Parameters page to controller variables
+- [ ] **SETP-07**: User can trigger varcalc recalculation from Parameters page (sends hmiCalc=0)
+- [ ] **SETP-08**: User can exit Setup mode back to main loop from HMI
+
+### State-Driven UI
+
+- [ ] **UI-01**: Buttons enable/disable based on polled controller state (e.g., no Start Grind while already grinding)
+- [ ] **UI-02**: Status label displays current controller state (IDLE, GRINDING, SETUP, HOMING, NEW SESSION)
+- [ ] **UI-03**: Setup mode badge visible on all screens when controller is in setup state
+- [ ] **UI-04**: Run tab disables when controller is in setup mode
+- [ ] **UI-05**: Connection status indicator visible at all times
+
+## Future Requirements
+
+Deferred to future milestones. Tracked but not in current roadmap.
+
+### Serration Grind (v3.0)
+
+- **SERR-01**: Serration Grind machine wired to controller using same HMI variable pattern
+- **SERR-02**: Serration-specific DMC subroutines mapped to HMI buttons
+
+### Convex Grind (v3.0+)
+
+- **CONV-01**: Convex Grind machine wired to controller using same HMI variable pattern
+- **CONV-02**: Convex-specific DMC subroutines mapped to HMI buttons
+
+### Deployment (deferred from v1.0)
+
+- **DEPLOY-01**: App runs in kiosk mode on Raspberry Pi
+- **DEPLOY-02**: Kiosk mode is operator-locked
+- **DEPLOY-03**: SD card based deployment
+- **DEPLOY-04**: App runs on Windows 11 as standard desktop application
+- **DEPLOY-05**: No external config files required for deployment
 
 ### Diagnostics
 
-- **DIAG-01**: Raw controller command terminal for Setup users (send commands, see responses)
-- **DIAG-02**: Array viewer showing all tracked DMC arrays and their current values
+- **DIAG-01**: Raw controller command terminal for Setup users
+- **DIAG-02**: Array viewer showing all tracked DMC arrays
 - **DIAG-03**: Command history log with timestamps
 
 ### Enhancements
 
 - **ENH-01**: Axis position units display (mm/degrees instead of raw encoder counts)
-- **ENH-02**: Profile metadata embedded in CSV (machine type, date, operator name, notes)
+- **ENH-02**: Profile metadata embedded in CSV
 - **ENH-03**: Per-tooth B-axis compensation table with live bar chart (serration-specific)
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
+| XQ direct calls to DMC subroutines | Breaks DMC state machine flow — must use HMI variable one-shot pattern only |
 | Password hashing / encryption for PINs | In-house use, no network exposure |
-| Remote/network software updates | No network infrastructure; manual SD card swap |
-| Multi-language UI | English only |
-| Database for profiles | CSV is transparent, portable, Excel-compatible |
-| Cloud sync / backup | No network infrastructure |
-| Web dashboard / REST API | Standalone controllers, not networked |
+| Multi-machine simultaneous control | One controller, one HMI instance at a time |
+| Remote/network HMI access | Local touchscreen only |
+| Automated testing against real controller | Hardware-in-the-loop testing is manual |
+| DMC program upload from HMI | DMC program loaded separately; HMI only reads/writes variables |
 | Animated screen transitions | Adds latency on industrial tool |
 
 ## Traceability
 
+Which phases cover which requirements. Updated during roadmap creation.
+
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DEPLOY-01 | Phase 8 | Pending |
-| DEPLOY-02 | Phase 8 | Pending |
-| DEPLOY-03 | Phase 8 | Pending |
-| DEPLOY-04 | Phase 8 | Pending |
-| DEPLOY-05 | Phase 8 | Pending |
+| DMC-01 | — | Pending |
+| DMC-02 | — | Pending |
+| DMC-03 | — | Pending |
+| DMC-04 | — | Pending |
+| DMC-05 | — | Pending |
+| DMC-06 | — | Pending |
+| POLL-01 | — | Pending |
+| POLL-02 | — | Pending |
+| POLL-03 | — | Pending |
+| POLL-04 | — | Pending |
+| SAFE-01 | — | Pending |
+| SAFE-02 | — | Pending |
+| SAFE-03 | — | Pending |
+| RUN-01 | — | Pending |
+| RUN-02 | — | Pending |
+| RUN-03 | — | Pending |
+| RUN-04 | — | Pending |
+| RUN-05 | — | Pending |
+| RUN-06 | — | Pending |
+| RUN-07 | — | Pending |
+| SETP-01 | — | Pending |
+| SETP-02 | — | Pending |
+| SETP-03 | — | Pending |
+| SETP-04 | — | Pending |
+| SETP-05 | — | Pending |
+| SETP-06 | — | Pending |
+| SETP-07 | — | Pending |
+| SETP-08 | — | Pending |
+| UI-01 | — | Pending |
+| UI-02 | — | Pending |
+| UI-03 | — | Pending |
+| UI-04 | — | Pending |
+| UI-05 | — | Pending |
 
 **Coverage:**
-- v1.1 requirements: 5 total
-- Mapped to phases: 5
-- Unmapped: 0
+- v2.0 requirements: 33 total
+- Mapped to phases: 0
+- Unmapped: 33
 
 ---
 *Requirements defined: 2026-04-06*
-*Carried forward from v1.0 known gaps (DEPLOY-01 through DEPLOY-05)*
+*Last updated: 2026-04-06 after initial definition*

@@ -3,7 +3,8 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** — Phases 1-7 (shipped 2026-04-06) | Phase 8 deferred
-- 🚧 **v1.1 Deployment** — Phase 8: Pi Kiosk (pending hardware validation)
+- ⏸ **v1.1 Deployment** — Phase 8: Pi Kiosk (pending hardware validation)
+- 🚧 **v2.0 Flat Grind Integration** — Phases 9-14 (in progress)
 
 ## Phases
 
@@ -22,9 +23,27 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 
 </details>
 
-### 🚧 v1.1 Deployment (In Progress)
+<details>
+<summary>⏸ v1.1 Deployment (Phase 8) — DEFERRED</summary>
 
 - [ ] **Phase 8: Pi Kiosk and Deployment** — Kiosk lockout, systemd autostart, SD card packaging
+
+Full context: `.planning/phases/08-CONTEXT.md`
+
+</details>
+
+### 🚧 v2.0 Flat Grind Integration (Phases 9-14)
+
+- [ ] **Phase 9: DMC Foundation** — Modify DMC program and add Python HMI constants/state fields — hard prerequisite for all wiring
+- [ ] **Phase 10: State Poll** — Wire 10 Hz poll to read hmiState and axis positions from real controller
+- [ ] **Phase 11: E-STOP Safety** — Validate priority stop path and motion-state gate before any motion commands are wired
+- [ ] **Phase 12: Run Page Wiring** — Wire all operator Run page buttons to real DMC subroutines
+- [ ] **Phase 13: Setup Loop** — Wire Setup page entry, homing, jog, teach points, parameters write, and exit
+- [ ] **Phase 14: State-Driven UI** — Button enable/disable, status labels, setup badge, and live plot validation
+
+---
+
+## Phase Details
 
 ### Phase 8: Pi Kiosk and Deployment
 **Goal**: The app boots automatically on a Raspberry Pi into a locked-down kiosk with no path for operators to reach the desktop, and installs from an SD card
@@ -39,6 +58,80 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
   5. The same codebase runs as a standard window on Windows 11 with no kiosk behavior
 **Plans**: TBD (context captured in `08-CONTEXT.md`)
 
+### Phase 9: DMC Foundation
+**Goal**: The DMC program and Python codebase share a correct, named contract — HMI trigger variables exist in the controller with default=1, OR conditions are live in the polling loop, hmiState is set at every state boundary, and Python constants prevent 8-char name typos.
+**Depends on**: Nothing (first v2.0 phase)
+**Requirements**: DMC-01, DMC-02, DMC-03, DMC-04, DMC-05, DMC-06
+**Success Criteria** (what must be TRUE):
+  1. Uploading the modified .dmc file and issuing XQ #AUTO causes hmiGrnd, hmiSetp, hmiMore, hmiLess, hmiNewS, hmiHome, hmiJog, hmiCalc to each return 1 when queried via gclib
+  2. Setting any HMI trigger variable to 0 from gclib causes the corresponding DMC block to execute — it resets the variable to 1 as its first action before any motion
+  3. Querying hmiState from the controller returns a distinct nonzero integer at each named state boundary (IDLE, GRINDING, SETUP, HOMING) — not a constant or undefined
+  4. Python code references all DMC array names (startPt, restPt) and variable names through constants in hmi/dmc_vars.py — no raw 8-char string literals in screen files
+  5. App closes cleanly without leaving a dangling gclib handle — verified by successfully opening a new connection immediately after a forced close
+**Plans**: TBD
+
+### Phase 10: State Poll
+**Goal**: The HMI reads authoritative state from the controller on every poll tick — axis positions display real values, connection loss is detected, and knife count reflects controller data — all verified against the real controller before any write commands are sent.
+**Depends on**: Phase 9
+**Requirements**: POLL-01, POLL-02, POLL-03, POLL-04
+**Success Criteria** (what must be TRUE):
+  1. Moving axes by hand (or jogging from DMC terminal) causes the Run page position labels to update within 200 ms — values match the controller query directly
+  2. Disconnecting the controller network cable causes a visible disconnected status on the HMI within 2 seconds — no crash, no freeze
+  3. Reconnecting the cable (or restarting the controller) causes the HMI to resume polling without an app restart
+  4. The knife count label on the Run page shows the same value as ctSesKni queried directly from the DMC terminal
+**Plans**: TBD
+
+### Phase 11: E-STOP Safety
+**Goal**: The stop path halts motion within 200 ms from any screen, is never queued behind normal controller jobs, and all motion-triggering buttons are gated on real controller state — validated on hardware before any motion commands are wired.
+**Depends on**: Phase 9, Phase 10
+**Requirements**: SAFE-01, SAFE-02, SAFE-03
+**Success Criteria** (what must be TRUE):
+  1. Pressing E-STOP while a large array operation is in-flight halts axis motion within 200 ms — confirmed by observing the controller's axis stop response, not just checking a flag
+  2. Pressing Stop from the Run page sends both ST ABCD and HX — the DMC program thread stops, not just the motors
+  3. Start Grind, Go To Rest, Go To Start, More Stone, and Less Stone buttons are visually disabled when hmiState reports active motion — they cannot be tapped until the controller reports idle
+  4. E-STOP is accessible from the Run page without navigating away from any active screen
+**Plans**: TBD
+
+### Phase 12: Run Page Wiring
+**Goal**: An operator can run a complete grind cycle from the touchscreen — start, stop, navigate to rest and start positions, adjust stone compensation, and begin a new session — all triggering real DMC subroutines via the HMI one-shot variable pattern.
+**Depends on**: Phase 9, Phase 10, Phase 11
+**Requirements**: RUN-01, RUN-02, RUN-03, RUN-04, RUN-05, RUN-06, RUN-07
+**Success Criteria** (what must be TRUE):
+  1. Pressing Start Grind sends hmiGrnd=0 and the DMC controller begins the grind cycle — confirmed by observing axis motion and hmiState changing to GRINDING
+  2. Pressing Go To Rest and Go To Start each cause the machine to move to the respective taught position — confirmed against physical axis motion, not simulated
+  3. Pressing Stop during an active grind cycle halts all axis motion and ends the DMC program thread within one stop-command round trip
+  4. Pressing More Stone or Less Stone while the machine is idle triggers the corresponding DMC compensation routine — buttons are disabled during active motion
+  5. Pressing New Session requires a two-step confirmation, is blocked for Operator role, and triggers the DMC #NEWSESS routine on confirmation
+  6. The A/B live plot fills with real axis position data during an active grind cycle — trace is not synthetic, flat, or static
+**Plans**: TBD
+
+### Phase 13: Setup Loop
+**Goal**: A Setup user can enter controller setup mode from the HMI, home the machine, jog all axes, teach rest and start points, write parameter values to the controller, trigger recalculation, and return to main loop — entirely from the touchscreen.
+**Depends on**: Phase 9, Phase 10, Phase 11
+**Requirements**: SETP-01, SETP-02, SETP-03, SETP-04, SETP-05, SETP-06, SETP-07, SETP-08
+**Success Criteria** (what must be TRUE):
+  1. Tapping Enter Setup on the HMI sends hmiSetp=0 and the controller enters its #SETUP loop — hmiState reflects SETUP state within one poll tick
+  2. Tapping Home (Setup/Admin only) sends hmiHome=0 and all axes move to their home positions — confirmed on real hardware
+  3. Tapping jog +/- on any axis causes that axis to move the configured step distance on the real controller — no conflict with the DMC #WheelJg loop observed
+  4. Tapping Teach Rest Point writes current axis positions to restPt[] on the controller; Teach Start Point writes to startPt[] — values confirmed by reading back from controller terminal
+  5. Editing a parameter value and saving writes the new value to the controller variable and triggers hmiCalc=0 — the controller recalculates derived values (verified by reading back a derived variable)
+  6. Tapping Exit Setup returns the controller to the #MAIN loop — hmiState returns to IDLE within one poll tick
+**Plans**: TBD
+
+### Phase 14: State-Driven UI
+**Goal**: Every interactive element reflects real controller state — buttons enable and disable correctly on controller-reported state, status labels name the current machine state, setup mode is visible across all screens, and the Run tab blocks correctly during setup.
+**Depends on**: Phase 10, Phase 12
+**Requirements**: UI-01, UI-02, UI-03, UI-04, UI-05
+**Success Criteria** (what must be TRUE):
+  1. Starting a grind cycle from the controller's physical panel (not the HMI) causes the HMI Run page buttons to disable within one poll tick — Python-side cycle_running is not the gate
+  2. The status label on the Run page displays IDLE, GRINDING, SETUP, or HOMING matching actual controller state at all times during normal operation
+  3. Navigating to any screen while the controller is in setup mode shows the setup mode badge — it is not limited to the Axes Setup screen
+  4. The Run tab is visually disabled and cannot be tapped when the controller reports it is in setup mode
+  5. The connection status indicator is visible on every screen and reflects connected or disconnected without requiring any page navigation
+**Plans**: TBD
+
+---
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -51,3 +144,14 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 | 6. Machine-Type Differentiation | v1.0 | 3/3 | Complete | 2026-04-04 |
 | 7. Admin and User Management | v1.0 | 2/2 | Complete | 2026-04-06 |
 | 8. Pi Kiosk and Deployment | v1.1 | 0/TBD | Deferred | - |
+| 9. DMC Foundation | v2.0 | 0/TBD | Not started | - |
+| 10. State Poll | v2.0 | 0/TBD | Not started | - |
+| 11. E-STOP Safety | v2.0 | 0/TBD | Not started | - |
+| 12. Run Page Wiring | v2.0 | 0/TBD | Not started | - |
+| 13. Setup Loop | v2.0 | 0/TBD | Not started | - |
+| 14. State-Driven UI | v2.0 | 0/TBD | Not started | - |
+
+---
+
+*Roadmap created: 2026-04-06*
+*v2.0 phases added: 2026-04-06*

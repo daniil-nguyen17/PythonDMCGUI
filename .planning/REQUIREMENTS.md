@@ -110,45 +110,45 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DMC-01 | — | Pending |
-| DMC-02 | — | Pending |
-| DMC-03 | — | Pending |
-| DMC-04 | — | Pending |
-| DMC-05 | — | Pending |
-| DMC-06 | — | Pending |
-| POLL-01 | — | Pending |
-| POLL-02 | — | Pending |
-| POLL-03 | — | Pending |
-| POLL-04 | — | Pending |
-| SAFE-01 | — | Pending |
-| SAFE-02 | — | Pending |
-| SAFE-03 | — | Pending |
-| RUN-01 | — | Pending |
-| RUN-02 | — | Pending |
-| RUN-03 | — | Pending |
-| RUN-04 | — | Pending |
-| RUN-05 | — | Pending |
-| RUN-06 | — | Pending |
-| RUN-07 | — | Pending |
-| SETP-01 | — | Pending |
-| SETP-02 | — | Pending |
-| SETP-03 | — | Pending |
-| SETP-04 | — | Pending |
-| SETP-05 | — | Pending |
-| SETP-06 | — | Pending |
-| SETP-07 | — | Pending |
-| SETP-08 | — | Pending |
-| UI-01 | — | Pending |
-| UI-02 | — | Pending |
-| UI-03 | — | Pending |
-| UI-04 | — | Pending |
-| UI-05 | — | Pending |
+| DMC-01 | Phase 9 | Pending |
+| DMC-02 | Phase 9 | Pending |
+| DMC-03 | Phase 9 | Pending |
+| DMC-04 | Phase 9 | Pending |
+| DMC-05 | Phase 9 | Pending |
+| DMC-06 | Phase 9 | Pending |
+| POLL-01 | Phase 10 | Pending |
+| POLL-02 | Phase 10 | Pending |
+| POLL-03 | Phase 10 | Pending |
+| POLL-04 | Phase 10 | Pending |
+| SAFE-01 | Phase 11 | Pending |
+| SAFE-02 | Phase 11 | Pending |
+| SAFE-03 | Phase 11 | Pending |
+| RUN-01 | Phase 12 | Pending |
+| RUN-02 | Phase 12 | Pending |
+| RUN-03 | Phase 12 | Pending |
+| RUN-04 | Phase 12 | Pending |
+| RUN-05 | Phase 12 | Pending |
+| RUN-06 | Phase 12 | Pending |
+| RUN-07 | Phase 12 | Pending |
+| SETP-01 | Phase 13 | Pending |
+| SETP-02 | Phase 13 | Pending |
+| SETP-03 | Phase 13 | Pending |
+| SETP-04 | Phase 13 | Pending |
+| SETP-05 | Phase 13 | Pending |
+| SETP-06 | Phase 13 | Pending |
+| SETP-07 | Phase 13 | Pending |
+| SETP-08 | Phase 13 | Pending |
+| UI-01 | Phase 14 | Pending |
+| UI-02 | Phase 14 | Pending |
+| UI-03 | Phase 14 | Pending |
+| UI-04 | Phase 14 | Pending |
+| UI-05 | Phase 14 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 33 total
-- Mapped to phases: 0
-- Unmapped: 33
+- Mapped to phases: 33
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-06*
-*Last updated: 2026-04-06 after initial definition*
+*Last updated: 2026-04-06 — traceability filled after roadmap creation*

@@ -1,209 +1,366 @@
 # Technology Stack
 
-**Project:** DMC Grinding GUI — Milestone additions
-**Researched:** 2026-04-04
-**Confidence note:** Web tools unavailable in this session. Version claims marked with confidence level
-based on training data (cutoff August 2025) plus codebase inspection. Run `pip index versions <package>`
-to verify versions before pinning them in pyproject.toml.
+**Project:** DMC Grinding GUI — v2.0 HMI-Controller Integration
+**Researched:** 2026-04-06
+**Confidence:** HIGH for gclib command patterns (verified against official docs + existing codebase).
+MEDIUM for thread-safety claim in gclib 2.4.x (release note language is ambiguous — see Threading section).
 
 ---
 
-## Existing Stack (Do Not Change)
+## Existing Stack (Unchanged — Do Not Re-Research)
 
-| Technology | Current Pin | Role |
-|------------|-------------|------|
+| Technology | Pin | Role |
+|------------|-----|------|
 | Python | >=3.10 | Runtime |
 | Kivy | >=2.2.0 | UI framework |
-| gclib | system install | Galil controller comms |
-| `threading` + `kivy.clock.Clock` | stdlib | Off-thread I/O, results back to UI |
+| gclib | system install (2.4.1 current) | Galil controller comms |
+| matplotlib + kivy_matplotlib_widget | existing | Live A/B position plot |
+| `threading` / `kivy.clock.Clock` | stdlib | Off-thread I/O, UI result delivery |
 | KV language | Kivy built-in | Declarative layouts |
 
-These are constraints, not choices. Every new library must integrate cleanly with Kivy's event loop and the
-existing `jobs.submit` / `Clock.schedule_once` threading pattern.
+**No new libraries are required for v2.0.** Everything in this document is
+about how to use the existing gclib library correctly for the new HMI integration work.
 
 ---
 
-## New Libraries Required by This Milestone
+## New Stack Additions for v2.0
 
-### Live Plotting
+None. The v2.0 work is entirely gclib command patterns, DMC variable protocol, and threading discipline
+within the already-established `jobs.submit` / `Clock.schedule_once` model.
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| matplotlib | >=3.8, <4 | A/B axis live position plot | Already declared in PROJECT.md as the chosen library. `FigureCanvasKivyAgg` ships with matplotlib's Kivy backend and embeds directly in a KV layout as a Widget. No third-party bridge required. |
-| `kivy_garden.matplotlib` | **avoid** (see below) | — | Superseded; `matplotlib.backends.backend_kivyagg` is the maintained path. |
+---
 
-**Confidence: MEDIUM** — matplotlib 3.x / FigureCanvasKivyAgg integration is well-documented and widely
-used in the Kivy ecosystem. Version ceiling `<4` is precautionary; verify latest 3.x on PyPI before
-pinning.
+## gclib Command Reference — HMI Integration Patterns
 
-**How to embed:**
+### Variable Read
+
 ```python
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_kivyagg import FigureCanvasKivyAgg
+# Read a named DMC variable
+raw = controller.cmd("MG varName")        # returns "  1.0000\r\n" — strip and float()
+val = float(raw.strip())
 
-fig = Figure()
-ax = fig.add_subplot(111)
-canvas = FigureCanvasKivyAgg(fig)
-# Add canvas to Kivy layout
+# Read multiple variables in one round-trip (semicolon-separated MG)
+raw = controller.cmd("MG hmiGrnd; MG hmiSetp; MG hmiMore")
+# Response is space-separated: "  1.0000   1.0000   0.0000\r\n"
+# Parse by splitting on whitespace after strip()
+
+# Read an axis position (encoder counts)
+raw = controller.cmd("MG _TPA")           # reference operand — prefixed with underscore
+# Alternatives: _TPB, _TPC, _TPD (Tell Position)
+#               _TDA, _TDB, _TDC, _TDD (Tell Dual [position + position error])
+# Existing code uses _TP{axis} for run screen polling, _TD{axis} for setup screen
+
+# Read program execution state (is DMC program running?)
+raw = controller.cmd("MG _XQ")            # returns thread 0 execution state; 0 = idle, 1..n = label
+# Returns 0 when no thread running, non-zero when #AUTO / #MAIN loop is active
 ```
 
-**Live update pattern (thread-safe):**
+**Confidence: HIGH** — `MG varName` is the standard DMC variable read pattern used throughout the
+existing codebase (`run.py`, `axes_setup.py`, `parameters.py`) and confirmed by Galil docs.
+
+### Variable Write (HMI One-Shot Trigger)
+
+The DMC code uses a one-shot trigger pattern: HMI variables are declared with default=1.
+The HMI sets them to 0 to trigger an action; the DMC program branch executes and resets to 1.
+
 ```python
-# In background job thread — update data only, do NOT call draw()
-self._plot_data.append((a_pos, b_pos))
+# Trigger pattern — send var=0 to fire the one-shot
+controller.cmd("hmiGrnd=0")    # Trigger Start Grind  → controller branches to #GRIND
+controller.cmd("hmiSetp=0")    # Trigger Setup mode   → controller branches to #SETUP
+controller.cmd("hmiMore=0")    # Trigger More Stone   → controller calls #MOREGRI
+controller.cmd("hmiLess=0")    # Trigger Less Stone   → controller calls #LESSGRI
+controller.cmd("hmiNewS=0")    # Trigger New Session  → controller calls #NEWSESS
+controller.cmd("hmiHome=0")    # Trigger Home all     → controller calls #HOME
+controller.cmd("hmiJog=0")     # Trigger Jog mode
+controller.cmd("hmiCalc=0")    # Trigger #VARCALC recalculation
 
-# In Clock callback (main thread) — redraw
-def _refresh_plot(self, dt):
-    ax.clear()
-    ax.plot(xs, ys)
-    canvas.draw()
+# Write a named scalar variable (parameter update)
+controller.cmd("fdA=50")                  # Set feedrate A to 50
+controller.cmd("knfThk=1.3")              # Set knife thickness
+controller.cmd("fdA=50;fdB=40;fdCup=25")  # Batch writes — semicolon-separated in one command
+
+# Burn to NV memory after writes that must survive power cycle
+controller.cmd("BV")                      # CAUTION: BV takes ~2 seconds — always off-thread
 ```
 
-This preserves the existing `jobs.submit` / `Clock.schedule_once` pattern. Do NOT call `canvas.draw()`
-from the worker thread; it must happen on the Kivy main thread.
+**HMI variable naming constraint:** DMC variable names are max 8 characters (hard limit). The names
+`hmiGrnd`, `hmiSetp`, `hmiMore`, `hmiLess`, `hmiNewS`, `hmiHome`, `hmiJog`, `hmiCalc` are all within
+limit. Verify with `len("hmiGrnd") == 7` before finalizing. Do not exceed 8 chars.
 
-**Performance note:** For 100 Hz position polling, use `blit=True` with `FuncAnimation` or do manual
-`ax.set_data()` + `canvas.draw_idle()` instead of `ax.clear()` on every frame. `draw_idle()` batches
-redraws to the next event loop tick.
+**Confidence: HIGH** — `varName=value` assignment syntax is confirmed by DMC command reference and
+used in `axes_setup.py` (`ctrl.cmd(write_cmd)` pattern) and `run.py` (`ctrl.cmd(f"bComp[{i}]={int(val)}")`).
+
+### Array Read
+
+```python
+# Read a single array element
+raw = controller.cmd("MG deltaC[5]")
+val = float(raw.strip())
+
+# Read all elements of a known-size array (existing GArrayUpload pattern)
+values = controller.upload_array("deltaC", 0, 99)   # returns List[float], len=100
+
+# For arrays declared with DM in #COMPED (aBuf, bBuf, deltaA, etc.)
+# Use GArrayUpload when available (fast path), MG fallback otherwise
+# controller.upload_array() handles both paths — already implemented
+```
+
+### Array Write
+
+```python
+# Write a single array element
+controller.cmd("deltaC[5]=150.0")
+
+# Write a full array (existing GArrayDownload pattern)
+controller.download_array("deltaC", 0, values)  # values: List[float], 100 elements
+
+# For the HMI integration pattern — write directly via cmd() for individual elements:
+# This is what run.py already does for bComp
+for i, val in enumerate(offsets_snapshot):
+    ctrl.cmd(f"bComp[{i}]={int(val)}")
+```
+
+### Program / Subroutine Execution
+
+```python
+# Start a named subroutine (non-blocking — controller runs it, returns immediately)
+controller.cmd("XQ #GRIND")    # Start grind cycle
+controller.cmd("XQ #GOREST")   # Go to rest position
+controller.cmd("XQ #GOSTR")    # Go to start position
+controller.cmd("XQ #HOME")     # Home all axes
+controller.cmd("XQ #NEWSESS")  # New session / stone change
+controller.cmd("XQ #VARCALC")  # Recalculate derived values
+
+# Halt program execution
+controller.cmd("HX")           # Halt all threads (existing in run.py for pause)
+controller.cmd("ST ABCD")      # Stop motion on specified axes
+```
+
+**IMPORTANT:** In the current DMC code (`4 Axis Stainless grind.dmc`), the main poll loop is `#WtAtRt`
+running inside `#MAIN`. The HMI one-shot variable pattern (setting `hmiGrnd=0` etc.) is the correct
+approach — it does NOT require `XQ #GRIND` from the HMI. The DMC program itself polls the variables
+and calls `JS #GRIND` internally.
+
+The `XQ #CYCLE` call in the current `run.py` (`on_start_pause_toggle`) is a placeholder and must be
+replaced with the one-shot variable write (`hmiGrnd=0`) once the DMC code is updated.
+
+### State Query — Controller-Side State Machine
+
+```python
+# Determine if the DMC program's main loop is running
+raw = controller.cmd("MG _XQ")
+is_running = float(raw.strip()) != 0
+
+# Check if specific axes are in motion
+raw = controller.cmd("MG _BGA")    # 1 = Axis A motion in progress, 0 = stopped
+raw = controller.cmd("MG _BGS")    # 1 = vector (coordinated) motion in progress
+
+# Read HMI variable state — poll these to confirm trigger was reset by DMC
+raw = controller.cmd("MG hmiGrnd")   # Should return 1.0 when reset (idle), 0.0 briefly during trigger
+```
 
 ---
 
-### Authentication (PIN System)
+## Threading Model — Critical Rules
 
-No external authentication library is needed or appropriate here.
+### The Single-Handle Constraint
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| Python stdlib (`hashlib`, `secrets`) | stdlib | PIN storage and comparison | PINs are 4–6 digits entered on a touchscreen. The PROJECT.md explicitly says "top-tier security not required." Use `hashlib.sha256` with a per-user salt (generated by `secrets.token_hex`) stored alongside the hash. One line of code per operation, zero dependencies. |
-| `bcrypt` / `argon2-cffi` | **avoid** | — | Over-engineered for in-house PIN auth. Adds a C extension dependency that complicates Pi deployment. |
-| SQLite via `sqlite3` | stdlib | User store (name, role, salt, hash) | Keeps user records in a single file that survives SD card swaps. stdlib, no install. A three-row table (operator, setup, admin) is all that's needed. |
+**gclib versions before 2.4.0:** A single `GCon` handle (one `gclib.py()` instance) is NOT thread-safe.
+Concurrent `GCommand()` calls from multiple threads on the same handle will corrupt responses.
 
-**Confidence: HIGH** — stdlib-only PIN auth is the correct call for this threat model. sqlite3 is
-pre-installed on all Python 3.x builds including the Raspberry Pi OS Python distribution.
+**gclib 2.4.0+ (released 2025, current is 2.4.1 as of March 2026):** Release notes state "gclib is now
+thread safe." However, the threading documentation (which may not have been updated) still states that
+"it is not safe to call GCommand() in multiple threads to the same physical connection." Treat the 2.4.x
+thread-safety claim as LOW confidence until verified against the installed version's release notes.
 
-**Schema (minimal):**
-```sql
-CREATE TABLE users (
-    id      INTEGER PRIMARY KEY,
-    name    TEXT NOT NULL UNIQUE,
-    role    TEXT NOT NULL CHECK(role IN ('operator','setup','admin')),
-    salt    TEXT NOT NULL,
-    pin_hash TEXT NOT NULL
-);
+**Safe approach regardless of gclib version:** Route ALL `GCommand` calls through the single `jobs.submit`
+background thread. This is already the established pattern in the codebase. Do NOT change this pattern
+to allow concurrent gclib calls until you can confirm the installed gclib version is 2.4.0+ and the
+thread-safety applies to same-handle concurrent use.
+
+**Confidence: MEDIUM** — the 2.4.0 "thread safe" claim is from the release notes fetched 2026-04-06.
+The installed gclib may be an older version. Check with `pip show gclib` or by running
+`gclib.py().GVersion()` on startup.
+
+### Established Pattern (use exactly this)
+
+```python
+# In any Kivy screen — trigger controller action from button press
+def on_some_button(self):
+    if not self.controller or not self.controller.is_connected():
+        return
+
+    ctrl = self.controller  # capture ref before thread
+
+    def _do_action():
+        try:
+            ctrl.cmd("hmiGrnd=0")               # one-shot trigger
+        except Exception as e:
+            Clock.schedule_once(lambda *_: self._alert(str(e)))
+
+    jobs.submit(_do_action)
+
+
+# In any Kivy screen — poll state at a fixed Hz
+def _on_poll_tick(self, dt):
+    if not self.controller or not self.controller.is_connected():
+        return
+    jobs.submit(self._do_poll)
+
+def _do_poll(self):
+    try:
+        raw = self.controller.cmd("MG _TPA")
+        pos_a = float(raw.strip())
+        Clock.schedule_once(lambda *_: self._apply_result(pos_a))
+    except Exception:
+        pass   # swallow poll errors silently; disconnect detection handled elsewhere
 ```
 
-Store the database file at a fixed path (e.g., `~/.dmcgui/users.db`) so it persists across app updates.
+### Polling Frequencies
 
-**PIN flow for touchscreen:**
-- Kivy `TextInput` with `password=True`, `input_filter='int'`, `max_chars=6`
-- No external numpad widget library needed; build a 3x4 button grid in KV — it's ~30 lines and fully
-  controllable for touch target size.
+| Screen | Current Rate | Recommended Rate | Rationale |
+|--------|-------------|-----------------|-----------|
+| RunScreen position poll | 10 Hz | **10 Hz** | Current rate is correct. Submits one `_do_poll` job per tick. Jobs queue naturally absorbs latency spikes — if a poll takes > 100ms, the next tick skips it (queue has backlog). |
+| RunScreen plot redraw | 5 Hz | **5 Hz** | Correct. Decoupled from poll clock to protect E-STOP button latency. |
+| AxesSetup position poll | 3 Hz | **3 Hz** | Correct for setup — operator watching position, not time-critical. |
+| State sync (HMI variables) | not yet implemented | **5 Hz** | Poll `_XQ`, `hmiGrnd` to detect controller state changes. Separate poll from position poll — simpler to manage independently. |
+| Parameters screen | on-demand | **on-demand** | Read on enter, write on apply. No continuous poll needed. |
+
+**10 Hz poll with 4 axes:** Each poll submits 4 `MG _TP{axis}` calls. At 10 Hz that is 40 GCommand
+round-trips per second. Typical gclib round-trip on Ethernet is 1-3ms, so 40 calls = ~40-120ms per
+second of controller bandwidth. This is safe for the Galil DMC. Do not poll faster than 10 Hz unless
+profiling shows the controller is not bottlenecked.
+
+**BV (burn NV) must never be in the poll loop.** BV takes ~2 seconds. Only call it on explicit user
+actions (teach, apply parameters). This is already correct in the existing code.
 
 ---
 
-### CSV Profile Management
+## HMI Variable Protocol — DMC Code Side
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| Python `csv` module | stdlib | Read/write DMC array CSVs | Native, zero dependencies. The profile format is simple: two columns (array_name, value) or (array_name, index, value). No schema evolution needed. |
-| `pathlib.Path` | stdlib | File path management | Cross-platform (Windows + Pi). Prefer over `os.path` for clarity. |
+The DMC program must be modified to add HMI variable checks as OR conditions alongside physical `@IN[]`
+checks. Declared once in `#PARAMS`:
 
-**Confidence: HIGH** — This is pure file I/O with a trivial format. No library justifies a dependency.
-
-**CSV format recommendation:**
-
-```
-# DMC Grinding GUI profile export
-# Machine: FlatGrind4Axis
-# Exported: 2026-04-04T10:30:00
-array_name,value
-SP,500.0
-AC,2000.0
-DC,2000.0
-EdgeB[0],12.5
-EdgeB[1],24.0
+```dmc
+' In #PARAMS — declare HMI trigger variables with default=1 (inactive state)
+hmiGrnd = 1     ' Start Grind     (send 0 from HMI to trigger)
+hmiSetp = 1     ' Enter Setup mode
+hmiMore = 1     ' More Stone (compensation)
+hmiLess = 1     ' Less Stone (compensation)
+hmiNewS = 1     ' New Session (stone change)
+hmiHome = 1     ' Home all axes
 ```
 
-Use `#` comment lines for metadata. The loader skips lines starting with `#`. This keeps the file
-human-readable and diff-friendly for version control.
+```dmc
+' In #WtAtRt polling loop — add HMI OR conditions
+IF (@IN[29] = 0) | (hmiGrnd = 0)   ' GO GRIND button OR HMI trigger
+  hmiGrnd = 1                       ' Reset immediately after branch
+  SB 1
+  JS #GRIND
+  JP #WtAtRt
+ENDIF
+```
 
-**Import/export must run off the UI thread** — file I/O on a network share or slow SD card can block for
-hundreds of milliseconds. Use the existing `jobs.submit` pattern.
+**Variable naming:** `hmiGrnd` = 7 chars, `hmiSetp` = 7 chars, `hmiMore` = 7 chars,
+`hmiLess` = 7 chars, `hmiNewS` = 7 chars, `hmiHome` = 7 chars. All within the 8-char DMC limit.
+
+The existing `DM hmiBtn[40]` array in `#PARAMS` can be repurposed or replaced by the individual
+scalar variables above. Individual scalars are simpler to read and write from Python than array elements
+and make the DMC code easier to read.
 
 ---
 
-### Raspberry Pi Kiosk Mode
+## State Synchronization Model
 
-No Python library is needed here. Kiosk mode is an OS-level configuration.
+The recommended pattern for HMI state sync is **polling DMC variables**, not interrupts.
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| `systemd` user service | Pi OS built-in | Launch app on boot | More robust than `rc.local` or `~/.config/autostart`. Restart-on-crash is one line: `Restart=always`. |
-| `unclutter` (apt package) | system | Hide mouse cursor | The Pi touchscreen shows an arrow cursor that distracts operators. `unclutter -idle 1 -root` hides it after 1 second of inactivity. |
-| Kivy fullscreen config | Kivy built-in | Lock window to screen | `Config.set('graphics', 'fullscreen', 'auto')` in `main.py` when running on Pi. Detect Pi via `platform.machine()` or an env var. |
-| `weston` / `labwc` | **avoid** | Wayland compositors | Adds complexity. Use X11 (default on Pi OS Bookworm with `raspi-config` set to X11). Kivy's SDL2 backend works cleanly under X11. |
+**Why polling, not GInterrupt/GMessage:**
+- GMessage requires subscribing with `GOpen('address --subscribe MG')` — changes the connection string
+  used at startup, requires architectural change to the existing `GOpen` call.
+- GInterrupt requires EI/UI commands in the DMC program — adds DMC complexity.
+- Polling `_XQ` and named state variables at 5 Hz is sufficient for an industrial HMI that is
+  inherently human-speed. E-STOP is not a state-sync concern — it is a hardware interlock.
+- The existing codebase is poll-only; adding interrupt handling would require a second connection
+  handle and a dedicated GMessage reader thread, which adds complexity for marginal benefit.
 
-**Confidence: MEDIUM** — systemd service + Kivy fullscreen is the standard pattern for Pi kiosk
-deployments as of mid-2025. Raspberry Pi OS Bookworm (the current release) defaults to Wayfire/Wayland
-on desktop; you may need to switch to X11 session for reliable Kivy SDL2 rendering. Verify Pi OS version
-before deployment.
+**State variables to poll:**
 
-**systemd service unit (example):**
-```ini
-[Unit]
-Description=DMC Grinding GUI
-After=network.target
-
-[Service]
-User=pi
-Environment=DISPLAY=:0
-Environment=XAUTHORITY=/home/pi/.Xauthority
-Environment=DMC_ADDRESS=192.168.0.2
-WorkingDirectory=/home/pi
-ExecStart=/home/pi/.venv/bin/dmccodegui
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=graphical.target
+```python
+# Recommended state sync poll (5 Hz, background thread)
+state_vars = "MG _XQ; MG hmiGrnd; MG _BGA; MG _BGB"
+raw = controller.cmd(state_vars)
+# Parse space-separated floats
+vals = [float(v) for v in raw.strip().split()]
+xq, hmi_grnd, bg_a, bg_b = vals
 ```
 
-**SD card deployment:** Use `rpi-imager` to write a base Pi OS Lite image, then layer the app via a shell
-script (`deploy.sh`) that installs pip packages from a bundled wheelhouse directory. This avoids needing
-internet access on the Pi at deployment time. Pre-build wheels on a matching architecture (arm64) using
-`pip wheel --wheel-dir=./wheelhouse -r requirements.txt` on a Pi or via QEMU cross-compilation.
+**Controller state machine states:**
+- `_XQ = 0` — no program running (idle, after HX or program error)
+- `_XQ != 0` — program running (in `#MAIN` / `#WtAtRt` loop)
+- `_BGA = 1` or `_BGB = 1` — motion in progress (don't re-trigger)
+- `hmiGrnd = 0` — trigger is pending (briefly, normally resets to 1)
+
+**HMI should reflect:** connected, idle, grinding, setup, at-rest, at-start, error states.
+These are inferred from the combination of `_XQ`, `_BGA/_BGB`, and optional named state variables.
+The DMC program can set a named variable like `machSt` (machine state) if explicit state values
+are needed:
+
+```dmc
+machSt = 1    ' in #MAIN (idle)
+machSt = 2    ' grinding active
+machSt = 3    ' setup mode
+machSt = 4    ' going to rest
+machSt = 5    ' going to start
+```
 
 ---
 
-### Per-Machine-Type UI Routing
+## Error Handling Pattern
 
-No new library. This is a Kivy `ScreenManager` routing problem.
+```python
+def _do_command(self, cmd_str: str) -> None:
+    """Background thread: send a command; surface TC1 error to UI on failure."""
+    try:
+        self.controller.cmd(cmd_str)
+    except RuntimeError as e:
+        # controller.cmd() already calls TC1 and embeds the error text in the exception
+        Clock.schedule_once(lambda *_: self._alert(str(e)))
+```
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| Kivy `ScreenManager` | existing | Route to machine-type screen sets | Already in use. Add a `machine_type` property to `MachineState` (set at startup or first-login). The tab bar navigates within the active machine's screen set. |
-| Python `enum.Enum` | stdlib | Machine type constants | `class MachineType(Enum): FLAT_GRIND = "flat_grind"; CONVEX_GRIND = "convex_grind"; SERRATION = "serration"` — prevents string typos throughout the codebase. |
-
-**Confidence: HIGH** — No external routing library is correct for Kivy; ScreenManager is the canonical
-solution and is already in use.
+The existing `GalilController.cmd()` already calls `TC1` on failure and includes the error text in
+the `RuntimeError` message. Do not duplicate TC1 calls in screen code.
 
 ---
 
-## Recommended pyproject.toml Changes
+## What NOT to Add
 
-```toml
-[project]
-dependencies = [
-  "kivy>=2.2.0",
-  "matplotlib>=3.8,<4",
-]
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| Any new communication library (pyserial, modbus, etc.) | gclib is the Galil API; alternatives are unsupported for DMC | gclib only |
+| GInterrupt-based state sync | Requires `--subscribe EI` in GOpen address string, a dedicated reader thread, DMC EI/UI command changes | Poll `_XQ` + named state vars at 5 Hz |
+| GMessage-based unsolicited message reading | Same architectural cost as GInterrupt; messages are debug strings not structured state | Structured variable polling |
+| gcaps (Galil Controller Asynchronous Proxy Server) | Adds an external service dependency for a single-client embedded system | Single handle with serialized access via `jobs` queue |
+| Second `gclib.py()` handle for a "fast" command path | Two handles to the same controller = two TCP connections + coordination overhead + concurrency risk | Single handle, all calls via `jobs.submit` |
+| Polling faster than 10 Hz from the HMI | 40 GCommand calls/sec already saturates practical Ethernet bandwidth for a 4-axis status poll; no user benefit above 10 Hz | 10 Hz for position, 5 Hz for state |
+| `GMotionComplete()` blocking calls | Blocks the background thread for the full motion duration; the Kivy clock tick is unaffected but the jobs queue cannot service other requests during the block | Poll `_BGA/_BGB` until zero in a loop with `time.sleep(0.05)`, or use `AM` in the DMC program |
+| Updating Kivy widgets directly from the background thread | Kivy's canvas drawing is not thread-safe; widget property assignments may work but are not guaranteed | `Clock.schedule_once(lambda *_: self._apply_ui(...))` always |
+
+---
+
+## Installation
+
+No changes required. gclib is already installed as a system package.
+
+```bash
+# Verify installed gclib version (important for thread-safety question)
+python -c "import gclib; g = gclib.py(); print(g.GVersion())"
+# Expected output: version string like "gclib v2.4.1"
 ```
 
-That is the complete change to `pyproject.toml`. Everything else (sqlite3, csv, hashlib, secrets,
-pathlib, threading, enum) is Python stdlib included with Python 3.10+.
-
-**gclib** is a system-level install (vendor-provided DLL/SO), not a PyPI package. It should remain
-outside pyproject.toml and be documented in the deployment README.
+If the installed version is below 2.4.0, the single-connection-handle serialization via `jobs` queue
+is mandatory. If 2.4.0+, per the release notes it may be safe to submit gclib calls from parallel
+background threads — but the single-queue model already works and should not be changed without
+profiling evidence of a bottleneck.
 
 ---
 
@@ -211,57 +368,33 @@ outside pyproject.toml and be documented in the deployment README.
 
 | Category | Recommended | Alternative | Why Not |
 |----------|-------------|-------------|---------|
-| Live plotting | matplotlib + FigureCanvasKivyAgg | kivy_garden.graph | kivy_garden.graph has minimal maintenance, no scatter/polar support, poor docs. matplotlib is more capable for an X/Y position plot. |
-| Live plotting | matplotlib + FigureCanvasKivyAgg | pyqtgraph | pyqtgraph requires Qt; mixing Qt and Kivy event loops causes crashes. Hard no. |
-| PIN auth storage | sqlite3 (stdlib) | JSON file | JSON offers no atomic write guarantees; a power-loss mid-write corrupts the user store on Pi. sqlite3 has WAL mode and is ACID-compliant. |
-| PIN auth storage | sqlite3 (stdlib) | TinyDB | TinyDB is JSON-backed, same problem. Zero advantage over stdlib sqlite3. |
-| PIN hashing | hashlib.sha256 + salt (stdlib) | bcrypt | bcrypt is correct for passwords but adds a C extension. For 4–6 digit PINs with ~10,000 combinations, bcrypt's cost is unjustifiable — physical security (locked enclosure) is the real barrier. |
-| Kiosk deployment | systemd service | crontab @reboot | crontab has no restart-on-crash, no dependency ordering, no clean logging. systemd is unambiguously better on Pi OS Bookworm. |
-| Kiosk deployment | systemd service | `/etc/rc.local` | rc.local is deprecated in Bookworm. Same drawbacks as crontab. |
-| CSV profiles | stdlib csv module | pandas | pandas is 30 MB of dependencies for reading a two-column file. Completely disproportionate. |
-| CSV profiles | stdlib csv module | openpyxl | Excel format adds complexity operators don't need; CSV is universally readable. |
+| Variable trigger mechanism | One-shot scalar (default=1, send 0) | XQ #label from HMI | `XQ` starts a new thread on the controller; if #MAIN is already polling, this can conflict with the existing loop. One-shot variables let the DMC loop handle routing — simpler and matches the existing physical button pattern. |
+| State detection | Poll `_XQ` + named vars at 5 Hz | GInterrupt subscription | Interrupt requires architectural changes to GOpen call and a dedicated reader thread. Too much complexity for a single-machine system. |
+| Multi-variable reads | Semicolon-batched single `MG` command | Separate `cmd()` call per variable | One round-trip vs N round-trips. At 10 Hz, batching 4-axis position read saves ~3 round-trips per tick = ~30-90ms saved per second. |
+| NV burn | `BV` on explicit user action | `BV` after every write | BV takes ~2 seconds. Calling it after every parameter change during a rapid-fire session would make the UI feel frozen. Batch at end of session. |
 
 ---
 
-## Installation
+## Version Compatibility
 
-```bash
-# On the development machine (Windows or Pi)
-pip install "matplotlib>=3.8,<4"
-
-# kivy, gclib are already installed per existing setup
-
-# On Pi: build offline wheelhouse for air-gapped deployment
-pip wheel --wheel-dir=./wheelhouse "kivy>=2.2.0" "matplotlib>=3.8,<4"
-# Copy ./wheelhouse to SD card, then on Pi:
-pip install --no-index --find-links=./wheelhouse kivy matplotlib
-```
-
----
-
-## Version Confidence
-
-| Library | Recommended Version | Confidence | Verify Via |
-|---------|---------------------|------------|------------|
-| Kivy | >=2.2.0 (existing) | HIGH | Already in use and working |
-| matplotlib | >=3.8, <4 | MEDIUM | `pip index versions matplotlib` |
-| Python | >=3.10 | HIGH | Already in pyproject.toml |
-| sqlite3 | stdlib (any 3.10+) | HIGH | No install needed |
-| csv / hashlib / pathlib | stdlib | HIGH | No install needed |
-
-The only item needing pre-implementation version verification is matplotlib. Confirm the latest 3.x
-stable release and that `FigureCanvasKivyAgg` is present in that release before finalizing the pin.
-As of August 2025 training data, matplotlib 3.9.x was the stable series and the Kivy backend was
-included.
+| Library | Version Requirement | Notes |
+|---------|---------------------|-------|
+| gclib Python wrapper | system install (2.4.1 current) | Not a pip package; installed by Galil installer. `GArrayUpload`/`GArrayDownload` are available in all versions supported by the codebase. |
+| Python | 3.10+ | Already pinned in pyproject.toml. No change. |
+| Kivy | 2.2+ | Already pinned. `Clock.schedule_once` used for all UI updates from background thread. No change. |
 
 ---
 
 ## Sources
 
-- Project requirements: `C:/Users/danii/OneDrive/Desktop/PythonDMCGUI/.planning/PROJECT.md`
-- Existing codebase: `pyproject.toml`, `main.py`, `app_state.py`, `controller.py`, `utils/jobs.py`
-- matplotlib Kivy backend: `matplotlib.backends.backend_kivyagg` (ships with matplotlib; documented
-  in matplotlib source at `lib/matplotlib/backends/backend_kivyagg.py`)
-- Raspberry Pi OS Bookworm systemd service pattern: standard Pi OS documentation (training data,
-  MEDIUM confidence — verify against current Pi OS docs)
-- sqlite3 ACID guarantees: Python stdlib documentation (HIGH confidence)
+- Official gclib Python class reference: https://www.galil.com/sw/pub/all/doc/gclib/html/classgclib_1_1py.html — confirmed GCommand, GArrayUpload, GArrayDownload, GMessage, GInterrupt signatures (HIGH confidence)
+- gclib thread safety documentation: https://accserv.lepp.cornell.edu/svn/packages/gclib/doc/html/threading_8md_source.html — single-handle constraint confirmed (HIGH confidence)
+- gclib release notes: https://www.galil.com/sw/pub/all/rn/gclib.html — version 2.4.1 current as of March 2026, "thread safe" added in 2.4.0 (MEDIUM confidence — claim language is ambiguous regarding same-handle use)
+- Galil forums variable read example: https://www.galil.com/forums/host-programming/how-read-variable-python — `MG _TTA` pattern confirmed (HIGH confidence)
+- DMC command reference (Keck/DEIMOS copy): https://www2.keck.hawaii.edu/inst/deimos/com40x0.pdf — variable assignment, BV, XQ, HX, MG syntax (HIGH confidence)
+- Existing codebase: `controller.py`, `run.py`, `axes_setup.py`, `parameters.py` — patterns confirmed working in v1.0 (HIGH confidence)
+- DMC program: `4 Axis Stainless grind.dmc` — state machine structure, variable names, array declarations, HMI button array (HIGH confidence)
+
+---
+*Stack research for: DMC Grinding GUI v2.0 HMI-Controller Integration*
+*Researched: 2026-04-06*

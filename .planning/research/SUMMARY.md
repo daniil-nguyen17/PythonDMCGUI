@@ -1,17 +1,17 @@
 # Project Research Summary
 
-**Project:** DMC Grinding GUI — Milestone additions
-**Domain:** Industrial touchscreen HMI — knife grinding machine control (CNC-adjacent)
-**Researched:** 2026-04-04
-**Confidence:** HIGH (codebase analysis + established industrial HMI domain knowledge)
+**Project:** DMC Grinding GUI — v2.0 HMI-Controller Integration
+**Domain:** Industrial HMI-to-controller wiring, Kivy GUI + Galil DMC state machine
+**Researched:** 2026-04-06
+**Confidence:** HIGH
 
 ## Executive Summary
 
-This is an industrial machine control GUI running on a Raspberry Pi touchscreen, built with Python/Kivy/gclib to control a Galil motion controller for knife grinding machines. The codebase already has a solid, well-structured foundation: a proven `jobs.submit` / `Clock.schedule_once` threading pattern, a pub/sub `MachineState`, and a dark theme with axis color coding. The milestone adds PIN-based role authentication (Operator/Setup/Admin), live matplotlib position plotting, CSV profile import/export, tab navigation, and Raspberry Pi kiosk deployment. All of these must integrate cleanly with the existing patterns rather than replace them.
+This project is a v2.0 wiring pass on an existing, shipped v1.0 GUI: connecting real buttons to a real Galil DMC controller running a 4-Axes Flat Grind cycle. The v1.0 codebase is well-structured — the `jobs.submit` / `Clock.schedule_once` threading model is solid, all screens exist, and polling loops are already scaffolded. The work is entirely gclib command patterns and DMC program modifications. No new libraries, no new screens. The entire integration lives in the gap between the existing stub calls (`XQ #CYCLE`) and the correct DMC state machine entries (`hmiGrnd=0`, `hmiState` polling, proper `ST ABCD` + `HX` stop sequence).
 
-The recommended approach is stdlib-first: only `matplotlib>=3.8,<4` needs to be added to `pyproject.toml`. Authentication uses Python's `hashlib` + `sqlite3`, CSV I/O uses the `csv` module, and routing uses the existing Kivy `ScreenManager`. The key architectural additions are an `AuthManager` class, a `PinOverlay` modal, a `TabBar` replacing the current ActionBar spinner, and a unified `RunScreen` with embedded matplotlib canvas. Three machine types (4-Axis Flat, 4-Axis Convex, 3-Axis Serration) are handled by a `MachineConfig` dict and machine-type-aware screen rendering rather than separate full screen sets.
+The recommended approach is a foundation-first, read-before-write build order: add HMI variable constants and extend `MachineState` with DMC state fields, then validate the state poll path before wiring any action buttons. The DMC program must be modified as a hard prerequisite — HMI trigger variables cannot be tested without the OR conditions present in the `.dmc` file. The most architecturally significant addition is the `hmiState` variable in the DMC program, which replaces the unreliable Python-side `cycle_running` flag as the source of truth for machine state.
 
-The highest-risk areas are (1) matplotlib thread safety — plot draws must never happen on the background job thread, only via `Clock.schedule_once` callbacks — and (2) CSV profile safety — loading a profile mid-cycle can move the machine unexpectedly. Both risks are well-understood and have clear prevention patterns. A secondary risk is Raspberry Pi OS Bookworm's Wayland/X11 transition, which requires deployment-time verification before kiosk mode can be finalized.
+The primary risks are safety-oriented: E-STOP must not be queued behind normal `jobs.submit` calls, physical button + HMI double-trigger must be defended against on the DMC side, and jog commands must not compete with the DMC's own `#SETUP` loop motion. All three risks are preventable with known patterns documented in the research. An additional correctness risk is the existing array name mismatch (`StartPnt` vs `startPt`, `RestPnt` vs `restPt`) which must be resolved before any save operation is validated on real hardware.
 
 ---
 
@@ -19,142 +19,186 @@ The highest-risk areas are (1) matplotlib thread safety — plot draws must neve
 
 ### Recommended Stack
 
-The existing stack (Python >=3.10, Kivy >=2.2.0, gclib system install, stdlib threading + `kivy.clock.Clock`) is a hard constraint — all new additions must fit within it. The only PyPI addition required is `matplotlib>=3.8,<4`, which ships with `FigureCanvasKivyAgg` as its Kivy backend and embeds directly as a Kivy Widget. Every other new capability (auth, CSV, routing, kiosk) is pure stdlib or OS-level configuration. Libraries like bcrypt, pandas, TinyDB, pyqtgraph, and kivy_garden.graph were explicitly evaluated and rejected as over-engineered or incompatible.
+No new libraries are required for v2.0. The full stack — Python 3.10+, Kivy 2.2+, gclib (system install), matplotlib — is unchanged. The work is entirely within the existing `jobs.submit` / `GCommand` / `Clock.schedule_once` model already established in v1.0.
+
+The critical gclib patterns for v2.0 are: semicolon-batched `MG` reads for multi-variable polls in one round-trip, the one-shot trigger pattern (`varName=0` to fire, DMC resets to `1` immediately on block entry), and `BV` only on explicit user save (never polling, never automatic — it takes ~2 seconds).
 
 **Core technologies:**
-- `matplotlib>=3.8,<4` (only new PyPI dep): live A/B position plot — `FigureCanvasKivyAgg` embeds as a Kivy Widget; `canvas.draw_idle()` batches redraws safely on the main thread
-- `hashlib` + `sqlite3` (stdlib): PIN hashing + user store — SHA-256 with per-user salt in a SQLite file at `~/.dmcgui/users.db`; ACID-safe on power loss
-- `csv` + `pathlib` (stdlib): profile import/export — two-column format with `#` comment metadata; human-readable and Excel-compatible
-- `enum.Enum` (stdlib): `MachineType` and `Role` constants — prevents string typos across the codebase
-- `systemd` user service (Pi OS): kiosk autostart — `Restart=always`, clean logging; superior to crontab or rc.local
-- Kivy `ScreenManager` (existing): machine-type routing — no external routing library needed
+- **gclib (system install, 2.4.1):** Galil controller comms — `cmd()`, `upload_array()`, `download_array()`; all calls serialized through the single `jobs` FIFO worker
+- **`threading` / `kivy.clock.Clock`:** Off-thread I/O pattern already in place; gclib never touches the Kivy main thread
+- **KV language + Kivy screens:** Layouts exist; v2.0 adds only `on_release` bindings and reactive property updates from polled state
+
+The gclib thread-safety claim in 2.4.0+ is marked MEDIUM confidence due to ambiguous documentation. The existing single-handle serialization via `jobs` must be preserved regardless — it is the safe default.
 
 ### Expected Features
 
-**Must have (table stakes):**
-- PIN-based login with role selection (Operator/Setup/Admin) — touchscreen numpad overlay, no keyboard required
-- Three-tier access control with session auto-lock after inactivity timeout
-- Big-button RUN page: Start, Pause, Go to Rest, E-STOP (always reachable, every screen)
-- Live axis position display (~10 Hz poll, A/B/C/D labels)
-- Cycle status and progress feedback (status dot + progress bar)
-- Operation log / event ticker (already in `MachineState.messages`, needs wiring to UI)
-- Axis jog controls for all four axes (unified screen, sidebar axis selection)
-- Teach point capture surfaced on unified Axes Setup screen
-- Grouped parameter editing (Geometry, Feedrates, Calibration, Positions, Safety cards)
-- Per-machine-type screen sets (Flat/Convex/Serration have different axis counts)
-- Persistent dark theme with axis color coding (A=orange, B=purple, C=cyan, D=yellow)
-- Touch-friendly targets throughout (44dp minimum, enforced in KV review)
+The v1.0 build shipped PIN auth, tab navigation, live plot scaffold, axes setup UI, parameter cards, CSV profiles, and user management. All of those are done. v2.0 is purely wiring the existing UI to the real controller.
 
-**Should have (differentiators):**
-- Live matplotlib A/B position plot — top-down view, confirms grind path in real time
-- CSV profile import/export — save and reload knife setups; eliminates re-entry for repeat jobs
-- Tab navigation bar replacing ActionBar + Spinner — faster, larger targets, always-visible structure
-- Diagnostics tab — raw controller responses, command history, array read-on-demand
-- Kiosk mode (Pi) — operators cannot exit to desktop; systemd autostart with restart-on-crash
-- SD card deployment — technician swaps card rather than running pip install
-- Input validation with inline red highlighting — already partially implemented, needs standardization
+**Must have (v2.0 table stakes):**
+- Array name mismatch fix (`StartPnt` / `RestPnt` vs `startPt` / `restPt`) — blocker for all save operations
+- Start Grind wired to `XQ #GRIND` (replace `XQ #CYCLE` stub)
+- Go To Rest wired to `XQ #GOREST` (replace `XQ #REST` stub)
+- Go To Start button added and wired to `XQ #GOSTR`
+- Stop motion sending `ST ABCD` + `HX` (both commands; `HX` halts program, `ST` decelerates axes)
+- Live position labels connected to real controller (remove `_show_disconnected()` override in `on_pre_enter`)
+- More Stone / Less Stone buttons wired to `XQ #MOREGRI` / `XQ #LESSGRI`
+- New Session button wired to `XQ #NEWSESS` (Setup role gate + two-step confirmation)
+- Homing button on Axes Setup wired to `XQ #HOME` (Setup role gate)
+- Parameters screen write path wired (`controller.cmd("fdA=50")` pattern)
+- Jog step buttons confirmed to move real axes (PA relative + BG)
 
-**Defer (v2+):**
-- Multi-language UI, cloud sync, web dashboard, REST API, undo/redo, animated transitions, fine-grained permissions beyond three roles — explicitly identified as anti-features for this use case
+**Should have (v2.x after flat grind validation):**
+- HMI one-shot variable pattern in DMC code (`hmiGrnd`, `hmiSetp`, `hmiMore` etc.) — add after `XQ` wiring validated; enables OR-with-physical-buttons
+- `hmiState` variable in DMC + polling in HMI — replaces Python `cycle_running` as authoritative state
+- Setup mode badge / Run tab disable when setup active
+- Knife count display (`ctSesKni`, `knfSess`) on Run page
+- Position readout in engineering units (mm / degrees via CPM conversion)
+- Graceful reconnect loop in background thread
+- Varcalc trigger from HMI Parameters screen
+
+**Defer to v3.0+:**
+- Serration Grind integration (same pattern, different subroutine names)
+- Convex Grind integration
+- Array name validation helper before every upload/download
 
 ### Architecture Approach
 
-The architecture extends the existing layered model without breaking it. `MachineState` gains three new fields (`role`, `user_id`, `machine_type`). A new `AuthManager` handles PIN validation and writes role to state. A new `PinOverlay` (Kivy `ModalView`) floats above the `ScreenManager` so auth does not pollute navigation history. The existing ActionBar + Spinner nav is replaced by a `TabBar` widget that subscribes to state and shows/hides tabs based on role. All new screens follow the established pattern: subscribe to `MachineState` in `on_pre_enter`, unsubscribe in `on_leave`, never call each other directly, never call gclib outside `jobs.submit()`.
+The v2.0 architecture adds a thin `hmi/` package (two files: `dmc_vars.py` constants and `commands.py` service) on top of the existing layer cake. The `GalilController` gets two convenience methods (`write_hmi_var` / `read_hmi_var`). `MachineState` gains `dmc_state: int` and `dmc_loop: str`. All screen files are modified only at their action handlers and `_do_poll` extensions — structural layouts and KV files remain untouched.
 
 **Major components:**
-1. `AuthManager` — PIN validation, role assignment to `MachineState`; in-memory dict, no hashing required per project scope
-2. `PinOverlay` (ModalView) — modal PIN entry floated above all screens; callback-based so caller decides what happens on success
-3. `TabBar` — replaces ActionBar+Spinner; role-to-tab visibility matrix; triggers `PinOverlay` for restricted tabs
-4. `MachineConfig` — static dict mapping machine type string to axis list and DMC array names; drives which screen variants are shown
-5. `RunScreen` — live matplotlib A/B plot + cycle controls; embeds `FigureCanvasKivyAgg` in `on_kv_post`; all plot updates in main-thread state subscriber
-6. `ProfileManager` — `import_csv(path)` / `export_csv(path)`; all array I/O via `jobs.submit()`; machine-type validation before any writes
-7. Kiosk configuration — systemd service + X11 session setup; Pi-specific `Config.set` in `main.py` before any Window import
+1. **`GalilController` (controller.py)** — sole owner of all gclib calls; add `write_hmi_var()` / `read_hmi_var()` wrappers
+2. **`hmi/dmc_vars.py`** (NEW, ~30 lines) — string constants for all HMI variable names and state codes; prevents 8-char name typos across screens
+3. **`hmi/commands.py` / `HMICommandService`** (NEW, ~40 lines) — `trigger()` fire-and-forget + `trigger_and_wait()` for modal blocking flows only
+4. **`MachineState` (app_state.py)** — add `dmc_state: int`; screens subscribe for button enable/disable
+5. **`RunScreen._do_poll()`** — extend the existing 10 Hz background poll to also read `hmiState`; one round-trip per tick, no second clock
+6. **`jobs` (utils/jobs.py)** — add `submit_urgent()` for E-STOP priority prepend; otherwise unchanged
+7. **DMC program (`4 Axis Stainless grind.dmc`)** — hard prerequisite: add `hmiGrnd..hmiCalc` variables with default=1 in `#PARAMS`, OR conditions in `#WtAtRt`, `hmiState` assignments at subroutine boundaries
 
 ### Critical Pitfalls
 
-1. **Matplotlib draws from background thread** — `canvas.draw()` / `ax.plot()` called from `jobs.submit()` thread causes SIGABRT on Pi. Prevention: update data in background, post a `Clock.schedule_once` callback, all matplotlib calls happen on main thread only. Establish this pattern on the first matplotlib commit.
+1. **HMI + physical button double-trigger (Pitfall 1)** — Send each HMI trigger variable exactly once per user tap; disable the button immediately (optimistic lock); DMC must reset the variable as the FIRST line inside the triggered block, not after motion completes. Never send from a polling callback.
 
-2. **Matplotlib full redraw blocks E-STOP responsiveness** — `canvas.draw()` at 10+ Hz takes 30–120 ms on Pi 4, making touch feel frozen. Prevention: use `canvas.draw_idle()` or blit animation (`line.set_data()` + `canvas.blit()`); rate-limit plot updates to 5–10 Hz; benchmark on Pi before sign-off.
+2. **Sending motion commands during active grind cycle (Pitfall 2)** — Gate ALL HMI trigger sends on polled `hmiState` (controller-authoritative state), not on Python `cycle_running`. The Python flag is a guess; `hmiState` is the truth.
 
-3. **CSV profile load mid-cycle corrupts machine state** — `download_array` takes effect immediately on the Galil controller; loading a profile while the machine is in motion moves axes unexpectedly. Prevention: gate import behind (1) Setup role AND (2) `state.running == False`; show confirmation dialog with profile diff before committing writes.
+3. **E-STOP queued behind normal jobs (Pitfall 3 + 4)** — E-STOP must not wait in the FIFO queue behind a 500 ms array upload. Implement `jobs.submit_urgent()` (prepend to queue) so E-STOP has < 100 ms latency with no shared-handle threading risk. Never implement E-STOP as a trigger variable — use `AB` directly.
 
-4. **Auth state stored on Screen object, lost on navigation** — Kivy can destroy/recreate screens on transition; role stored as `self.current_role` silently resets. Prevention: store all auth state in `MachineState` exclusively; re-lock timeout is a Clock callback on `MachineState`, not on any Screen.
+4. **State desynchronization after physical E-STOP / limit switch (Pitfall 5)** — `cycle_running` on the Python side can stay `True` after a hardware stop event the HMI never saw. Mitigation: `_do_poll` reads `_XQ` and `hmiState`; any poll showing `_XQ == 0` while `cycle_running == True` resets state and surfaces a banner.
 
-5. **`RestPnt` array semantic collision between two screens** — `axisDSetup.py` and `parameters_setup.py` both read/write `RestPnt[0..2]` with different semantic meanings. CSV export will make this ambiguity portable and destructive. Prevention: rename to `DAxisPnt` before any CSV work begins — this is a hard pre-requisite.
+5. **Jog during DMC `#SETUP` mode competing with `#WheelJg` (Pitfall 6)** — HMI jog must not send direct `PR/BG` while the DMC is in its own `#WheelJg` loop. Safest protocol: HMI jog uses `hmiJog=0` trigger so the DMC handles motion internally. Direct `PR/BG` only if `_XQ == 0` (no DMC thread running).
+
+Additional high-priority pitfalls: gclib connection not closed on app crash (add `atexit.register(controller.disconnect)`), queue saturation from multiple per-screen poll clocks (consolidate to one global poll), reading `hmiState` before DMC `#AUTO` completes (extend `wait_for_ready()` to verify HMI vars are initialized), and excessive `BV` calls wearing flash (call `BV` only on explicit user save).
 
 ---
 
 ## Implications for Roadmap
 
-Based on the dependency graph from ARCHITECTURE.md and the pitfall warnings from PITFALLS.md, the natural phase structure is:
+Based on the combined research, the build decomposes into six phases with clear dependency gates.
 
-### Phase 1: Foundation — Auth, Role Model, Tab Navigation
-**Rationale:** Every other feature depends on role being in `MachineState`. PIN auth must be built and solid before any role-gated UI element is created; building UI first and bolting auth on after is the classic way to introduce auth bypasses. Tab navigation must also be in place so new screens have a home.
-**Delivers:** `AuthManager`, `Role` enum, `PinOverlay` ModalView, `TabBar` replacing ActionBar+Spinner, `MachineState` extended with `role`/`user_id`/`machine_type`, `require_role` decorator
-**Addresses:** PIN login, three-tier access, session auto-lock, tab navigation differentiator
-**Avoids:** Pitfall 3 (auth state in Screen), Pitfall 7 (hidden buttons still tappable)
+### Phase 1: Foundation — Constants, State Fields, DMC Program Modification
 
-### Phase 2: RUN Page — Cycle Controls and Live Position
-**Rationale:** This is what makes the machine usable for operators. The poll loop is already scaffolded in `main.py` but commented out — enabling it unlocks live position labels, the event log, and the plot. Cycle controls (Start/Pause/Rest/E-STOP) are the primary operator workflow. E-STOP must be wired globally before this phase is done.
-**Delivers:** `RunScreen` with cycle controls, E-STOP in persistent tab footer, live position labels, operation log wired to `MachineState.messages`, poll loop re-enabled at ~10 Hz
-**Addresses:** Big-button RUN page, live axis display, cycle status, operation log, E-STOP at all times
-**Avoids:** Pitfall 11 (controller None before injection — BaseScreen guard established here)
+**Rationale:** Nothing else in the integration can be tested without this. The DMC program OR conditions must be present before any HMI trigger variable has any effect on the controller. Constants prevent 8-char name typos. State fields in `MachineState` are needed by every subsequent phase.
 
-### Phase 3: Live Matplotlib Plot
-**Rationale:** Depends on Phase 2's poll loop delivering `state.pos` reliably. Separate phase because matplotlib integration has the highest technical risk and deserves isolated focus. Benchmark on Pi hardware before merging.
-**Delivers:** `FigureCanvasKivyAgg` embedded in `RunScreen`, rolling 500-point A/B position buffer, `canvas.draw_idle()` pattern, Pi performance validation
-**Addresses:** Live position plot differentiator
-**Avoids:** Pitfall 1 (matplotlib off main thread), Pitfall 2 (redraw blocking E-STOP), Pitfall 14 (canvas size mismatch on resize)
-**Uses:** `matplotlib>=3.8,<4` (only new dependency)
+**Delivers:** `hmi/dmc_vars.py`, `write_hmi_var()` / `read_hmi_var()` on `GalilController`, `dmc_state` field on `MachineState`, updated `.dmc` file with `hmiGrnd..hmiCalc` variables (default=1), OR conditions in `#WtAtRt`, `hmiState` assignments at subroutine boundaries, `atexit` / `SIGTERM` handler for `GClose`.
 
-### Phase 4: Axes Setup and Parameters — Setup Personnel Tools
-**Rationale:** Can run in parallel with Phase 3 since there is no cross-dependency. Unifies the fragmented jog/teach screens. Also resolves the `RestPnt` semantic collision (Pitfall 9) as a pre-requisite to Phase 5.
-**Delivers:** Unified `AxesSetupScreen` (sidebar axis selection, jog controls, teach capture for all 4 axes), grouped `ParametersScreen` (card layout per function group), `RestPnt` renamed to `DAxisPnt`, all controller reads moved to `jobs.submit()`
-**Addresses:** Axis jog controls, teach point capture, grouped parameter editing
-**Avoids:** Pitfall 9 (RestPnt collision), Pitfall 10 (main-thread controller reads)
+**Addresses:** Array name mismatch fix (resolve `StartPnt` vs `startPt`), HMI variable naming constants, connection cleanup on crash (Pitfall 8).
 
-### Phase 5: CSV Profile System
-**Rationale:** Requires Phase 4 to be complete (parameter groups defined, `DAxisPnt` collision resolved) and Phase 1 auth to be solid (Setup-role gate). All-or-nothing import, machine-type validation, and cycle-running safety interlock must be part of the initial implementation.
-**Delivers:** `ProfileManager` with `import_csv` / `export_csv`, machine-type header row validation, confirmation dialog with diff preview, `jobs.submit()` for all array I/O, CSV format with `#` metadata header
-**Addresses:** CSV profile import/export differentiator, profile metadata
-**Avoids:** Pitfall 4 (overwrite during cycle), Pitfall 8 (wrong machine type), Pitfall 10 (main thread freeze)
+**Avoids:** Inline string literals for variable names (Pitfall anti-pattern), undefined variable `?` responses at connect time (Pitfall 10).
 
-### Phase 6: Machine-Type Differentiation
-**Rationale:** All shared screen infrastructure must exist (Phases 1–5) before machine-type variants can be built. The serration screen already exists; Flat and Convex need their own `RunScreen` and `AxesSetupScreen` variants, or machine-type-aware conditional rendering in the shared classes.
-**Delivers:** `MachineConfig` dict, `MachineType` enum, machine-type-aware `TabBar` and `RunScreen`, Flat/Convex screen variants confirmed working alongside existing Serration screen
-**Addresses:** Per-machine-type screen sets (table stakes)
+**Research flag:** Standard patterns — no additional research needed.
 
-### Phase 7: Admin and Diagnostics
-**Rationale:** Requires Phase 1 auth infrastructure to be solid. Lower operational priority than the run loop. Admin user management and the diagnostics terminal are useful but not blocking for daily machine operation.
-**Delivers:** Admin user management screen (create/delete users, reset PINs), Diagnostics tab (scrollable terminal, raw command entry for Setup role, array read on demand), PIN file with `chmod 600` hardening
-**Addresses:** Admin role functionality, Diagnostics differentiator
-**Avoids:** Pitfall 12 (world-readable PIN file)
+---
 
-### Phase 8: Pi Kiosk Packaging and SD Card Deployment
-**Rationale:** Last phase — packaging after features are stable. Requires real Pi hardware testing; cannot be validated from mockups alone. Kiosk lockout must be verified with actual operator interaction testing.
-**Delivers:** systemd service unit, X11 session kiosk lockout (keyboard shortcut disablement, no desktop access), `Config.set` kiosk fullscreen in `main.py` top block, offline wheelhouse for SD card deployment, deployment documentation
-**Addresses:** Kiosk mode differentiator, SD card deployment differentiator
-**Avoids:** Pitfall 5 (fullscreen != locked desktop), Pitfall 13 (Config.set order)
+### Phase 2: State Poll — Read Path Validation
+
+**Rationale:** Read before write. Validate that `hmiState`, `_XQ`, and axis positions can be polled correctly from the real controller before any button triggers are wired. This phase produces the authoritative controller state that all subsequent phases depend on.
+
+**Delivers:** Extended `RunScreen._do_poll()` reading `hmiState` + axis positions in a single batched `MG` call, `MachineState.dmc_state` updated from poll, `wait_for_ready()` extended to verify HMI vars initialized, validated 10 Hz position labels on RunScreen.
+
+**Addresses:** Live position labels from controller (remove `_show_disconnected()` override), state desync prevention (Pitfall 5), HMI variable initialization check (Pitfall 10).
+
+**Avoids:** Multiple per-screen poll clocks (Pitfall 9) — consolidate to single poll here, not duplicated per screen.
+
+**Research flag:** Standard patterns — well-documented poll extension; no research needed.
+
+---
+
+### Phase 3: E-STOP Priority and Connection Resilience
+
+**Rationale:** E-STOP must be validated on hardware before motion commands are wired. Testing E-STOP after Start Grind is already wired means testing safety on top of an unknown motion baseline. Validate the safety path first.
+
+**Delivers:** `jobs.submit_urgent()` (prepend-to-queue for priority), E-STOP confirmed to halt motion within 200 ms even during a large array operation, E-STOP visible from every screen (persistent tab bar / status bar), `atexit` + `SIGTERM` handler for clean `GClose`.
+
+**Addresses:** E-STOP queuing hazard (Pitfall 3), gclib concurrent access on E-STOP path (Pitfall 4), E-STOP only on one screen (Safety Mistakes table).
+
+**Avoids:** E-STOP implemented as a trigger variable (must use `AB`), `jobs.submit()` path for E-STOP.
+
+**Research flag:** Needs hardware validation — if dual-handle approach is chosen over priority queue, verify Galil DMC firmware supports two concurrent `GOpen` TCP connections. MEDIUM confidence.
+
+---
+
+### Phase 4: RunScreen Action Button Wiring (Main Loop)
+
+**Rationale:** RunScreen buttons are the operator's primary interface and the critical path for machine operation. Wire these before setup loop buttons. Start with direct `XQ` calls (immediate validation on real hardware), then migrate to HMI one-shot variable pattern after DMC OR conditions are confirmed working.
+
+**Delivers:** Start Grind (`hmiGrnd=0` after DMC OR conditions validated), Go To Rest (`XQ #GOREST`), Go To Start (new button + `XQ #GOSTR`), More Stone / Less Stone (`XQ #MOREGRI` / `#LESSGRI` with motion-state gate), New Session (`XQ #NEWSESS` with two-step confirmation modal + Setup role gate), Pause/Stop (`ST ABCD` + `HX`), `cycle_running` driven by `hmiState` poll not just button handlers.
+
+**Addresses:** All P1 features from FEATURES.md prioritization matrix. Operator workflow Sequences 1 and 2.
+
+**Avoids:** Double-trigger race condition (Pitfall 1 — optimistic lock on button, DMC reset at block entry), motion commands during active cycle (Pitfall 2 — gate on `hmiState`), array write during active motion (Pitfall 7 — More/Less Stone gated on DMC state).
+
+**Research flag:** Standard patterns — XQ, hmiVar trigger, ST/HX all confirmed in official Galil docs and existing codebase.
+
+---
+
+### Phase 5: Setup Loop — Axes Setup and Parameters
+
+**Rationale:** Setup loop integration (AxesSetup + Parameters screens) is independent of RunScreen after Phase 1. Setup personnel workflow is secondary to operator workflow but must be correct before hardware validation of any production cycle.
+
+**Delivers:** Enter Setup via `hmiSetp=0`, Homing via `hmiHome=0` (Setup role gate), Jog step buttons confirmed on real axes with jog protocol defined (`hmiJog=0` approach to avoid `#WheelJg` race), Teach Rest / Teach Start wired with corrected array names, Parameters screen write path flushed via `cmd("varName=value")` + `BV` + `hmiCalc=0`.
+
+**Addresses:** Jog confirmed on real axes, Save Start/Rest point arrays, Parameters write to controller, Homing button, Varcalc trigger from HMI. Operator workflow Sequences 3 and 4.
+
+**Avoids:** Competing jog commands during `#SETUP` mode (Pitfall 6 — define jog protocol before writing any jog code), excessive `BV` calls (Integration Gotchas), entering `#SETUP` via `XQ #SETUP` directly.
+
+**Research flag:** Jog protocol requires hardware validation — which approach (`hmiJog=0` vs direct `PR/BG` with `_XQ==0` gate) is correct for this machine's specific `#SETUP` loop cannot be determined from code alone.
+
+---
+
+### Phase 6: State-Driven UI Polish and Live Plot Validation
+
+**Rationale:** State-driven UI (button enable/disable, status labels, setup mode badge) can only be built after Phase 2 (state poll) and Phase 4 (RunScreen wiring) are validated. Plot buffer fill during active cycle needs the position poll working and `cycle_running` reliably set from `hmiState`.
+
+**Delivers:** Buttons disabled/enabled based on `dmc_state`, status label showing IDLE / GRINDING / SETUP / HOMING, setup mode badge on all screens, Run tab disable when setup active, live A/B plot buffer confirmed filling during real grind cycle, knife count display (`ctSesKni`, `knfSess`), position readout in engineering units.
+
+**Addresses:** Setup mode visual indicator, connection status visible at all times, plot populating from real positions. Operator workflow Sequence 5 (power-on / reconnect).
+
+**Avoids:** Cycle running indicator staying on after physical E-STOP (resolved by `hmiState`-driven `cycle_running`), no visual feedback on button tap (immediate disable on tap).
+
+**Research flag:** Standard patterns — KV property binding, `MachineState.notify()` propagation. No research needed.
+
+---
 
 ### Phase Ordering Rationale
 
-- Phase 1 before everything: auth state in `MachineState` is the shared foundation; building role-gated UI before this causes rewrites
-- Phase 2 before Phase 3: poll loop must be stable and delivering `state.pos` before the plot can consume it
-- Phase 4 before Phase 5: `DAxisPnt` rename is a hard pre-requisite for CSV correctness; cannot be done after profiles are in use
-- Phase 6 after Phases 1–5: machine-type variants require all shared screen infrastructure to exist first
-- Phase 8 last: kiosk is deployment configuration; features must be stable before locking down the OS
+- Phase 1 (DMC program) is a hard prerequisite for Phases 3, 4, and 5 — trigger variables have no effect until OR conditions exist in the `.dmc` file.
+- Phase 2 (read path) must precede Phase 6 (state-driven UI) — cannot gate buttons on state not yet being read.
+- Phase 3 (E-STOP) placed before motion wiring (Phase 4) because safety validation on hardware must precede motion validation.
+- Phases 4 and 5 are independent of each other after Phase 1; Phase 4 first because RunScreen is the operator's primary screen and the integration's critical path.
+- Phase 6 can begin in parallel with Phase 5 after Phase 2 + 4 are validated.
+
+---
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
-- **Phase 3 (Matplotlib):** Requires hands-on Pi performance benchmarking to confirm whether `draw_idle()` alone is sufficient or whether blit animation is needed. Also needs version confirmation of `FigureCanvasKivyAgg` API against the matplotlib 3.x release available at implementation time.
-- **Phase 8 (Pi Kiosk):** Raspberry Pi OS Bookworm's Wayland/X11 transition is in flux. The exact lockout procedure depends on the Pi OS version at deploy time. Needs research against the actual Pi hardware image before implementation.
+Phases likely needing deeper research or hardware validation during planning:
+- **Phase 3 (E-STOP):** Dual-handle approach — verify Galil DMC firmware supports two concurrent `GOpen` TCP connections to the same controller. MEDIUM confidence.
+- **Phase 5 (Jog protocol):** Hardware validation required to confirm `hmiJog=0` vs direct `PR/BG` approach for this machine's specific `#SETUP` loop structure.
 
-Phases with standard patterns (skip research-phase):
-- **Phase 1 (Auth):** stdlib sqlite3 + hashlib + ModalView — all well-documented, high-confidence patterns
-- **Phase 2 (RUN Page):** Kivy Screen patterns are established; poll loop already scaffolded
-- **Phase 5 (CSV):** stdlib csv module + jobs.submit pattern — no new patterns required
-- **Phase 7 (Admin/Diagnostics):** Standard Kivy CRUD screen; no novel patterns
+Phases with standard, well-documented patterns (skip research-phase):
+- **Phase 1:** gclib variable patterns, DMC syntax — confirmed in official docs + existing codebase.
+- **Phase 2:** Poll extension, `Clock.schedule_once` — existing codebase is the reference.
+- **Phase 4:** `XQ`, `ST`, `HX`, `hmiVar=0` — all confirmed in Galil docs and `4 Axis Stainless grind.dmc`.
+- **Phase 6:** KV property binding, `MachineState.notify()` — established v1.0 pattern.
 
 ---
 
@@ -162,41 +206,43 @@ Phases with standard patterns (skip research-phase):
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Codebase inspection confirms existing constraints; only matplotlib is new. Verify latest 3.x stable and `FigureCanvasKivyAgg` availability before pinning. |
-| Features | HIGH | Based on direct codebase analysis + approved mockups + ISA-101 HMI standards. Feature list is grounded in actual project artifacts. |
-| Architecture | HIGH | Directly derived from existing codebase patterns. All new components extend proven patterns already in `setup.py`, `app_state.py`, `jobs.py`. |
-| Pitfalls | HIGH (critical), MEDIUM (Pi-specific) | Critical pitfalls (matplotlib threading, CSV safety, auth state) are HIGH confidence from codebase analysis. Pi kiosk lockout is MEDIUM — depends on OS version at deploy time. |
+| Stack | HIGH | No new libraries; all patterns confirmed in official gclib docs and existing codebase. Single MEDIUM caveat: gclib 2.4.x thread-safety claim is ambiguous for same-handle concurrent use. |
+| Features | HIGH | Based on direct analysis of `4 Axis Stainless grind.dmc` and full v1.0 codebase audit. Feature list grounded in real subroutine names and real hardware I/O. |
+| Architecture | HIGH | Direct code audit of all v1.0 files. Architecture is evolutionary, not a rewrite. Patterns already proven in the codebase. |
+| Pitfalls | HIGH | gclib threading and DMC state machine pitfalls confirmed against official docs and code. MEDIUM for timing-specific scenarios (industrial HMI domain knowledge, not yet hardware-verified). |
 
-**Overall confidence:** HIGH
+**Overall confidence: HIGH**
 
 ### Gaps to Address
 
-- **matplotlib `FigureCanvasKivyAgg` version compatibility:** The correct import path is `matplotlib.backends.backend_kivyagg` (not `kivy_garden.matplotlib`). Confirm this is present in the matplotlib 3.x version available on the Pi at implementation time. Run `pip index versions matplotlib` and test the import before committing to the integration approach.
-- **Raspberry Pi OS version:** Kiosk lockout procedure differs between Pi OS Bookworm (Wayland default) and Pi OS Legacy (X11). The exact WM lockout config cannot be finalized without knowing the target Pi OS image. Resolve this at the start of Phase 8.
-- **gclib poll rate ceiling:** Research capped polling at 10–20 Hz based on gclib single-handle constraint. The exact safe poll rate depends on what other commands are in flight (array uploads, DMC program execution). Establish empirically on the target Pi + controller before finalizing the poll interval in Phase 2.
-- **`RestPnt` semantic fix scope:** The rename from `RestPnt` to `DAxisPnt` in `axisDSetup.py` may require corresponding changes in the DMC controller program itself (if the program references array names directly). Confirm scope with controller program before Phase 4 begins.
+- **gclib thread-safety on 2.4.x:** Verify installed version with `gclib.py().GVersion()` at startup. If < 2.4.0, single-queue model is mandatory. Default to single-queue regardless — it works and is safe.
+- **Array name case sensitivity on this specific controller firmware:** `StartPnt` vs `startPt` — case-insensitive on some firmware versions, not all. Verify on the actual hardware before committing to either rename approach.
+- **Dual `GOpen` connection support:** Verify Galil firmware allows two simultaneous TCP connections if E-STOP dedicated-handle approach is chosen over priority queue.
+- **Jog protocol on real machine:** `hmiJog=0` vs direct `PR/BG` with `_XQ==0` gate must be validated on hardware; cannot be determined from code analysis alone.
 
 ---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Direct codebase analysis: `src/dmccodegui/main.py`, `app_state.py`, `controller.py`, `utils/jobs.py`, all screen and KV files
-- Project artifacts: `.planning/PROJECT.md`, `mockups/run_page.html`, `mockups/axes_setup.html`, `mockups/params_setup.html`
-- Python stdlib documentation: `sqlite3`, `csv`, `hashlib`, `pathlib`, `enum` (training data, HIGH)
-- Kivy ModalView and ScreenManager API (training data, HIGH — stable APIs)
-- Galil gclib single-handle thread safety constraint (Galil documentation + codebase evidence, HIGH)
-- ISA-101 HMI design standard, industrial HMI access control conventions (training data, HIGH)
+- Official gclib Python class reference: https://www.galil.com/sw/pub/all/doc/gclib/html/classgclib_1_1py.html — GCommand, GArrayUpload, GArrayDownload signatures
+- gclib thread safety documentation: https://accserv.lepp.cornell.edu/svn/packages/gclib/doc/html/threading_8md_source.html — single-handle constraint
+- DMC command reference (Keck/DEIMOS): https://www2.keck.hawaii.edu/inst/deimos/com40x0.pdf — variable assignment, BV, XQ, HX, MG, ST, AB, JG syntax
+- Existing codebase: `controller.py`, `run.py`, `axes_setup.py`, `parameters.py`, `app_state.py`, `utils/jobs.py` — confirmed working patterns from v1.0
+- DMC program: `4 Axis Stainless grind.dmc` — subroutine names, state machine structure, physical I/O mapping, array declarations
 
 ### Secondary (MEDIUM confidence)
-- matplotlib `FigureCanvasKivyAgg` / `backend_kivyagg` integration pattern (training data, MEDIUM — verify version at implementation time)
-- `canvas.draw_idle()` Pi performance characteristics (Kivy community knowledge, MEDIUM — benchmark required)
-- Raspberry Pi OS Bookworm systemd service + kiosk configuration (training data, MEDIUM — verify against target Pi OS image)
+- gclib release notes (2026-03): https://www.galil.com/sw/pub/all/rn/gclib.html — version 2.4.1 current, "thread safe" in 2.4.0
+- Galil Raspberry Pi HMI integration: https://www.galil.com/news/whats-new-galil/raspberry-pi-interface-galil-controllers — Python gclib on Pi
+- CNC HMI operator workflow patterns: https://radonix.com/cnc-control-panel-functions-a-step-by-step-breakdown/
+- Industrial HMI safety (ISO 13850 / ISA-101): https://machinerysafety101.com/2021/06/02/manual-reset-using-an-hmi/
+- Project planning context: `.planning/PROJECT.md` — v2.0 milestone target, HMI variable naming decisions
 
-### Tertiary (LOW confidence / needs validation)
-- `kivy_matplotlib_backend` import order constraints (training data, LOW — verify with current package at integration time)
-- Blit animation speedup on Pi vs full redraw (community reports, LOW — benchmark required on target hardware)
+### Tertiary (LOW confidence)
+- HMI design best practices general guide: https://plcprogramming.io/blog/hmi-design-best-practices-complete-guide — confirmation dialog anti-pattern
+- CNC cycle stop patterns: https://www.mmsonline.com/articles/4-ways-to-stop-a-cycle-to-allow-operator-intervention — ST vs HX distinction
 
 ---
-*Research completed: 2026-04-04*
+
+*Research completed: 2026-04-06*
 *Ready for roadmap: yes*

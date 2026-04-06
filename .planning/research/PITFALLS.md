@@ -1,153 +1,222 @@
-# Domain Pitfalls
+# Pitfalls Research
 
-**Domain:** Industrial touchscreen GUI — Kivy/Python knife grinding machine control
-**Researched:** 2026-04-04
-**Confidence note:** Web tools unavailable during research. All findings derived from codebase analysis + training knowledge. Confidence levels are honest about this constraint.
+**Domain:** HMI-controller integration — adding gclib/DMC communication to existing Kivy GUI for industrial grinding machine
+**Researched:** 2026-04-06
+**Confidence:** HIGH for gclib/threading pitfalls (from official Galil docs + direct codebase analysis); MEDIUM for timing-specific scenarios (from industrial HMI domain knowledge + code pattern analysis)
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, safety incidents, or blocked deployments.
+Mistakes that cause safety incidents, machine damage, or require full rewrites.
 
 ---
 
-### Pitfall 1: Matplotlib Draws Called from the Background Thread
+### Pitfall 1: Sending HMI Trigger While Physical Button Already Queued in DMC — Double Action
 
-**What goes wrong:** `FigureCanvasKivyAgg` and matplotlib itself are not thread-safe. If the live position poll calls `ax.plot()`, `ax.set_data()`, or `canvas.draw()` from a `jobs.submit()` background thread, you get intermittent crashes, a blank plot, or a segfault on Pi — with no obvious traceback.
+**What goes wrong:**
+The DMC polling loop at `#WtAtRt` checks both `@IN[29]` (physical Go Grind button) and `hmiGrnd` (HMI variable) as separate OR conditions. If the operator presses the physical button at the same moment the HMI submits `hmiGrnd=0`, the DMC program enters `#GRIND` once for the physical button on the current polling cycle, then jumps back to `#WtAtRt`, then immediately enters `#GRIND` again on the very next cycle because `hmiGrnd` is still 0 (the HMI hasn't reset it yet). The machine attempts to start a second grind cycle while still in — or just returning from — the first.
 
-**Why it happens:** The existing threading model correctly posts all UI mutations back via `Clock.schedule_once`. A developer adding the live plot is tempted to update it inside the background polling function because it "feels like data, not UI." It is both — matplotlib's draw pipeline touches OpenGL/SDL2 resources owned by the Kivy main thread.
+**Why it happens:**
+The DMC program is a tight `WT 100` polling loop. The HMI sets `hmiGrnd=0` via a background `jobs.submit()` call. There is a window of ~100–300 ms between when the GUI submits the command and when the DMC program resets `hmiGrnd=1` after entering the triggered subroutine. A physical button press landing in that window fires the action twice.
 
-**Consequences:**
-- Silent crashes on Pi (SIGABRT from SDL2)
-- Plot renders blank or frozen while data accumulates in the background
-- Race conditions that only appear under load (fast poll rates, Pi GPU memory pressure)
+**Concrete scenario:**
+1. Operator taps "Start Grind" on HMI — GUI posts `jobs.submit` → queued in jobs FIFO
+2. Operator's colleague also presses the physical Go Grind button 50 ms later
+3. DMC sees physical button, enters `#GRIND` (long operation), returns to `#WtAtRt`
+4. `hmiGrnd` is still 0 because GUI's `GCommand("hmiGrnd=0")` arrived and DMC reset it to 1, BUT the HMI hasn't confirmed the reset and may re-send 0 on the next status poll cycle
+5. Machine enters `#GRIND` from a non-rest position — tooling or knife damage
+
+**How to avoid:**
+- HMI trigger variables must be fire-and-forget, not level-held. Send `hmiGrnd=0` exactly once per user tap. Never send it again until the operator presses the button again.
+- Implement an optimistic motion lock in the GUI: when Start Grind is tapped, immediately set a `_hmi_command_pending` flag in Python and disable the button. Do NOT re-enable it until the status poll confirms the controller is back in `#MAIN` (not in `#GRIND`).
+- On the DMC side, the OR condition pattern must be: `IF (@IN[29]=0) OR (hmiGrnd=0)` then immediately `hmiGrnd=1` as the very first statement in the triggered block — before any motion begins. This is the one-shot reset. Never let the HMI variable stay at 0 for more than one polling cycle.
 
 **Warning signs:**
-- Plot works on Windows but crashes intermittently on Pi
-- `canvas.draw()` called anywhere outside a `Clock.schedule_once` callback
-- A background thread holds a reference to the `Figure` or `Axes` object
+- GUI button sends `hmiGrnd=0` from a scheduled/polling callback rather than directly from a tap handler
+- HMI tap handler is not debounced and can fire multiple times for one touch
+- GUI does not disable the Start button immediately after sending the trigger
+- The DMC program resets `hmiGrnd=1` after a long motion sequence rather than at the start of the triggered block
 
-**Prevention:**
-- All matplotlib calls (`ax.set_data`, `ax.relim`, `ax.autoscale`, `canvas.draw`) must execute on the Kivy main thread
-- Pattern: background thread collects `(x, y)` tuple → posts to main thread via `Clock.schedule_once` → main thread updates plot
-- Never pass the `Figure` or `Axes` object to a background thread
-
-**Phase that should address this:** RUN page / live plot implementation phase — establish the pattern on day one.
-
-**Confidence:** HIGH (Kivy's thread model is well-documented; matplotlib GL backends are single-threaded)
+**Phase to address:**
+DMC program modification phase (modifying `4 Axis Stainless grind.dmc`) — the one-shot reset placement is a DMC change, not a Python change. The Python optimistic lock is an HMI phase change.
 
 ---
 
-### Pitfall 2: Matplotlib Redraws Block the UI Thread at High Poll Rates
+### Pitfall 2: Sending Motion Commands During Active Grind Cycle — Controller State Corruption
 
-**What goes wrong:** `canvas.draw()` is synchronous and expensive. At 10+ Hz polling, each full redraw blocks the Kivy event loop long enough to make touch input feel laggy or miss E-STOP taps. On a Pi 4 with the default software renderer, a full matplotlib redraw of a scatter/line plot takes 30–120 ms.
+**What goes wrong:**
+The RunScreen currently calls `self.controller.cmd("XQ #CYCLE")` when Start is pressed (existing stub) and `self.controller.cmd("XQ #REST")` when Go to Rest is pressed — without checking whether the controller is currently running a motion subroutine. The DMC program does not have queuing — a `XQ` issued while the controller is already executing a thread corrupts the program counter or is silently dropped.
 
-**Why it happens:** The simplest implementation calls `canvas.draw()` every poll cycle. This is correct for correctness but destroys UI responsiveness on underpowered hardware.
+Additionally, the `on_go_to_rest` handler resets `cycle_running = False` on the Python side but the controller may still be mid-grind. Any `hmiGrnd=0` or jog command sent in the window between the Python state change and the actual physical stop completes causes unexpected motion.
 
-**Consequences:**
-- E-STOP button takes 200–500 ms to respond — unacceptable for a machine control panel
-- Kivy's touch dispatching starves; buttons appear to not respond to taps
-- Operators report "the screen is frozen" when the grind cycle is running
+**Why it happens:**
+`MachineState.cycle_running` in Python is the GUI's guess about what the controller is doing. It is not authoritative. The controller's actual execution state is only readable by polling `MG _XQ` (execution status) or a dedicated DMC status variable. Any command sent in the gap between GUI state and controller state can fire at the wrong time.
+
+**Concrete scenario:**
+1. Operator starts a grind cycle — `cycle_running = True` on GUI
+2. Network glitch delays the poll for 500 ms — GUI still shows "running"
+3. Operator taps "Go To Rest" — GUI sets `cycle_running = False`, submits `hmiHome=0`
+4. DMC is still mid-vector in `#GRIND` — the hmiHome trigger fires during vector motion
+5. Controller tries to execute `#GOREST` subroutine while vector is running — `ST ABCD` interrupts mid-vector, axes stop at arbitrary positions
+
+**How to avoid:**
+- Expose a dedicated DMC status variable: `hmiState` (0=idle/main, 1=grinding, 2=setup, etc.). The HMI polls this variable at every cycle instead of guessing from `cycle_running`.
+- Gate ALL HMI trigger sends behind: `if hmi_state == HMI_STATE_IDLE` or `if hmi_state == HMI_STATE_GRINDING_COMPLETE` (depending on the command). Never rely solely on the Python `cycle_running` flag.
+- "Go To Rest" from the HMI should only be sent when `hmiState` confirms the grind cycle is complete or when the operator has explicitly confirmed E-STOP first.
+- The existing `on_start_pause_toggle` that sends `HX` for pause is correct for HMI pause (HX halts execution cleanly). Do not replace it with a trigger variable — `HX` via `GCommand` is immediate; trigger variables have a polling delay.
 
 **Warning signs:**
-- `canvas.draw()` called more than 5 times per second
-- No rate limiting or dirty-flag on the plot update
-- Plot refreshes even when axis positions haven't changed
+- Python code gates HMI sends only on `self.cycle_running` (Python-side flag), not on a polled controller state variable
+- `XQ #REST` sent without a preceding check of `_XQ` or a controller-side state variable
+- "Go To Rest" button is enabled while the grind cycle is actively running
+- E-STOP is implemented as an HMI trigger variable instead of a direct `AB` command
 
-**Prevention:**
-- Use `canvas.draw_idle()` instead of `canvas.draw()` — lets Kivy coalesce redraws
-- Or use `blit` animation: update `line.set_data()` only, then `ax.draw_artist(line)` + `canvas.blit(ax.bbox)` — 5–10x faster than full redraw
-- Rate-limit plot updates to 5–10 Hz regardless of poll rate (the controller poll can remain faster; the plot update is decoupled)
-- On Pi, test at target poll rate before finalising the plot implementation
-
-**Phase that should address this:** RUN page phase — requires explicit performance testing on Pi before sign-off.
-
-**Confidence:** HIGH (Pi GPU limitations for software-rendered matplotlib are well-documented in the Kivy community)
+**Phase to address:**
+HMI trigger wiring phase — requires defining and polling `hmiState` as part of the DMC modifications.
 
 ---
 
-### Pitfall 3: PIN Auth State Lives Only in Memory — Clears on Screen Navigation
+### Pitfall 3: E-STOP Implemented as a Trigger Variable or Queued Job — Unacceptable Response Time
 
-**What goes wrong:** If the role/session is stored as a plain Python attribute on a Screen object, it is reset whenever that screen is destroyed or recreated. Kivy's ScreenManager can destroy screens on transition (depending on configuration). Worse, a hard-coded check like `if self.current_role == 'setup':` in a screen's `on_pre_enter` silently locks out the Setup person because the role reset between screens.
+**What goes wrong:**
+If E-STOP is sent via `jobs.submit(lambda: controller.cmd("hmiEStop=0"))`, the command sits in the FIFO queue behind any currently-running job. A position poll job, a parameter read, or an array download that started before the E-STOP will complete first. On a busy queue this can delay E-STOP by 200–1000 ms. The machine continues moving during that window.
 
-**Why it happens:** Developers put auth state in the screen class (which feels natural) rather than in `MachineState` (which persists across screen transitions).
+The existing `controller.cmd("AB")` path in the app is correct — `AB` is a direct abort command — but if the E-STOP button's handler goes through `jobs.submit()` rather than calling `controller.cmd()` directly from the main thread, the latency is unacceptable.
 
-**Consequences:**
-- Setup role silently reverts to Operator mid-session without any indication
-- Admin changes are "forgotten" when navigating away from the user management screen
-- Auth bypasses become possible if role is checked inconsistently across screens
+**Why it happens:**
+The rule "all gclib calls must stay off the UI thread" is correct for normal operation. Developers apply it universally including to E-STOP, not realizing that E-STOP is the one case where queuing behind normal operations is dangerous.
+
+**Concrete scenario:**
+1. Operator jog triggers an upload_array call for 250 elements (300–500 ms job)
+2. Knife position drifts — operator presses E-STOP
+3. E-STOP is posted to `jobs.submit()` — joins queue behind the array upload
+4. Array upload completes 400 ms later — E-STOP fires
+5. Machine has moved 400 ms worth of grind motion since the tap
+
+**How to avoid:**
+- E-STOP must call `controller.cmd("AB")` directly from the Kivy main thread, NOT via `jobs.submit()`. This is the one exception to the "gclib off the main thread" rule.
+- The `_connected` guard is sufficient: if connected, call `GCommand("AB")` inline. The UI thread blocks for ~5–10 ms for the AB command to acknowledge — acceptable.
+- Alternatively, give E-STOP its own dedicated `gclib.py()` connection handle used only for abort. This handle never has a queue, so it is always immediately available. (MEDIUM confidence — requires opening two GOpen connections to the same controller; verify this is supported by the Galil firmware.)
+- Cancel all pending `jobs` after the AB by flushing or restarting the `JobThread`. The existing `jobs.shutdown()` / `jobs.get_jobs()` pattern supports this.
+- Never implement E-STOP as a DMC trigger variable. `AB` is the correct command — it is immediate, atomic, and halts all motion.
 
 **Warning signs:**
-- `self.current_role` or `self.logged_in_user` attributes on individual Screen subclasses
-- Role check duplicated in multiple screens rather than centralised in `MachineState`
-- No test covering "navigate away and back while Setup role is active"
+- E-STOP handler calls `jobs.submit()` or `dmcCommand()`
+- E-STOP test: press E-STOP immediately after starting a large array download — does the machine stop within 100 ms?
+- `jobs` queue depth is not monitored; a backed-up queue delays all subsequent commands including safety ones
+- E-STOP is only wired to one screen (RUN page) rather than the persistent global tab bar
 
-**Prevention:**
-- Store the entire session (current user, role, PIN-unlock timestamp) in `MachineState`
-- A single `state.current_role` property is the source of truth; screens read from it, never own it
-- Re-lock logic (timeout after N minutes of Setup role) must be a Clock-scheduled callback on `MachineState`, not on any Screen
-
-**Phase that should address this:** PIN auth / user roles phase — must be the first thing established before any role-gated UI is built.
-
-**Confidence:** HIGH (this is a direct consequence of Kivy's object lifecycle and the existing MachineState pattern)
+**Phase to address:**
+E-STOP integration phase — must be the very first thing tested on hardware, before any other HMI wiring is done.
 
 ---
 
-### Pitfall 4: CSV Profile Import Overwrites Live Controller State Without Confirmation
+### Pitfall 4: gclib `py()` Handle Called from Multiple Threads — Corrupted Responses or Silent Connection Drop
 
-**What goes wrong:** Loading a CSV profile triggers `download_array` calls for every variable in the file. If an operator accidentally taps "Load Profile" mid-cycle, the running DMC program's parameters are overwritten while the machine is in motion. The Galil controller does not queue writes — the array changes take effect immediately.
+**What goes wrong:**
+The official gclib documentation states: "It is not safe to call GCommand() in multiple threads to the same physical connection — if such operation is required, it is the user's responsibility to use a mutual exclusion (mutex) or other mechanism."
 
-**Why it happens:** The CSV load function is simple to write — read file, iterate rows, call `download_array`. The safety interlock (are we currently running?) is an afterthought.
+The current architecture uses a single `jobs.JobThread` (FIFO, single worker) which correctly serializes all gclib calls. The risk arises when new code bypasses `jobs.submit()`. Specifically:
+- If E-STOP calls `controller.cmd("AB")` directly from the Kivy main thread (which is correct for latency), AND the jobs thread is simultaneously executing a `controller.cmd()` call, TWO threads are calling `GCommand` on the same `py()` handle at the same time.
+- The result is unpredictable: corrupted response strings, `?` error codes treated as valid data, or a silent connection drop requiring a GClose/GOpen cycle.
 
-**Consequences:**
-- Machine moves to unexpected positions mid-grind
-- Knife or tooling damage
-- Potentially physical injury
+**Why it happens:**
+The E-STOP direct-call fix (Pitfall 3 solution) creates a new threading hazard. The fix to one safety issue creates another if not handled carefully.
+
+**How to avoid:**
+- Option A (recommended): Keep E-STOP through `jobs.submit()` BUT give the E-STOP job a priority queue slot. Implement `jobs.submit_urgent()` that prepends to the queue rather than appending. The FIFO dequeue in `JobThread._run()` would drain the urgent item first.
+- Option B: Open a second `gclib.py()` connection (second `GOpen` to same address) exclusively for E-STOP. Galil controllers support multiple concurrent TCP connections. This completely eliminates the shared-handle problem.
+- Option C: Use a threading `Lock` around all `GCommand` calls in `GalilController.cmd()`. Any caller that holds the lock (including the main thread E-STOP) blocks the background thread. This is the simplest fix but introduces potential deadlock if the background thread holds the lock when E-STOP fires.
+- Recommendation: Option A (priority queue slot) is the cleanest: preserves single-handle constraint, gives E-STOP < 1 polling cycle of latency (100 ms max), requires minimal code change.
 
 **Warning signs:**
-- `download_array` called from the CSV load handler without checking `state.running`
-- No confirmation dialog before applying a profile
-- Profile load accessible to the Operator role (should be Setup-only)
+- E-STOP handler calls `self.controller.cmd()` directly from a Kivy button callback (main thread) while polling jobs are running
+- Intermittent `?` response strings to normal MG commands that appear only when E-STOP has been recently triggered
+- Controller connection drops after E-STOP, requiring manual reconnect
 
-**Prevention:**
-- Profile import must be gated behind: (1) Setup role, AND (2) machine not running (`state.running == False`)
-- Show a confirmation dialog with the profile name before any writes begin
-- Consider dry-run display: show a diff of what will change before committing
-- The load function must check `state.running` inside the background job, not just in the UI handler (race condition possible between the UI check and the first `download_array` call)
-
-**Phase that should address this:** CSV profile phase — safety interlock must be part of the initial implementation, not a later addition.
-
-**Confidence:** HIGH (this is a fundamental motion control safety concern; the pattern is identical across all industrial GUI systems)
+**Phase to address:**
+E-STOP wiring phase (same phase as Pitfall 3). Decide the approach (priority queue vs. second connection) before writing any E-STOP code.
 
 ---
 
-### Pitfall 5: Raspberry Pi Kiosk Mode Does Not Prevent Operator Access to Desktop
+### Pitfall 5: HMI State Shows "Running" After Physical E-STOP or Limit Switch — State Desynchronization
 
-**What goes wrong:** A common Pi kiosk setup uses `@reboot` cron or a `.desktop` autostart entry to launch the app in fullscreen. The operator can still press `Ctrl+Alt+T` to open a terminal, right-click for a file manager, or use the Pi's task switcher. On Pi OS (Bookworm), the Wayland compositor's keyboard shortcuts are not blocked by the app going fullscreen.
+**What goes wrong:**
+The `MachineState.cycle_running` flag on the Python side is set to `True` when the HMI starts a cycle and `False` when the HMI sends Stop/Rest. If the physical E-STOP button is pressed (wired directly to the controller, bypassing the HMI entirely), the controller halts all motion but `cycle_running` on the Python side remains `True`. The HMI continues showing "RUNNING" with a spinning progress indicator, the plot continues buffering, and the operator cannot restart the machine until they navigate away and back (which resets the stale state).
 
-**Why it happens:** "Fullscreen" in Kivy does not mean "locked kiosk." It just maximizes the window. The underlying desktop environment is still fully accessible.
+The same scenario occurs when a hardware limit switch trips during a grind cycle — the controller halts cleanly but the HMI does not know and keeps showing the cycle as active.
 
-**Consequences:**
-- Operators access the file system, edit CSV profiles manually, or modify app config
-- Kivy config file (`~/.kivy/config.ini`) becomes accessible and editable
-- Security policy violated even though PIN auth works at the app level
+**Why it happens:**
+`cycle_running` is write-only from the Python side. There is no read-back from the controller that informs Python when the cycle ends outside of an HMI action. The only signal path is the HMI itself, creating a one-way dependency.
+
+**Concrete scenario:**
+1. HMI starts grind — `cycle_running = True`
+2. Operator hits physical E-STOP — controller stops instantly
+3. HMI shows "GRINDING" forever
+4. Operator taps Start again — `hmiGrnd=0` is sent
+5. Controller is in a faulted/stopped state; trigger is silently ignored or causes an unexpected motion command to execute when the fault is cleared
+
+**How to avoid:**
+- The `hmiState` variable (see Pitfall 2) is the solution. Poll it at every status cycle. When `hmiState` returns to 0 (idle/main), set `cycle_running = False` on the Python side regardless of how the cycle ended.
+- Add a controller-execution status read: `MG _XQ` returns the executing thread ID. If it returns 0 (no thread running), the cycle has ended. Gate `cycle_running = True` only while `_XQ != 0`.
+- The status poll in `_do_poll()` (RunScreen) should read `hmiState` and `_XQ` in addition to axis positions. If `_XQ == 0` and `cycle_running == True`, automatically transition to stopped state and surface a banner message: "Cycle ended (not from HMI)."
 
 **Warning signs:**
-- App launched via cron or `.desktop` file without also disabling the desktop environment
-- Using `Config.set('graphics', 'fullscreen', 'auto')` but not locking out the WM
-- No test of "operator tries keyboard shortcuts while app is running"
+- `cycle_running` is set to `False` only in HMI button handlers, never from a poll-based controller read
+- No test for "physical E-STOP pressed while HMI shows running"
+- Plot keeps buffering indefinitely after a hardware stop event
 
-**Prevention:**
-- For true kiosk on Pi OS (Bookworm + Wayland): use a dedicated minimal session that launches the app as the only process — see `raspi-config` → Boot → Desktop / CLI → Console Autologin, then a `~/.bashrc` script that launches Kivy directly
-- For Pi OS (Legacy, X11): use `matchbox-window-manager` or `openbox` in kiosk mode, disable right-click context menus via `.Xdefaults`
-- Disable virtual keyboard shortcuts: `xdotool` or compositor config to remove `Ctrl+Alt+T`
-- The app's `Config.set('graphics', 'fullscreen', 'auto')` must be set before any Window import; order matters (this is already partially handled in `main.py` but needs verification on Pi)
-- Test kiosk lockout explicitly before shipping; it cannot be retrofitted from the mockup phase
+**Phase to address:**
+State synchronization phase — implement `hmiState` polling as a dedicated sub-task of the HMI trigger wiring phase.
 
-**Phase that should address this:** Pi kiosk / deployment phase — requires dedicated Pi hardware testing, not just code changes.
+---
 
-**Confidence:** MEDIUM (Pi OS Bookworm/Wayland is relatively new; exact lockout procedure depends on Pi OS version at deploy time. Verify against the target Pi OS image.)
+### Pitfall 6: Jogging While in DMC `#SETUP` Mode — Competing Motion Commands
+
+**What goes wrong:**
+The DMC `#SETUP` polling loop (`#SULOOP`) runs its own handwheel jog via `#WheelJg`. When the HMI enters Setup mode and the operator uses the `AxesSetupScreen` jog buttons, the HMI sends `PR{axis}={counts}; BG{axis}` commands. If the DMC program is simultaneously in `#WheelJg` and also detecting a `hmiJog=0` trigger, two independent motion commands are active on the same axis simultaneously. The result is axis runaway or erratic motion.
+
+**Why it happens:**
+The `AxesSetupScreen.jog_axis()` method sends direct `PR/BG` commands rather than going through the HMI variable trigger system. These commands are not gated by the DMC's current execution state. The DMC `#SETUP` loop has its own jog mode (`#WheelJg`) which also takes control of axis motion.
+
+**How to avoid:**
+- HMI jog commands must be sent only when the DMC is in a state that accepts external motion commands — specifically, when it is NOT running `#WheelJg`.
+- Define a jog protocol: either (a) the HMI sends jog via the trigger variable (`hmiJog=0`) and the DMC handles it inside its own `#SETUP` loop, OR (b) the HMI sends direct `PR/BG` commands only when the DMC is in an explicitly HMI-controlled idle state (not in any DMC subroutine).
+- The safest approach for the Flat Grind machine: HMI jog uses `hmiJog=0` with axis/direction parameters loaded into DMC variables before triggering. The DMC `#SETUP` loop handles the actual motion. This way the DMC controls axis access and no race condition is possible.
+- If direct `PR/BG` from HMI is used, poll `MG _XQ` first; only send if no DMC thread is running (`_XQ == 0`).
+
+**Warning signs:**
+- `AxesSetupScreen.jog_axis()` sends `PR{axis}` without checking `_XQ`
+- Axes jerk or move erratically when using HMI jog immediately after entering Setup mode
+- HMI jog buttons enabled while `hmiState` indicates DMC is in `#WheelJg` or `#HOME`
+
+**Phase to address:**
+Setup page integration phase — jog protocol must be defined before any jog code is written.
+
+---
+
+### Pitfall 7: Sending Parameters to Controller While DMC is Mid-Cycle — Array Write During Active Motion
+
+**What goes wrong:**
+`download_array` for `deltaC`, `deltaA`, or `startPt` arrays writes to DMC arrays that are actively read during `#GRIND`. The DMC motion loop reads `deltaA[n]`, `deltaB[n]`, etc., in a tight inner loop. If the HMI writes new values to `deltaC` while the grind vector is executing, the controller reads a mix of old and new values within the same grind pass. This produces an incorrect grind profile on the knife and may cause unexpected axis acceleration.
+
+**Why it happens:**
+The DMC controller does not lock arrays during program execution. `download_array` writes take effect immediately and are not deferred until the current motion completes. The temptation to "apply a compensation adjustment while grinding" (More/Less Stone buttons) seems safe because those are small +/-1mm adjustments, but the pattern is already training developers to write to motion parameters during active motion.
+
+**How to avoid:**
+- Any `download_array` call that targets motion-path arrays (`deltaA`, `deltaB`, `deltaC`, `deltaD`, `startPt`, `restPt`) must be gated behind `hmiState == 0` (idle) or a DMC-level write-lock flag.
+- The `on_apply_delta_c()` method in RunScreen must check controller state, not just Python `cycle_running`.
+- "More Stone" / "Less Stone" are compensations to `startPt[3]` — these are single-variable writes (not array downloads) and are relatively safe during motion because the DMC program reads `startPt[3]` only at the start of `#MOREGRI/#LESSGRI`, not mid-vector. However, document this clearly; future developers should not generalize the pattern.
+- For `deltaC` and motion path arrays: only apply between grind passes, never during. Add a confirmation: "This will take effect on the next cycle."
+
+**Warning signs:**
+- `on_apply_delta_c()` does not check controller state before calling `download_array`
+- "More Stone" / "Less Stone" is enabled when `cycle_running == True` without understanding the DMC timing
+- `download_array` calls are not logged with a timestamp to help debug unexpected grind profile changes
+
+**Phase to address:**
+More/Less Stone and deltaC integration phase.
 
 ---
 
@@ -155,222 +224,226 @@ Mistakes that cause rewrites, safety incidents, or blocked deployments.
 
 ---
 
-### Pitfall 6: `FigureCanvasKivyAgg` Added via `kivy_matplotlib_backend` — Import Order Breaks Kivy Startup
+### Pitfall 8: gclib Connection Not Closed on App Exit or Crash — Controller Left in Inconsistent State
 
-**What goes wrong:** `kivy_matplotlib_backend` (the community package for `FigureCanvasKivyAgg`) must be imported **after** `kivy.app` is imported but **before** `App.run()` is called. Importing it at module level in a screen file (which is imported at app startup) can trigger a premature OpenGL context initialization and crash on Pi or produce a blank window on Windows.
+**What goes wrong:**
+If the Python process exits without calling `GClose()`, the Galil controller may be left with an open TCP connection handle. On subsequent reconnection, `GOpen()` may fail with a "resource busy" error or succeed but receive stale data from the previous session. More critically, if the Python process crashes mid-`download_array`, the controller may have received a partial array write — some elements updated, some old.
 
-**Why it happens:** `matplotlib.use('module://kivy_matplotlib_backend.backend_kivyagg')` is a global matplotlib state call. If it runs before Kivy's Window is initialized, the backend has no context to attach to.
+**Why it happens:**
+The existing `disconnect()` method calls `GClose()` correctly in the happy path. What is missing is a `try/finally` or `atexit` handler that ensures `GClose()` is called even if Kivy crashes, the window is force-closed, or the Python process receives SIGTERM (as it will on Pi shutdown via `systemctl stop`).
 
-**Warning signs:**
-- `import matplotlib` at the top of a screen `.py` file
-- `matplotlib.use(...)` called before `DMCApp().run()`
-- Blank or gray window on first launch that disappears on the second run
-
-**Prevention:**
-- Import matplotlib and set the backend lazily — only when the RUN screen is first entered (`on_kv_post` or `on_pre_enter`)
-- Or import in `main.py` after `from kivy.app import App` but before `DMCApp().run()`
-- Keep `matplotlib.use('module://kivy_matplotlib_backend.backend_kivyagg')` in exactly one place; calling it twice raises an error
-
-**Phase that should address this:** RUN page phase — establish import pattern in the initial matplotlib integration PR.
-
-**Confidence:** MEDIUM (training knowledge; verify with the actual `kivy_matplotlib_backend` package docs at integration time)
-
----
-
-### Pitfall 7: Role-Gated UI Elements Hidden via `opacity: 0` Remain Tappable
-
-**What goes wrong:** A common Kivy pattern to hide a widget is `opacity: 0` or `disabled: True`. Setting `opacity: 0` makes the widget invisible but does NOT remove it from the touch dispatch tree. An Operator could tap a "hidden" Setup button by tapping its approximate screen position.
-
-**Why it happens:** Kivy's `opacity` property is a visual-only change. Touch events still hit the widget unless `disabled: True` is also set, or the widget is removed from the layout, or `size_hint: None, None; size: 0, 0` is applied.
+**How to avoid:**
+- Register an `atexit` handler in `main.py`: `atexit.register(controller.disconnect)`.
+- Handle `SIGTERM` explicitly: `signal.signal(signal.SIGTERM, lambda *_: controller.disconnect())`.
+- Add a `__del__` method to `GalilController` that calls `disconnect()` as a last-resort fallback.
+- The Galil controller also has a TCP watchdog (`GOpen` with `-d` flag option) that closes the connection after a timeout if the host goes silent — enable this for the Pi deployment where process crashes are more likely.
 
 **Warning signs:**
-- Role-gated widgets controlled only by `opacity` binding in KV
-- No test of "Operator tries to activate Setup controls by tapping their location"
+- `GOpen()` fails on app restart with a connection error when the controller has been "connected" from the previous crash
+- Reconnecting requires power-cycling the controller
+- No `atexit` or signal handler in `main.py`
 
-**Prevention:**
-- Use `disabled: state.current_role not in ('setup', 'admin')` alongside opacity for all role-gated widgets
-- Or use a `size_hint: (0, 0) if not visible else (1, 1)` pattern to collapse the widget entirely
-- The safest pattern: wrap role-gated sections in a parent widget with `size_hint_y: 0` when locked, so they consume no touch space
-
-**Phase that should address this:** PIN auth / role UI phase.
-
-**Confidence:** HIGH (this is documented Kivy behavior — opacity does not affect touch)
+**Phase to address:**
+gclib connection management phase — include as part of the initial controller wiring.
 
 ---
 
-### Pitfall 8: CSV Profile Contains Stale or Wrong Array Lengths for This Machine Type
+### Pitfall 9: Polling the Controller at Different Rates from Multiple Clock Events — Queue Saturation
 
-**What goes wrong:** A profile CSV exported from a 4-axis Flat Grind machine is imported on a 3-axis Serration machine. The CSV contains DMC array entries for axis D that do not exist on the 3-axis machine. `download_array` for a non-existent array name returns a Galil error code 57 ("Bad function or array"), but if this is silently swallowed, the rest of the profile is still applied — leaving the machine in a half-loaded state.
+**What goes wrong:**
+The current architecture has two clocks on the RunScreen: `_update_clock_event` at 10 Hz (polls axis positions) and `_plot_clock_event` at 5 Hz (redraws plot). If Setup mode is also active, `AxesSetupScreen._poll_event` runs at 3 Hz. These all submit jobs via `jobs.submit()` — the same single FIFO worker thread.
 
-**Why it happens:** The CSV format has no machine-type header. The import function iterates all rows and calls `download_array` for each, catching exceptions per-row without aborting the batch.
+At 10 Hz from RunScreen + 3 Hz from AxesSetup, the jobs queue receives 13 submissions per second. Each poll reads 4 axes (4 `GCommand` calls at ~2–5 ms each) = 8–20 ms per poll job. At 13 polls/second, the queue is receiving ~100–260 ms of work per second. The single worker cannot keep up and the queue backs up — commands arrive late, E-STOP latency grows, and the UI feels sluggish.
+
+**Why it happens:**
+Each screen starts its own polling clock without coordination. The total gclib load is not tracked globally.
+
+**How to avoid:**
+- Have a single global poll loop in `DMCApp` (or `MachineState`) rather than per-screen polling. All screens subscribe to `MachineState` for updates. When the RunScreen is visible, the global poll reads A/B/C/D position + `hmiState`. When AxesSetup is visible, it reads the same positions. No duplicate reads.
+- The existing `ARCHITECTURE.md` recommendation ("Pattern 3: Polling Loop for Live Plot") establishes this correctly — use `jobs.schedule()` in `DMCApp` instead of per-screen `Clock.schedule_interval`.
+- Total jobs per second target: keep total gclib work under 60 ms/s on the Pi (leaves 40 ms/s headroom for command submissions). At ~5 ms per GCommand, this is 12 GCommand calls per second maximum under normal polling.
 
 **Warning signs:**
-- CSV importer catches exceptions per row and continues
-- No machine-type validation at the start of import
-- Profile exported on one machine type, imported on another without warning
+- Multiple `Clock.schedule_interval` calls active simultaneously from different screens
+- `jobs` queue depth grows over time (diagnose by adding a queue size log)
+- Status poll responses arrive with timestamps older than 200 ms (confirm by logging response timestamp vs. submission time)
 
-**Prevention:**
-- Add a `machine_type` header row to the CSV format (e.g., `# machine_type=FlatGrind4Axis`)
-- Validate at import time: if CSV machine type != current machine type, show a warning and require explicit confirmation before proceeding
-- Import is all-or-nothing: if any `download_array` call fails, roll back (re-upload original values) rather than leaving a partial state
-- Log every array name that was written vs skipped so the operator can review
-
-**Phase that should address this:** CSV profile phase.
-
-**Confidence:** HIGH (this is a direct consequence of the multi-machine-type requirement stated in PROJECT.md)
+**Phase to address:**
+Refactor polling to global app-level job in the first integration phase, before adding more screens.
 
 ---
 
-### Pitfall 9: Shared `RestPnt` Array Used by Two Different Screens for Different Data
+### Pitfall 10: Reading `hmiState` Variable Before DMC Program Has Defined It — "?" Response Treated as State
 
-**What goes wrong:** Both `axisDSetup.py` and `parameters_setup.py` read/write `RestPnt[0..2]`. `axisDSetup.py` treats indices 0–2 as D-axis angle positions. `parameters_setup.py` treats the same indices as A/B/C rest positions. This is explicitly noted as a known issue in `axisDSetup.py`:
+**What goes wrong:**
+When HMI variables (`hmiGrnd`, `hmiState`, `hmiSetp`, etc.) are added to the DMC program, they are assigned initial values in `#CONFIG` or `#AUTO`. If the controller is powered on and the Python GUI connects before the DMC program has finished running `#AUTO` (which takes several seconds including homing), a `MG hmiGrnd` command returns `?` (undefined variable). If the Python code parses `?` as a float, it gets a `ParseError`. If it silently skips the error and assumes the variable is 1 (default), it misses the case where `hmiGrnd` is actually mid-initialization.
 
-> "NOTE: This screen shares the 'RestPnt' array with rest.py (A/B/C rest points). If the two screens need to be independent in the future, allocate a separate 'DAxisPnt' array."
+**Why it happens:**
+The `wait_for_ready()` method currently only checks `MG _TPA` (axis position) — a built-in variable that always exists. It does not verify that user-defined DMC variables are initialized.
 
-Adding CSV export now will snapshot this ambiguous state. Adding CSV import will restore it — but restoring `RestPnt[0]` on a 3-axis machine that interprets it as D Zero will corrupt A-axis rest position.
-
-**Why it happens:** The array collision is already present in the codebase. CSV profiles will expose it by making the ambiguity portable across machines and sessions.
+**How to avoid:**
+- Extend `wait_for_ready()` or add a separate `verify_hmi_vars()` method that polls `hmiGrnd`, `hmiState`, and other key HMI variables. Wait until they all return valid floats (not `?`) before enabling any HMI buttons.
+- Add a controller readiness indicator to the GUI: "Waiting for controller program..." displayed until all HMI variables are confirmed initialized.
+- Add error-specific handling for `?` responses in the HMI variable poll: do not treat `?` as 0 or 1 — treat it as "not ready" and retry.
 
 **Warning signs:**
-- `RestPnt` read/written from more than one screen with different semantic interpretations
-- CSV row for `RestPnt` without axis-semantic documentation
+- HMI Start button is enabled immediately on connection before DMC `#AUTO` completes
+- `ParseError` exceptions in logs during initial connection
+- Sending `hmiGrnd=0` before `hmiGrnd` is defined on the DMC side causes a "Bad label" error (TC code 37)
 
-**Prevention:**
-- Resolve the array naming collision before implementing CSV profiles — allocate `DAxisPnt` for the D-axis screen as the existing code comment suggests
-- Document each DMC array's semantic meaning in the CSV format (column headers)
-- This is a pre-requisite for CSV profiles, not a follow-up task
-
-**Phase that should address this:** This must be resolved in an early cleanup phase before CSV profile work begins.
-
-**Confidence:** HIGH (directly observed in the existing codebase)
+**Phase to address:**
+HMI variable initialization phase — the first DMC program modification task.
 
 ---
 
-### Pitfall 10: `on_pre_enter` Controller Reads Run on the Main Thread
+### Pitfall 11: New Session Flow Sends `hmiNewS=0` Without Stone-Changed Confirmation — Accidental Home Cycle
 
-**What goes wrong:** Both `axisDSetup.py` and `parameters_setup.py` call `self.controller.upload_array(...)` directly in `on_pre_enter`, which runs on the Kivy main thread. For short arrays this works. For the CSV profile load (which reads all parameters — potentially dozens of arrays), this will freeze the UI for the duration of the read.
+**What goes wrong:**
+The DMC `#NEWSESS` subroutine calls `JS #HOME` as its first action (homing all four axes). If the operator taps "New Session" on the HMI by mistake (thinking it means something else), all four axes immediately start homing. The knife mounted on the machine must be removed before homing in many machines — triggering home with a knife in place is a tooling collision risk.
 
-**Why it happens:** `upload_array` is synchronous and the small-array case is fast enough on current screens that the freeze is not noticeable. CSV profile export reads many more arrays.
+**Why it happens:**
+`#NEWSESS` is a destructive operation (resets knife count, triggers homing) but the HMI button is treated the same as "Start Grind" — a single tap sends the trigger.
+
+**How to avoid:**
+- "New Session" must require explicit two-step confirmation: show a modal dialog ("Remove the knife before continuing. Confirm new session?") with a deliberate confirmation tap before `hmiNewS=0` is sent.
+- Consider a keypress count: require the operator to tap "New Session" three times within 3 seconds, or hold the button for 2 seconds.
+- The HMI should show the current stone session info (knife count, stone serial) so the operator can verify they intend to start a new session before confirming.
 
 **Warning signs:**
-- `self.controller.upload_array(...)` called directly in `on_pre_enter`, `on_kv_post`, or any KV event callback
-- No `jobs.submit()` wrapping controller reads in the Parameters or profile screens
+- "New Session" button sends trigger on first tap without any modal confirmation
+- Button is accessible to Operator role (should be Setup or Admin only)
+- No test covering "accidental New Session tap during setup"
 
-**Prevention:**
-- All multi-array reads (parameter page population, CSV export) must go through `jobs.submit()`
-- Show a "Loading..." spinner in the UI between the submit and the `Clock.schedule_once` callback
-- The existing threading pattern in `setup.py` is the correct model — follow it exactly for any new multi-read operations
-
-**Phase that should address this:** Parameters setup refactor phase; CSV profile phase.
-
-**Confidence:** HIGH (directly observed in codebase; the pattern diverges from `setup.py`'s correct threading model)
+**Phase to address:**
+New Session integration phase.
 
 ---
 
-### Pitfall 11: Controller Injection Happens After KV Build — Screens Have `None` Controller at Init
+## Technical Debt Patterns
 
-**What goes wrong:** `main.py` injects `controller` and `state` into screens after `Factory.RootLayout()` builds all screens. Any screen code that runs during `__init__` or early KV events (before injection) will have `controller = None`. The current code guards against this with `if not self.controller or not self.controller.is_connected()` checks, which is correct. But new screens (run page, user management) added without this guard will crash on first navigation with `AttributeError: 'NoneType' object has no attribute 'is_connected'`.
-
-**Why it happens:** New developer adds a screen, copies an existing screen's class, adds a controller call in `on_kv_post` without the None guard — works in dev (controller is fast to inject) but fails on Pi where the sequence timing differs.
-
-**Warning signs:**
-- Controller calls in `__init__`, `on_kv_post`, or class-level attribute initializers without None guard
-- New screen added to `base.kv` but not to the injection loop in `main.py`
-
-**Prevention:**
-- Keep the `if not self.controller:` guard as a team convention; add it to a shared base Screen class if possible
-- Add new screens to the injection loop in `main.py` explicitly — do not rely on the `hasattr` check alone (it works but is easy to miss if the attribute name changes)
-- Consider a `BaseScreen` class that raises a clear error if controller methods are called before injection
-
-**Phase that should address this:** Every new screen addition phase.
-
-**Confidence:** HIGH (directly observed in `main.py` injection pattern and existing screen guards)
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| Using Python `cycle_running` as the only cycle state indicator | Simple to implement, no DMC changes needed | State desync after physical E-STOP or limit switch trips; stale UI | Never — add `hmiState` polling from the start |
+| Gating sends on `is_connected()` alone | Fast to code | Does not detect controller in fault state, mid-cycle, or mid-homing | Never for motion commands; acceptable for status reads |
+| Sending all gclib calls through `jobs.submit()` including E-STOP | Consistent threading model | E-STOP can be delayed by queue depth | Never for E-STOP — use priority queue or direct call with care |
+| Using `HX` (halt execution) instead of `AB` (abort) for emergency stop | HX is cleaner (allows restart without re-init) | HX is not immediate on all DMC firmware — `AB` is the safety standard | Use `AB` for E-STOP, `HX` for user-initiated pause/stop |
+| Polling `_XQ` to determine if a cycle is running | Works | `_XQ` returns the thread ID, not a semantic state; program structure changes break this | Acceptable as a secondary check alongside `hmiState` |
+| Single-element array assignment (`bComp[i]=val`) instead of bulk `download_array` | Simpler loop, easy to understand | 100 individual GCommands for a 100-element array = 100 roundtrips at 2–5 ms each = 200–500 ms | Acceptable only for small arrays (< 10 elements) |
 
 ---
 
-## Minor Pitfalls
+## Integration Gotchas
+
+Common mistakes when connecting the HMI to the DMC state machine.
+
+| Integration | Common Mistake | Correct Approach |
+|-------------|----------------|------------------|
+| HMI trigger variables | Sending `hmiGrnd=0` at 10 Hz "to ensure it triggers" | Send exactly once per user action; never re-send until user re-taps |
+| HMI trigger variables | Checking that the variable was received by reading it back | The DMC resets it to 1 immediately; a read-back will show 1, not confirmation of receipt. Confirm via `hmiState` transition instead |
+| DMC `#SETUP` mode | Entering `#SETUP` from HMI by sending `XQ #SETUP` | Use `hmiSetp=0` trigger variable so the DMC transitions via its own polling loop, maintaining program integrity |
+| gclib connection | Opening connection in `on_pre_enter` of a screen | Open once at app startup in `main.py`; screens use the injected controller object |
+| gclib connection | Not calling `GClose()` before `GOpen()` on reconnect | Always `disconnect()` before `connect()` — `GOpen()` on an already-open handle throws an error or leaks resources |
+| Controller array names | Using 9-character variable names for HMI variables | DMC variable names are limited to 8 characters. `hmiGrnd` (7 chars) is fine; `hmiGrind` (8 chars) is at the limit; anything longer silently truncates to 8 chars and creates a name collision |
+| `BV` (burn variables) | Calling `BV` after every parameter write | `BV` writes to non-volatile flash. Excessive `BV` calls during rapid parameter editing wears out flash and causes 2–5 second pauses during the write. Call `BV` only on explicit "Save to Controller" user action, never automatically |
+| `#GOREST` motion order | Sending `hmiGrnd=0` when axes are not at rest position | `#GRIND` calls `#GOSTR` which moves all axes. If axes are at random positions, the simultaneous move to start can cause a collision. Always home or rest before starting a new grind |
 
 ---
 
-### Pitfall 12: PIN Storage in Plain Text JSON — Acceptable per Scope, but Not File-Permission-Protected
+## Performance Traps
 
-**What goes wrong:** PROJECT.md explicitly scopes out encryption ("PIN is sufficient, no encryption/hashing required for in-house use"). However, if user/PIN data is stored in a world-readable JSON file on the Pi (e.g., `~/users.json`), any operator who finds a terminal can read all PINs.
-
-**Prevention:**
-- Store the user/PIN file in the app's data directory, not in home
-- Set file permissions to `chmod 600` (owner read/write only) — the app runs as a dedicated user
-- This is a minor hardening step, not a blocker
-
-**Phase that should address this:** PIN auth phase.
-**Confidence:** MEDIUM
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| Uploading 250-element arrays on every screen enter | 3–8 second freeze on RunScreen enter | Only upload arrays when operator explicitly requests a read; not on navigation | Every navigation to affected screen |
+| Polling all 4 axes separately with individual `MG _TP{axis}` calls | 4 roundtrips × 2–5 ms = 8–20 ms per poll cycle | Use a single `MG _TPA, _TPB, _TPC, _TPD` command returning all 4 values in one response | Noticeable at 10 Hz on Pi 4 under load |
+| Using `time.sleep()` in the jobs thread between array element reads | 250 elements × 10 ms sleep = 2.5 seconds for full array | The existing `upload_array` has a 10 ms sleep — acceptable for one-time reads, unacceptable for polling | Any array upload in a polling loop |
+| Running `discover_length()` (probes all 250 array slots) on every poll cycle | Jobs thread saturated; poll latency grows to seconds | `discover_length()` is a one-time initialization tool; cache the result | First use is fine; repeated use is not |
+| Matplotlib `draw_idle()` called from `Clock.schedule_once` at 10 Hz | Plot redraws eat Pi CPU, E-STOP latency grows | Keep plot clock at 5 Hz; decouple from poll clock (already done in existing code) | Pi 4 under full load at 10 Hz plot |
 
 ---
 
-### Pitfall 13: Kivy `Config.set` Calls Must Precede All Kivy Imports
+## Safety Mistakes
 
-**What goes wrong:** `main.py` already correctly calls `Config.set` before `from kivy.core.window import Window`. Adding kiosk mode configuration (fullscreen, borderless) in a new `kiosk_config.py` module that is imported lazily will have no effect — Kivy's config is frozen on first Window import.
-
-**Prevention:**
-- All `Config.set('graphics', ...)` calls must remain at the top of `main.py`, before any other Kivy import
-- Pi kiosk fullscreen must be set there, not in a Pi-detection module that loads later
-- Current `main.py` already demonstrates the correct pattern; do not move these calls
-
-**Phase that should address this:** Kiosk deployment phase.
-**Confidence:** HIGH (well-documented Kivy behavior; already handled in existing main.py)
-
----
-
-### Pitfall 14: Matplotlib `FigureCanvasKivyAgg` Size Does Not Respond to Kivy Layout Changes
-
-**What goes wrong:** When the live plot widget is placed in a dynamic layout (e.g., resizable panel, orientation change), `FigureCanvasKivyAgg` does not automatically resize its internal figure. The plot renders at its original `figsize` even though the widget's Kivy dimensions changed, resulting in a mismatched aspect ratio or clipped axes.
-
-**Prevention:**
-- Bind the plot widget's `on_size` event to `fig.set_size_inches(w/dpi, h/dpi)` followed by `canvas.draw_idle()`
-- Set `figure.tight_layout()` or `figure.subplots_adjust()` after resize
-- On fixed-resolution kiosk (Pi touchscreen), this is less critical — but test on both 800x480 and 1920x1080
-
-**Phase that should address this:** RUN page phase.
-**Confidence:** MEDIUM (known Kivy-garden-matplotlib limitation; verify with current package version)
+| Mistake | Risk | Prevention |
+|---------|------|------------|
+| E-STOP wired to a single screen (RunScreen only) | Operator on AxesSetup or Parameters screen cannot stop a runaway axis | E-STOP must be in the persistent global tab bar or status bar, visible from every screen at all times |
+| Jog controls accessible to Operator role | Operator can move axes to unexpected positions, causing tooling damage | Jog is Setup-role-only. Disable jog buttons when `state.current_role == "operator"` |
+| "More Stone" / "Less Stone" accessible without motion check | Calling `#MOREGRI` while mid-grind overwrites `startPt[3]` during active motion | Gate More/Less Stone behind DMC state verification, not just Python `cycle_running` |
+| Parameter write (`download_array`) from Operator role | Operator accidentally changes grind parameters mid-job | All `download_array` calls for motion parameters gated behind Setup role |
+| No motion interlock on CSV profile load | Profile load while grinding overwrites motion arrays mid-vector | Profile load gated behind: (1) Setup role AND (2) `hmiState == 0` (confirmed idle), not just Python `cycle_running` |
+| Jog command with no speed limit | Rapid axis movement at full speed during setup damages knife or tooling | Set axis speed before any jog: `SP{axis}={safe_speed}` before every `PR/BG` pair |
 
 ---
 
-### Pitfall 15: CSV Float Precision Causes Round-Trip Mismatch with DMC Controller
+## UX Pitfalls
 
-**What goes wrong:** The DMC controller stores positions as 32-bit integers (encoder counts). A CSV export that formats floats as `1500.0000` and re-imports them as floats introduces floating-point round-trip errors when passed back to `download_array`. For positions this is usually harmless (1-count error). For calibration arrays with small fractional values, it can cause the machine to behave differently after a profile reload.
-
-**Prevention:**
-- For position/count values: export and import as integers
-- For fractional values (e.g., speed override ratios): preserve at least 6 significant figures
-- Validate that `export → import → export` produces identical CSV files before releasing the profile feature
-
-**Phase that should address this:** CSV profile phase.
-**Confidence:** MEDIUM
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| HMI button responds to tap but machine does not move for 100–300 ms (trigger variable latency) | Operator taps again, thinking the first tap did not register — double trigger | Immediately disable the button on first tap (optimistic lock); show "Sending..." state; re-enable when `hmiState` confirms the action was received |
+| "Cycle running" indicator stays on after physical E-STOP | Operator confused — machine is stopped but HMI says running | Poll `hmiState` from controller to drive cycle_running, not just HMI button handlers |
+| No visual feedback for E-STOP event | Operator does not know if E-STOP was acknowledged by the controller | After `AB` command, show a prominent red banner: "E-STOP ACTIVE — motion halted" |
+| "New Session" button next to "More Stone" / "Less Stone" | Accidental new session during compensation adjustment triggers homing | Spatially separate New Session from routine adjustment buttons; add confirmation dialog |
+| Grind cycle progress at 0% until `hmiState` is polled for the first time | Operator sees no feedback for the first poll interval | Show "Starting..." state immediately on Start tap, before first controller confirmation |
 
 ---
 
-## Phase-Specific Warnings
+## "Looks Done But Isn't" Checklist
 
-| Phase Topic | Likely Pitfall | Mitigation |
-|-------------|---------------|------------|
-| RUN page / live plot | Matplotlib updates from background thread (Pitfall 1) | Establish Clock.schedule_once pattern on day one |
-| RUN page / live plot | Full redraw blocking E-STOP responsiveness on Pi (Pitfall 2) | Benchmark redraw time on Pi at 5 Hz before merging |
-| RUN page / live plot | Canvas size mismatch on different Pi resolutions (Pitfall 14) | Bind on_size → fig.set_size_inches |
-| PIN auth / roles | Session state in Screen object, lost on navigation (Pitfall 3) | All auth state in MachineState |
-| PIN auth / roles | Hidden Setup buttons still tappable (Pitfall 7) | disabled: + opacity: together |
-| CSV profiles | Missing machine-type validation (Pitfall 8) | Add machine_type header row |
-| CSV profiles | Shared RestPnt array semantic collision (Pitfall 9) | Rename DAxisPnt before CSV work |
-| CSV profiles | Overwrite during active cycle (Pitfall 4) | Gate on state.running check + confirmation dialog |
-| CSV profiles | Main-thread freeze during multi-array export (Pitfall 10) | jobs.submit all controller reads |
-| Pi kiosk | Fullscreen != locked desktop (Pitfall 5) | Use minimal console session, not just fullscreen |
-| Pi kiosk | Config.set order broken by refactor (Pitfall 13) | Keep all Config.set in main.py top block |
-| Any new screen | Controller is None before injection (Pitfall 11) | Guard every controller call; add to BaseScreen |
+- [ ] **HMI triggers:** Confirm each trigger variable is reset to 1 by DMC as the FIRST line inside the triggered block, not after the motion completes.
+- [ ] **E-STOP:** Test with a large array operation in the jobs queue — confirm E-STOP halts motion within 200 ms regardless of queue depth.
+- [ ] **Physical + HMI double-trigger:** Press physical Start button at the same time as HMI Start — confirm only one grind cycle starts.
+- [ ] **State desync after physical E-STOP:** Press physical E-STOP while HMI shows "RUNNING" — confirm HMI detects the stop via `hmiState` poll within 2 polling cycles.
+- [ ] **Jog in Setup mode:** Enter Setup, start handwheel jog via physical controls, then tap HMI jog — confirm axes do not fight each other.
+- [ ] **Reconnection:** Kill the app (force-close) while a grind cycle is running — confirm `GClose()` is called via atexit; confirm controller does not remain in a half-open TCP state.
+- [ ] **HMI variable initialization:** Connect immediately after powering the controller — confirm HMI buttons are disabled until `#AUTO` completes and HMI variables return valid values.
+- [ ] **Parameter apply during cycle:** Try to apply `deltaC` changes while a grind cycle is running — confirm the UI blocks this action.
+- [ ] **New Session confirmation:** Tap "New Session" once — confirm a modal dialog appears before any homing begins.
+- [ ] **BV call frequency:** Confirm `BV` is not called more than once per "Save" user action — never automatically after every variable write.
+
+---
+
+## Recovery Strategies
+
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| Double grind trigger caused physical damage | HIGH | Stop machine. Assess tooling and knife. Re-home all axes. Check `startPt`/`restPt` arrays have not been corrupted. Do not restart grind until Setup validates positions. |
+| Controller left in inconsistent state after app crash | LOW | Power-cycle the controller. On reconnect, run `#HOME` before any motion commands. Verify `hmiState` returns to 0. |
+| State desync — GUI shows running, controller is idle | LOW | Navigate away from RunScreen and back (triggers `on_pre_enter` which re-polls). Or add a "Sync" button that explicitly reads `hmiState` and resets GUI flags. |
+| Jobs queue backed up — E-STOP delayed | MEDIUM | Restart the app. Implement `jobs.submit_urgent()` for the next build so this never recurs. |
+| Array partially written (app crash during `download_array`) | MEDIUM | Read back all affected arrays from controller. Compare against last known-good values (from most recent CSV export). Re-download full arrays if any mismatch. |
+| HMI variables undefined at connect time | LOW | Wait for DMC `#AUTO` to complete (observable via `MG _XQ` returning 0 or `hmiState` returning a valid value). Retry initialization after 5-second delay. |
+
+---
+
+## Pitfall-to-Phase Mapping
+
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| Double-action: physical + HMI trigger race (Pitfall 1) | DMC program modification phase | Test: simultaneous physical + HMI press; confirm single action |
+| Motion command during active cycle (Pitfall 2) | HMI trigger wiring phase | Test: send HMI Rest while grind cycle running; confirm rejection |
+| E-STOP queued behind normal jobs (Pitfall 3) | E-STOP wiring phase — FIRST hardware test | Test: E-STOP during array upload; confirm < 200 ms halt |
+| gclib concurrent access from E-STOP path (Pitfall 4) | E-STOP wiring phase | Inspect code: confirm single-handle access pattern holds |
+| State desync after physical E-STOP / limit switch (Pitfall 5) | State synchronization phase | Test: physical E-STOP while HMI shows running; confirm HMI syncs within 2 poll cycles |
+| Jog during DMC `#SETUP` mode collision (Pitfall 6) | Setup page integration phase | Test: HMI jog while handwheel is active; confirm no axis fighting |
+| Array write during active motion (Pitfall 7) | More/Less Stone + deltaC phase | Test: apply deltaC while grinding; confirm UI blocks the action |
+| GClose not called on crash (Pitfall 8) | Connection management phase | Test: kill -9 the app; confirm controller reconnects cleanly next launch |
+| Queue saturation from multiple poll clocks (Pitfall 9) | First integration phase | Measure: log queue depth at 10 Hz; confirm < 5 jobs queued at any time |
+| `hmiState` read before DMC program initializes (Pitfall 10) | HMI variable init phase | Test: connect 2 seconds after controller power-on; confirm HMI buttons disabled until vars ready |
+| Accidental New Session (Pitfall 11) | New Session integration phase | Test: single-tap New Session; confirm modal dialog appears |
+| Matplotlib thread-safety (carry-over from v1.0) | RUN page polish | Verify: no matplotlib calls in any `jobs.submit()` closure |
+| E-STOP not globally accessible (safety) | E-STOP wiring phase | Verify: E-STOP button visible from AxesSetup, Parameters, and Users screens |
 
 ---
 
 ## Sources
 
-- Codebase analysis: `/src/dmccodegui/` (direct code inspection, HIGH confidence)
-- Kivy thread model: Kivy documentation + existing `jobs.py` pattern (HIGH confidence)
-- Matplotlib thread safety: matplotlib documentation (HIGH confidence — matplotlib is documented as non-thread-safe for draw operations)
-- Pi kiosk constraints: training knowledge (MEDIUM confidence — verify against target Pi OS version at deploy time)
-- `kivy_matplotlib_backend` import order: training knowledge (MEDIUM confidence — verify with current package version)
+- Codebase analysis: `src/dmccodegui/controller.py`, `utils/jobs.py`, `screens/run.py`, `screens/axes_setup.py`, `screens/buttons_switches.py` — direct code inspection (HIGH confidence)
+- DMC program analysis: `4 Axis Stainless grind.dmc` — direct inspection of #MAIN, #GRIND, #SETUP, #GOREST, #NEWSESS polling loops (HIGH confidence)
+- gclib thread safety: Galil official gclib documentation — "It is not safe to call GCommand() in multiple threads to the same physical connection" — [gclib Threading](https://www.galil.com/sw/pub/all/doc/gclib/html/threading.html) (HIGH confidence)
+- HMI polling delay causes: [Infoneva — Delay in PLC Response to HMI Button Presses](https://infoneva.com/en/knowledge/delay-in-plc-response-to-hmi-button-presses) (MEDIUM confidence — PLC pattern, not DMC-specific, but timing principles are identical)
+- gclib connection API: [Galil gclib py class reference](https://www.galil.com/sw/pub/all/doc/gclib/html/classgclib_1_1py.html) (HIGH confidence — official docs)
+- Industrial HMI E-STOP response time standard: 100–200 ms maximum acceptable latency for safety-critical stops — training knowledge from IEC 62061 / ISO 13849 patterns (MEDIUM confidence — verify against actual regulatory requirements for this machine category)
+- DMC variable name length limit (8 chars): Galil DMC Command Reference — training knowledge (HIGH confidence — well-documented constraint, confirmed in project context `hmiGrnd` naming)
+
+---
+*Pitfalls research for: HMI-controller integration, Galil DMC + gclib + Kivy, knife grinding machine*
+*Researched: 2026-04-06*

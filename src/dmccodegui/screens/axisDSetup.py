@@ -4,19 +4,22 @@ from __future__ import annotations
 axisDSetup.py — AxisDSetupScreen
 
 This screen is dedicated to setting up the D axis (knife angle) positions.
-It manages three angle positions stored in the 'RestPnt' DMC array:
-  - D Zero:   home/reference angle for the D axis
-  - D Angle1: first working angle position
-  - D Angle2: second working angle position
+It manages three angle positions stored as individual restPt variables in the DMC program:
+  - D Zero:   home/reference angle for the D axis  (restPtA)
+  - D Angle1: first working angle position          (restPtB)
+  - D Angle2: second working angle position         (restPtC)
 
-DMC ARRAY: 'RestPnt' (indices 0–2) — same array as RestScreen, different use context
-  [0] = D Zero position   (counts)
-  [1] = D Angle1 position (counts)
-  [2] = D Angle2 position (counts)
+DMC VARIABLES: restPtA, restPtB, restPtC (individual named variables)
+  restPtA = D Zero position   (counts)
+  restPtB = D Angle1 position (counts)
+  restPtC = D Angle2 position (counts)
 
-NOTE: This screen shares the 'RestPnt' array with rest.py (A/B/C rest points).
-If the two screens need to be independent in the future, allocate a separate
-'DAxisPnt' array in the DMC program and update both this file and axisDSetup.kv.
+  Variable names imported from dmccodegui.hmi.dmc_vars (RESTPT_BY_AXIS).
+  Previously used the RestPnt DMC array (indices 0-2) — migrated to individual variables in plan 09-03.
+
+NOTE: This screen shares the restPtA/B/C variables with rest.py (A/B/C rest points).
+If the two screens need to be independent in the future, allocate separate D-axis variables
+in the DMC program and update both this file and axisDSetup.kv.
 
 KV FILE: ui/axisDSetup.kv
   Each angle position has two widgets:
@@ -25,12 +28,12 @@ KV FILE: ui/axisDSetup.kv
     ids.<axis>_display — read-only TextInput showing the value from the controller
 
 WORKFLOW:
-  1. On screen enter: reads RestPnt[0..2] from controller and fills UI for A, B, C slots
-     (which here represent D Zero, D Angle1, D Angle2 respectively).
+  1. On screen enter: reads restPtA/B/C from controller via individual MG queries
+     and fills UI for A, B, C slots (which here represent D Zero, D Angle1, D Angle2).
   2. Operator uses arrow buttons (via adjust_axis) to nudge values.
-  3. 'Save' button calls save_values(), which writes back to 'RestPnt' array.
+  3. 'Save' button calls save_values(), which writes back to individual restPt variables.
      Note: Unlike start.py and rest.py, save_values() here does NOT send a PA/BG
-     move command — it only saves the array values.
+     move command — it only saves the variable values.
 
 THREADING MODEL:
   controller I/O in on_pre_enter is synchronous on the main thread (brief read).
@@ -46,6 +49,7 @@ from kivy.clock import Clock
 from ..app_state import MachineState
 from ..controller import GalilController
 from ..utils import jobs
+from dmccodegui.hmi.dmc_vars import RESTPT_A, RESTPT_B, RESTPT_C, RESTPT_BY_AXIS
 
 
 class AxisDSetupScreen(Screen):
@@ -54,15 +58,15 @@ class AxisDSetupScreen(Screen):
     state: MachineState = ObjectProperty(None)          # type: ignore
 
     # Local copy of the D-axis angle positions (3 floats: Zero, Angle1, Angle2)
-    # Maps to RestPnt[0], RestPnt[1], RestPnt[2] on the controller.
+    # Maps to restPtA, restPtB, restPtC on the controller.
     rest_vals = ([0.0, 0.0, 0.0])
 
     def on_pre_enter(self, *args):
         """
         Called by Kivy each time the operator navigates to this screen.
 
-        Reads the RestPnt array from the controller (indices 0–2) and fills both
-        the editable inputs and read-only display boxes for the three D-axis angles.
+        Reads restPtA, restPtB, restPtC from the controller via individual MG queries
+        and fills both the editable inputs and read-only display boxes for the three D-axis angles.
 
         Falls back to self._load_from_state() if:
           - No controller is connected
@@ -74,10 +78,12 @@ class AxisDSetupScreen(Screen):
         try:
             if not self.controller or not self.controller.is_connected():
                 raise RuntimeError("No controller connected")
-            # upload_array("ArrayName", start_index, end_index) returns list of floats
-            vals = self.controller.upload_array("RestPnt", 0, 2)
-            # Pad to 3 elements in case controller returns fewer, then truncate
-            self.rest_vals = (vals + [0, 0, 0])[:3]
+            # Read each rest point variable individually via MG query
+            vals = []
+            for axis in ["A", "B", "C"]:
+                raw = self.controller.cmd(f"MG {RESTPT_BY_AXIS[axis]}").strip()
+                vals.append(float(raw))
+            self.rest_vals = vals
             self._fill_inputs_from_vals(self.rest_vals)
         except Exception as e:
             print("AxisDSetup read failed:", e)
@@ -149,19 +155,20 @@ class AxisDSetupScreen(Screen):
     def save_values(self) -> None:
         """
         Read the three D-axis angle values from the UI inputs and write them to
-        the controller's 'RestPnt' array. Does NOT issue a motor move command.
+        the controller's individual restPt variables. Does NOT issue a motor move command.
 
         Steps:
           1. Read each TextInput and parse as float. Invalid input = red highlight + 0.0.
           2. Update self.rest_vals and state.taught_points["Rest"].
-          3. Call download_array('RestPnt', 0, vals) to write to the controller.
+          3. Write to controller via semicolon-joined assignment: restPtA=v;restPtB=v;restPtC=v
+          4. Send BV to save variables to flash.
 
         Unlike start.py and rest.py, no PA/BG move is sent after saving. The operator
         must issue motion commands separately (e.g. via buttons_switches.py or the
         DMC terminal) to move the D axis to a saved angle.
 
         To add a move after save: append dmcCommand("PA ...") and dmcCommand("BG") below
-        the download_array call, following the pattern in rest.py.
+        the variable write, following the pattern in rest.py.
         """
         def get_axis_num(axis: str) -> float:
             """Parse a float from the axis TextInput. Returns 0.0 on parse failure."""
@@ -190,18 +197,21 @@ class AxisDSetupScreen(Screen):
         }
         self.state.notify()
 
-        # Push to controller array (no motor move — see docstring above)
+        # Push to controller via individual variable assignments (no motor move — see docstring above)
         try:
             if not self.controller or not self.controller.is_connected():
                 raise RuntimeError("No controller connected")
-            self.controller.download_array("RestPnt", 0, self.rest_vals)
+            axes = ["A", "B", "C"]
+            parts = [f"{RESTPT_BY_AXIS[axes[i]]}={self.rest_vals[i]}" for i in range(len(axes))]
+            self.controller.cmd(";".join(parts))
+            self.controller.cmd("BV")  # Save variables to flash
         except Exception as e:
             print("AxisDSetup send to controller failed:", e)
             return
 
     def loadArrayToPage(self, *args):
         """
-        Manually re-read the RestPnt array from the controller and refresh the UI.
+        Manually re-read rest point variables from the controller and refresh the UI.
 
         Bound to the load button in the KV (if present):
             on_release: root.loadArrayToPage()
@@ -210,11 +220,15 @@ class AxisDSetupScreen(Screen):
         Does nothing (with a print) if the read fails.
         """
         try:
-            vals = self.controller.upload_array("RestPnt", 0, 2)
+            # Read each rest point variable individually via MG query
+            vals = []
+            for axis in ["A", "B", "C"]:
+                raw = self.controller.cmd(f"MG {RESTPT_BY_AXIS[axis]}").strip()
+                vals.append(float(raw))
         except Exception as e:
             print("AxisDSetup read failed:", e)
             return
-        self.rest_vals = (vals + [0, 0, 0])[:3]
+        self.rest_vals = vals
         self._fill_inputs_from_vals(self.rest_vals)
 
     def _fill_inputs_from_vals(self, vals):

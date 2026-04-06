@@ -7,10 +7,13 @@ This screen lets the operator view and adjust the Rest Point for each axis.
 The Rest Point is the park position — where all axes return after a grinding
 cycle completes normally or after a fault recovery.
 
-DMC ARRAY: 'RestPnt' (indices 0–2)
-  [0] = A axis rest position (counts)
-  [1] = B axis rest position (counts)  — B is treated as a single axis here (not split left/right)
-  [2] = C axis rest position (counts)
+DMC VARIABLES: restPtA, restPtB, restPtC (individual named variables)
+  restPtA = A axis rest position (counts)
+  restPtB = B axis rest position (counts) — B is treated as a single axis here (not split left/right)
+  restPtC = C axis rest position (counts)
+
+  Variable names imported from dmccodegui.hmi.dmc_vars (RESTPT_BY_AXIS).
+  Previously used the RestPnt DMC array (indices 0-2) — migrated to individual variables in plan 09-03.
 
 KV FILE: ui/rest.kv
   Each axis has two widgets in the KV:
@@ -19,16 +22,17 @@ KV FILE: ui/rest.kv
     ids.<axis>_display — read-only TextInput showing the value from the controller
 
 WORKFLOW:
-  1. On screen enter: auto-reads RestPnt[0..2] from controller and fills both
-     the editable input (ctrl_input) and the read-only display for each axis.
+  1. On screen enter: auto-reads restPtA/B/C from controller via individual MG queries
+     and fills both the editable input (ctrl_input) and the read-only display for each axis.
   2. Operator uses arrow buttons (via adjust_axis) or manually edits ctrl_input.
   3. 'Luu Diem Rest' button calls save_values(), which:
-       a. Writes new values to controller via download_array('RestPnt', ...)
-       b. Sends PA (Position Absolute) command for A, B, C
-       c. Sends BG (Begin) to start the move
+       a. Writes new values to controller via semicolon-joined assignment (restPtA=v;restPtB=v;restPtC=v)
+       b. Sends BV to save variables to flash
+       c. Sends PA (Position Absolute) command for A, B, C
+       d. Sends BG (Begin) to start the move
 
 DIFFERENCE FROM start.py:
-  - Uses 'RestPnt' array (not 'StartPnt')
+  - Uses restPt individual variables (not startPt)
   - 3 axes only (A, B, C) — B is single, no B_left/B_right split
   - PA command format: "PA A, B, C" (3 values)
 
@@ -46,6 +50,7 @@ from kivy.clock import Clock
 from ..app_state import MachineState
 from ..controller import GalilController
 from ..utils import jobs
+from dmccodegui.hmi.dmc_vars import RESTPT_A, RESTPT_B, RESTPT_C, RESTPT_BY_AXIS
 
 
 class RestScreen(Screen):
@@ -53,7 +58,7 @@ class RestScreen(Screen):
     controller: GalilController = ObjectProperty(None)  # type: ignore
     state: MachineState = ObjectProperty(None)          # type: ignore
 
-    # Local copy of the RestPnt array (3 floats: A, B, C)
+    # Local copy of the rest point values (3 floats: A, B, C)
     # Updated from the controller on enter, and written back on save.
     rest_vals = ([0.0, 0.0, 0.0, 0.0])
 
@@ -61,25 +66,27 @@ class RestScreen(Screen):
         """
         Called by Kivy each time the operator navigates to this screen.
 
-        Reads the RestPnt array from the controller (indices 0–2) and fills both
-        the editable inputs and read-only display boxes for all 3 axes (A, B, C).
+        Reads restPtA, restPtB, restPtC from the controller via individual MG queries
+        and fills both the editable inputs and read-only display boxes for all 3 axes (A, B, C).
 
         Falls back to self._load_from_state() if:
           - No controller is connected
           - The controller read throws an exception (e.g. timeout, disconnected)
 
-        Note: upload_array("RestPnt", 0, 2) reads indices 0, 1, and 2 (3 values total).
+        Note: reads only 3 axes (A, B, C) — D axis is not used by this screen.
         """
         try:
             if not self.controller or not self.controller.is_connected():
                 raise RuntimeError("No controller connected")
-            # upload_array("ArrayName", start_index, end_index) returns list of floats
-            vals = self.controller.upload_array("RestPnt", 0, 2)
-            # Pad to 3 elements in case controller returns fewer, then truncate
-            self.rest_vals = (vals + [0, 0, 0])[:3]
+            # Read each rest point variable individually via MG query
+            vals = []
+            for axis in ["A", "B", "C"]:
+                raw = self.controller.cmd(f"MG {RESTPT_BY_AXIS[axis]}").strip()
+                vals.append(float(raw))
+            self.rest_vals = vals
             self._fill_inputs_from_vals(self.rest_vals)
         except Exception as e:
-            print("RestPnt read failed:", e)
+            print("rest point read failed:", e)
             self._load_from_state()  # Fall back to last saved state values
 
     def _get_axis_input(self, axis: str):
@@ -154,9 +161,10 @@ class RestScreen(Screen):
              Non-numeric input is highlighted red and defaults to 0.0.
           2. Update self.rest_vals with the new values.
           3. Update state.taught_points["Rest"] for cross-screen access.
-          4. Download the array to the controller: download_array('RestPnt', 0, vals)
-          5. Send PA (Position Absolute) command for A, B, C.
-          6. Send BG (Begin) to start the move.
+          4. Write individual variables to controller: restPtA=v;restPtB=v;restPtC=v
+          5. Send BV to save variables to flash.
+          6. Send PA (Position Absolute) command for A, B, C.
+          7. Send BG (Begin) to start the move.
 
         CAUTION: Sending BG immediately moves the motors. Ensure all safety conditions
         are met before pressing 'Luu Diem Rest'.
@@ -176,7 +184,7 @@ class RestScreen(Screen):
                     ti.background_color = (1, 0.6, 0.6, 1)
                 return 0.0
 
-        # Collect values in RestPnt order: A, B, C
+        # Collect values in axis order: A, B, C
         new_vals = [
             get_axis_num("A"),
             get_axis_num("B"),
@@ -192,13 +200,16 @@ class RestScreen(Screen):
         }
         self.state.notify()
 
-        # 3) Push to controller array
+        # 3) Push to controller via individual variable assignments (semicolon-joined)
         try:
             if not self.controller or not self.controller.is_connected():
                 raise RuntimeError("No controller connected")
-            self.controller.download_array("RestPnt", 0, self.rest_vals)
+            axes = ["A", "B", "C"]
+            parts = [f"{RESTPT_BY_AXIS[axes[i]]}={self.rest_vals[i]}" for i in range(len(axes))]
+            self.controller.cmd(";".join(parts))
+            self.controller.cmd("BV")  # Save variables to flash
         except Exception as e:
-            print("RestPnt send to controller failed:", e)
+            print("rest point send to controller failed:", e)
             return  # Abort move if write failed
 
         # 4) Move all axes to the new rest position
@@ -208,23 +219,26 @@ class RestScreen(Screen):
 
     def loadArrayToPage(self, *args):
         """
-        Manually re-read the RestPnt array from the controller and refresh the UI.
+        Manually re-read rest point variables from the controller and refresh the UI.
 
         Bound to the 'Lay Diem Rest Ve Man Hinh' button in the KV:
             on_release: root.loadArrayToPage()
 
         Use this if the operator suspects the on-screen values are out of sync with
-        the controller (e.g. after a power cycle or external edit of the array).
+        the controller (e.g. after a power cycle or external edit of the variables).
 
         Does nothing (with a print) if the controller is disconnected or read fails.
         """
         try:
-            # Read RestPnt array from controller (not StartPnt)
-            vals = self.controller.upload_array("RestPnt", 0, 2)
+            # Read each rest point variable individually via MG query
+            vals = []
+            for axis in ["A", "B", "C"]:
+                raw = self.controller.cmd(f"MG {RESTPT_BY_AXIS[axis]}").strip()
+                vals.append(float(raw))
         except Exception as e:
-            print("RestPnt read failed:", e)
+            print("rest point read failed:", e)
             return
-        self.rest_vals = (vals + [0, 0, 0])[:3]
+        self.rest_vals = vals
         self._fill_inputs_from_vals(self.rest_vals)
 
     def _fill_inputs_from_vals(self, vals):

@@ -72,6 +72,43 @@ class TestHmiTriggerConstants:
 
 
 # ---------------------------------------------------------------------------
+# Setup-loop HMI trigger constants (Plan 13-01)
+# ---------------------------------------------------------------------------
+
+class TestSetupLoopTriggerConstants:
+    """HMI_GO_REST, HMI_GO_START, HMI_EXIT_SETUP constants have correct values,
+    fit 8-char limit, and appear in ALL_HMI_TRIGGERS."""
+
+    def test_hmi_go_rest_value(self):
+        from dmccodegui.hmi.dmc_vars import HMI_GO_REST
+        assert HMI_GO_REST == "hmiGoRs"
+        assert len(HMI_GO_REST) <= 8
+
+    def test_hmi_go_start_value(self):
+        from dmccodegui.hmi.dmc_vars import HMI_GO_START
+        assert HMI_GO_START == "hmiGoSt"
+        assert len(HMI_GO_START) <= 8
+
+    def test_hmi_exit_setup_value(self):
+        from dmccodegui.hmi.dmc_vars import HMI_EXIT_SETUP
+        assert HMI_EXIT_SETUP == "hmiExSt"
+        assert len(HMI_EXIT_SETUP) <= 8
+
+    def test_new_triggers_in_all_list(self):
+        from dmccodegui.hmi.dmc_vars import (
+            ALL_HMI_TRIGGERS, HMI_GO_REST, HMI_GO_START, HMI_EXIT_SETUP,
+        )
+        assert HMI_GO_REST in ALL_HMI_TRIGGERS
+        assert HMI_GO_START in ALL_HMI_TRIGGERS
+        assert HMI_EXIT_SETUP in ALL_HMI_TRIGGERS
+
+    def test_all_trigger_names_within_limit(self):
+        from dmccodegui.hmi.dmc_vars import ALL_HMI_TRIGGERS
+        for name in ALL_HMI_TRIGGERS:
+            assert len(name) <= 8, f"{name!r} exceeds 8-char DMC limit"
+
+
+# ---------------------------------------------------------------------------
 # Trigger default values
 # ---------------------------------------------------------------------------
 

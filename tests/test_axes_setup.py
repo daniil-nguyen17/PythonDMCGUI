@@ -422,3 +422,293 @@ def test_no_selected_axis():
     from dmccodegui.screens.axes_setup import AxesSetupScreen
     screen = AxesSetupScreen()
     assert not hasattr(screen, '_selected_axis')
+
+
+# ── Smart enter/exit (Plan 02) ────────────────────────────────────────────────
+
+
+def test_enter_setup_skips_fire_when_already_setup():
+    """on_pre_enter with dmc_state=STATE_SETUP does NOT fire hmiSetp=0."""
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.hmi.dmc_vars import STATE_SETUP, HMI_SETP, HMI_TRIGGER_FIRE
+
+    screen = AxesSetupScreen()
+    ctrl = MagicMock()
+    ctrl.is_connected.return_value = True
+    ctrl.cmd.return_value = "0.0000"
+    screen.controller = ctrl
+    screen.state = MagicMock()
+    screen.state.dmc_state = STATE_SETUP  # already in setup
+
+    submitted_fns = []
+    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+        with patch('dmccodegui.screens.axes_setup.Clock'):
+            mock_jobs.submit = lambda fn: submitted_fns.append(fn)
+            screen.on_pre_enter()
+
+    # Execute the submitted background job(s)
+    for fn in submitted_fns:
+        fn()
+
+    setp_fire_cmd = f"{HMI_SETP}={HMI_TRIGGER_FIRE}"
+    all_cmds = [c[0][0] for c in ctrl.cmd.call_args_list]
+    assert setp_fire_cmd not in all_cmds, (
+        f"hmiSetp=0 must NOT be sent when already in setup, but got: {all_cmds}"
+    )
+
+
+def test_enter_setup_fires_when_not_in_setup():
+    """on_pre_enter with dmc_state != STATE_SETUP fires hmiSetp=0."""
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.hmi.dmc_vars import STATE_IDLE, HMI_SETP, HMI_TRIGGER_FIRE
+
+    screen = AxesSetupScreen()
+    ctrl = MagicMock()
+    ctrl.is_connected.return_value = True
+    ctrl.cmd.return_value = "0.0000"
+    screen.controller = ctrl
+    screen.state = MagicMock()
+    screen.state.dmc_state = STATE_IDLE  # not in setup
+
+    submitted_fns = []
+    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+        with patch('dmccodegui.screens.axes_setup.Clock'):
+            mock_jobs.submit = lambda fn: submitted_fns.append(fn)
+            screen.on_pre_enter()
+
+    for fn in submitted_fns:
+        fn()
+
+    setp_fire_cmd = f"{HMI_SETP}={HMI_TRIGGER_FIRE}"
+    all_cmds = [c[0][0] for c in ctrl.cmd.call_args_list]
+    assert setp_fire_cmd in all_cmds, (
+        f"hmiSetp=0 must be sent when transitioning into setup, but got: {all_cmds}"
+    )
+
+
+def test_exit_fires_to_non_setup_screen():
+    """on_leave when navigating to 'run' screen fires hmiExSt=0."""
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.hmi.dmc_vars import HMI_EXIT_SETUP, HMI_TRIGGER_FIRE
+
+    screen = AxesSetupScreen()
+    ctrl = MagicMock()
+    ctrl.is_connected.return_value = True
+    screen.controller = ctrl
+
+    manager = MagicMock()
+    manager.current = "run"
+    screen.manager = manager
+
+    screen.on_leave()
+
+    exit_cmd = f"{HMI_EXIT_SETUP}={HMI_TRIGGER_FIRE}"
+    all_cmds = [c[0][0] for c in ctrl.cmd.call_args_list]
+    assert exit_cmd in all_cmds, (
+        f"hmiExSt=0 must fire when leaving to non-setup screen, but got: {all_cmds}"
+    )
+
+
+def test_exit_skips_to_sibling_setup_screen():
+    """on_leave when navigating to 'parameters' screen does NOT fire hmiExSt=0."""
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.hmi.dmc_vars import HMI_EXIT_SETUP, HMI_TRIGGER_FIRE
+
+    screen = AxesSetupScreen()
+    ctrl = MagicMock()
+    ctrl.is_connected.return_value = True
+    screen.controller = ctrl
+
+    manager = MagicMock()
+    manager.current = "parameters"
+    screen.manager = manager
+
+    screen.on_leave()
+
+    exit_cmd = f"{HMI_EXIT_SETUP}={HMI_TRIGGER_FIRE}"
+    all_cmds = [c[0][0] for c in ctrl.cmd.call_args_list]
+    assert exit_cmd not in all_cmds, (
+        f"hmiExSt=0 must NOT fire when leaving to sibling setup screen, but got: {all_cmds}"
+    )
+
+
+# ── HMI trigger quick actions (Plan 02) ──────────────────────────────────────
+
+
+def test_home_all_fires_hmi_trigger():
+    """home_all() fires hmiHome=0 (not swHomeAll=1)."""
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.hmi.dmc_vars import HMI_HOME, HMI_TRIGGER_FIRE
+
+    screen = AxesSetupScreen()
+    ctrl = MagicMock()
+    ctrl.is_connected.return_value = True
+    ctrl.cmd.return_value = ""
+    screen.controller = ctrl
+
+    submitted_fns = []
+    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+        mock_jobs.submit = lambda fn: submitted_fns.append(fn)
+        screen.home_all()
+
+    assert len(submitted_fns) == 1
+    submitted_fns[0]()
+    ctrl.cmd.assert_called_once_with(f"{HMI_HOME}={HMI_TRIGGER_FIRE}")
+
+
+def test_go_to_rest_fires_hmi_trigger():
+    """go_to_rest_all() fires hmiGoRs=0 (not swGoRest=1)."""
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.hmi.dmc_vars import HMI_GO_REST, HMI_TRIGGER_FIRE
+
+    screen = AxesSetupScreen()
+    ctrl = MagicMock()
+    ctrl.is_connected.return_value = True
+    ctrl.cmd.return_value = ""
+    screen.controller = ctrl
+
+    submitted_fns = []
+    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+        mock_jobs.submit = lambda fn: submitted_fns.append(fn)
+        screen.go_to_rest_all()
+
+    assert len(submitted_fns) == 1
+    submitted_fns[0]()
+    ctrl.cmd.assert_called_once_with(f"{HMI_GO_REST}={HMI_TRIGGER_FIRE}")
+
+
+def test_go_to_start_fires_hmi_trigger():
+    """go_to_start_all() fires hmiGoSt=0 (not swGoStart=1)."""
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.hmi.dmc_vars import HMI_GO_START, HMI_TRIGGER_FIRE
+
+    screen = AxesSetupScreen()
+    ctrl = MagicMock()
+    ctrl.is_connected.return_value = True
+    ctrl.cmd.return_value = ""
+    screen.controller = ctrl
+
+    submitted_fns = []
+    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+        mock_jobs.submit = lambda fn: submitted_fns.append(fn)
+        screen.go_to_start_all()
+
+    assert len(submitted_fns) == 1
+    submitted_fns[0]()
+    ctrl.cmd.assert_called_once_with(f"{HMI_GO_START}={HMI_TRIGGER_FIRE}")
+
+
+# ── Jog gates (Plan 02) ───────────────────────────────────────────────────────
+
+
+def test_jog_blocked_when_not_setup():
+    """jog_axis returns without any cmd when dmc_state != STATE_SETUP."""
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.hmi.dmc_vars import STATE_IDLE
+
+    screen = AxesSetupScreen()
+    ctrl = MagicMock()
+    ctrl.is_connected.return_value = True
+    ctrl.cmd.return_value = " 0.0000 "
+    screen.controller = ctrl
+    screen.state = MagicMock()
+    screen.state.dmc_state = STATE_IDLE  # NOT setup
+    screen._axis_cpm = {"A": 1200.0}
+    screen._cpm_ready = True
+
+    submitted_fns = []
+    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+        mock_jobs.submit = lambda fn: submitted_fns.append(fn)
+        screen.jog_axis("A", 1)
+
+    assert len(submitted_fns) == 0, (
+        "No job should be submitted when dmc_state != STATE_SETUP"
+    )
+
+
+def test_jog_blocked_when_in_progress():
+    """jog_axis does not send PR/BG when _BG{axis} is nonzero (motion in progress)."""
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.hmi.dmc_vars import STATE_SETUP
+
+    screen = AxesSetupScreen()
+    ctrl = MagicMock()
+    ctrl.is_connected.return_value = True
+    # _BG returns nonzero = motion in progress
+    ctrl.cmd.return_value = " 1.0000 "
+    screen.controller = ctrl
+    screen.state = MagicMock()
+    screen.state.dmc_state = STATE_SETUP
+    screen._axis_cpm = {"A": 1200.0}
+    screen._cpm_ready = True
+
+    submitted_fns = []
+    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+        mock_jobs.submit = lambda fn: submitted_fns.append(fn)
+        screen.jog_axis("A", 1)
+
+    # Job is submitted, but do_jog should bail before PR/BG
+    for fn in submitted_fns:
+        fn()
+
+    all_cmds = [c[0][0] for c in ctrl.cmd.call_args_list]
+    assert "PRA=12000" not in all_cmds, (
+        f"PR must NOT be sent when motion in progress, got: {all_cmds}"
+    )
+    assert "BGA" not in all_cmds, (
+        f"BG must NOT be sent when motion in progress, got: {all_cmds}"
+    )
+
+
+# ── New Session (Plan 02) ─────────────────────────────────────────────────────
+
+
+def test_new_session_fires_hmi_news():
+    """_fire_new_session() fires hmiNewS=0."""
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.hmi.dmc_vars import HMI_NEWS, HMI_TRIGGER_FIRE
+
+    screen = AxesSetupScreen()
+    ctrl = MagicMock()
+    ctrl.is_connected.return_value = True
+    ctrl.cmd.return_value = ""
+    screen.controller = ctrl
+
+    submitted_fns = []
+    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+        mock_jobs.submit = lambda fn: submitted_fns.append(fn)
+        screen._fire_new_session()
+
+    assert len(submitted_fns) == 1
+    submitted_fns[0]()
+    ctrl.cmd.assert_called_once_with(f"{HMI_NEWS}={HMI_TRIGGER_FIRE}")
+
+
+def test_new_session_blocked_for_operator():
+    """on_new_session() with setup_unlocked=False does not open a Popup."""
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.axes_setup import AxesSetupScreen
+
+    screen = AxesSetupScreen()
+    screen.state = MagicMock()
+    screen.state.setup_unlocked = False
+
+    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+        submitted_fns = []
+        mock_jobs.submit = lambda fn: submitted_fns.append(fn)
+        screen.on_new_session()
+
+    # No jobs submitted means no trigger fired — operator was blocked
+    assert len(submitted_fns) == 0, (
+        "on_new_session must not submit any job when setup_unlocked=False"
+    )

@@ -15,6 +15,7 @@ from kivy.properties import BooleanProperty, NumericProperty, ObjectProperty
 from kivy.uix.screenmanager import Screen
 
 from dmccodegui.utils.jobs import submit
+from dmccodegui.hmi.dmc_vars import HMI_SETP, HMI_TRIGGER_FIRE, HMI_TRIGGER_DEFAULT
 import dmccodegui.machine_config as mc
 
 # ---------------------------------------------------------------------------
@@ -340,7 +341,23 @@ class ParametersScreen(Screen):
         if self.state is not None:
             setup_unlocked = self.state.setup_unlocked
         self._apply_role_mode(setup_unlocked)
+
+        # Fire hmiSetp to tell controller we're in setup mode
+        if self.controller is not None:
+            try:
+                self.controller.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}")
+            except Exception:
+                pass
+
         self.read_from_controller()
+
+    def on_leave(self, *args):
+        """Reset hmiSetp=1 to exit setup mode."""
+        if self.controller is not None:
+            try:
+                self.controller.cmd(f"{HMI_SETP}={HMI_TRIGGER_DEFAULT}")
+            except Exception:
+                pass
 
     def on_kv_post(self, base_widget):
         """Build parameter cards after KV post (initial load only)."""

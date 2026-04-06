@@ -1,5 +1,6 @@
 """
-Tests for AxesSetupScreen — jog math, teach sequences, polling lifecycle, quick actions.
+Tests for AxesSetupScreen — mode toggle, jog math, teach/save, quick actions,
+axis row visibility.
 
 Pattern: import inside test functions, set env vars before kivy import.
 All Kivy properties are tested against the real Screen instance.
@@ -33,26 +34,69 @@ def _make_screen():
     return screen, ctrl
 
 
-# ── Property defaults ─────────────────────────────────────────────────────────
+# ── Mode toggle ──────────────────────────────────────────────────────────────
 
 
-def test_selected_axis_default():
-    """AXES-01: _selected_axis defaults to 'A'."""
+def test_mode_default_rest():
+    """_mode defaults to 'rest'."""
     from dmccodegui.screens.axes_setup import AxesSetupScreen
     screen = AxesSetupScreen()
-    assert screen._selected_axis == "A"
+    assert screen._mode == "rest"
 
 
-def test_select_axis():
-    """AXES-01: select_axis('B') updates _selected_axis."""
+def test_set_mode_start():
+    """set_mode('start') changes _mode to 'start'."""
     from dmccodegui.screens.axes_setup import AxesSetupScreen
     screen = AxesSetupScreen()
-    screen.select_axis("B")
-    assert screen._selected_axis == "B"
+    screen.set_mode("start")
+    assert screen._mode == "start"
+
+
+def test_set_mode_rest():
+    """set_mode('rest') changes _mode back to 'rest'."""
+    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    screen = AxesSetupScreen()
+    screen.set_mode("start")
+    screen.set_mode("rest")
+    assert screen._mode == "rest"
+
+
+# ── Save delegation ─────────────────────────────────────────────────────────
+
+
+def test_save_points_rest_mode():
+    """save_points() in rest mode calls teach_rest_point."""
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.axes_setup import AxesSetupScreen
+
+    screen = AxesSetupScreen()
+    screen._mode = "rest"
+    screen.teach_rest_point = MagicMock()
+    screen.teach_start_point = MagicMock()
+    screen.save_points()
+    screen.teach_rest_point.assert_called_once()
+    screen.teach_start_point.assert_not_called()
+
+
+def test_save_points_start_mode():
+    """save_points() in start mode calls teach_start_point."""
+    from unittest.mock import MagicMock
+    from dmccodegui.screens.axes_setup import AxesSetupScreen
+
+    screen = AxesSetupScreen()
+    screen._mode = "start"
+    screen.teach_rest_point = MagicMock()
+    screen.teach_start_point = MagicMock()
+    screen.save_points()
+    screen.teach_start_point.assert_called_once()
+    screen.teach_rest_point.assert_not_called()
+
+
+# ── Step size ────────────────────────────────────────────────────────────────
 
 
 def test_step_mm_property():
-    """AXES-02: _current_step_mm defaults to 10.0; set_step changes it."""
+    """_current_step_mm defaults to 10.0; set_step changes it."""
     from dmccodegui.screens.axes_setup import AxesSetupScreen
     screen = AxesSetupScreen()
     assert screen._current_step_mm == 10.0
@@ -63,7 +107,7 @@ def test_step_mm_property():
 
 
 def test_cpm_defaults():
-    """AXES-02: AXIS_CPM_DEFAULTS has all 4 axes with positive values."""
+    """AXIS_CPM_DEFAULTS has all 4 axes with positive values."""
     from dmccodegui.screens.axes_setup import AXIS_CPM_DEFAULTS
     assert set(AXIS_CPM_DEFAULTS.keys()) == {"A", "B", "C", "D"}
     for axis, cpm in AXIS_CPM_DEFAULTS.items():
@@ -74,17 +118,19 @@ def test_cpm_defaults():
 
 
 def test_jog_counts_calculation():
-    """AXES-02: jog_axis('A', +1) with step_mm=10.0 and cpm=1200 produces PR A=12000."""
+    """jog_axis('A', +1) with step_mm=10.0 and cpm=1200 produces PR A=12000."""
     from unittest.mock import MagicMock, patch, call
     from dmccodegui.screens.axes_setup import AxesSetupScreen
 
     screen = AxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
+    # MG _BGA returns 0.0 (motion complete) so poll exits immediately
+    ctrl.cmd.return_value = " 0.0000 "
     screen.controller = ctrl
 
-    # Inject CPM
     screen._axis_cpm = {"A": 1200.0, "B": 1200.0, "C": 800.0, "D": 500.0}
+    screen._cpm_ready = True
     screen._current_step_mm = 10.0
 
     submitted_fns = []
@@ -92,29 +138,28 @@ def test_jog_counts_calculation():
         mock_jobs.submit = lambda fn: submitted_fns.append(fn)
         screen.jog_axis("A", 1)
 
-    # Should have submitted exactly one background job
     assert len(submitted_fns) == 1
-
-    # Execute the submitted job to inspect what it sends
     submitted_fns[0]()
 
-    calls = ctrl.cmd.call_args_list
-    assert len(calls) == 3
-    assert calls[0] == call("PRA=12000")
-    assert calls[1] == call("BGA")
-    assert calls[2] == call("MG _TDA")  # readback position after jog
+    cmds = [c[0][0] for c in ctrl.cmd.call_args_list]
+    assert cmds[0] == "PRA=12000"
+    assert cmds[1] == "BGA"
+    assert "MG _BGA" in cmds  # motion-complete poll
+    assert cmds[-1] == "MG _TDA"  # readback position after motion complete
 
 
 def test_jog_counts_negative():
-    """AXES-02: jog_axis('A', -1) with step_mm=5.0 and cpm=1200 produces PR A=-6000."""
+    """jog_axis('A', -1) with step_mm=5.0 and cpm=1200 produces PR A=-6000."""
     from unittest.mock import MagicMock, patch, call
     from dmccodegui.screens.axes_setup import AxesSetupScreen
 
     screen = AxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
+    ctrl.cmd.return_value = " 0.0000 "
     screen.controller = ctrl
     screen._axis_cpm = {"A": 1200.0, "B": 1200.0, "C": 800.0, "D": 500.0}
+    screen._cpm_ready = True
     screen._current_step_mm = 5.0
 
     submitted_fns = []
@@ -124,14 +169,34 @@ def test_jog_counts_negative():
 
     assert len(submitted_fns) == 1
     submitted_fns[0]()
-    calls = ctrl.cmd.call_args_list
-    assert calls[0] == call("PRA=-6000")
-    assert calls[1] == call("BGA")
-    assert calls[2] == call("MG _TDA")  # readback position after jog
+    cmds = [c[0][0] for c in ctrl.cmd.call_args_list]
+    assert cmds[0] == "PRA=-6000"
+    assert cmds[1] == "BGA"
+    assert cmds[-1] == "MG _TDA"  # readback after motion complete
+
+
+def test_jog_blocked_before_cpm_read():
+    """jog_axis does nothing when _cpm_ready is False (CPM not yet read from controller)."""
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.axes_setup import AxesSetupScreen
+
+    screen = AxesSetupScreen()
+    ctrl = MagicMock()
+    ctrl.is_connected.return_value = True
+    screen.controller = ctrl
+    # _cpm_ready defaults to False — jog must be blocked
+    assert screen._cpm_ready is False
+
+    submitted_fns = []
+    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+        mock_jobs.submit = lambda fn: submitted_fns.append(fn)
+        screen.jog_axis("A", 1)
+
+    assert len(submitted_fns) == 0
 
 
 def test_jog_no_controller():
-    """AXES-02: jog_axis does nothing when controller is None."""
+    """jog_axis does nothing when controller is None."""
     from unittest.mock import patch
     from dmccodegui.screens.axes_setup import AxesSetupScreen
 
@@ -147,7 +212,7 @@ def test_jog_no_controller():
 
 
 def test_jog_disconnected():
-    """AXES-02: jog_axis does nothing when controller is disconnected."""
+    """jog_axis does nothing when controller is disconnected."""
     from unittest.mock import MagicMock, patch
     from dmccodegui.screens.axes_setup import AxesSetupScreen
 
@@ -168,7 +233,7 @@ def test_jog_disconnected():
 
 
 def test_teach_rest_burns_nv():
-    """AXES-03: teach_rest_point() reads TD positions, writes restPtA/B/C/D, sends BV."""
+    """teach_rest_point() reads TD positions, writes restPtA/B/C/D, sends BV."""
     from unittest.mock import MagicMock, patch, call
     from dmccodegui.screens.axes_setup import AxesSetupScreen
 
@@ -176,13 +241,12 @@ def test_teach_rest_burns_nv():
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
 
-    # Simulate controller returning position values
     ctrl.cmd.side_effect = [
         "  1000.0000  ",  # _TDA
         "  2000.0000  ",  # _TDB
         "  3000.0000  ",  # _TDC
         "  4000.0000  ",  # _TDD
-        "",                # write cmd (semicolon-separated)
+        "",                # write cmd
         "",                # BV
         # Readback: restPt + _TD for each axis (A, B, C, D)
         "  1000.0000  ", "  1000.0000  ",
@@ -206,22 +270,19 @@ def test_teach_rest_burns_nv():
     calls = ctrl.cmd.call_args_list
     cmds_sent = [c[0][0] for c in calls]
 
-    # Must read all 4 TD positions
     assert "MG _TDA" in cmds_sent
     assert "MG _TDB" in cmds_sent
     assert "MG _TDC" in cmds_sent
     assert "MG _TDD" in cmds_sent
 
-    # Must write all 4 rest points
     write_cmd = next((c for c in cmds_sent if "restPtA" in c and "restPtB" in c), None)
     assert write_cmd is not None, f"Expected combined restPt write, got: {cmds_sent}"
 
-    # Must send BV to burn NV memory
     assert "BV" in cmds_sent
 
 
 def test_teach_start_burns_nv():
-    """AXES-03: teach_start_point() reads TD positions, writes startPtA/B/C/D, sends BV."""
+    """teach_start_point() reads TD positions, writes startPtA/B/C/D, sends BV."""
     from unittest.mock import MagicMock, patch
     from dmccodegui.screens.axes_setup import AxesSetupScreen
 
@@ -235,7 +296,7 @@ def test_teach_start_burns_nv():
         "  800.0000  ",
         "",
         "",
-        # Readback: startPt + _TD for each axis (A, B, C, D)
+        # Readback: startPt + _TD for each axis
         "  500.0000  ", "  500.0000  ",
         "  600.0000  ", "  600.0000  ",
         "  700.0000  ", "  700.0000  ",
@@ -262,7 +323,7 @@ def test_teach_start_burns_nv():
 
 
 def test_teach_skips_when_cycle_running():
-    """AXES-03: teach_rest_point() does nothing when cycle_running=True."""
+    """teach_rest_point() does nothing when cycle_running=True."""
     from unittest.mock import MagicMock, patch
     from dmccodegui.screens.axes_setup import AxesSetupScreen
 
@@ -285,7 +346,7 @@ def test_teach_skips_when_cycle_running():
 
 
 def test_quick_action_go_rest():
-    """AXES-04: go_to_rest_all() submits swGoRest=1 to controller."""
+    """go_to_rest_all() submits swGoRest=1 to controller."""
     from unittest.mock import MagicMock, patch
     from dmccodegui.screens.axes_setup import AxesSetupScreen
 
@@ -306,7 +367,7 @@ def test_quick_action_go_rest():
 
 
 def test_quick_action_go_start():
-    """AXES-04: go_to_start_all() submits swGoStart=1 to controller."""
+    """go_to_start_all() submits swGoStart=1 to controller."""
     from unittest.mock import MagicMock, patch
     from dmccodegui.screens.axes_setup import AxesSetupScreen
 
@@ -327,7 +388,7 @@ def test_quick_action_go_start():
 
 
 def test_quick_action_home_all():
-    """AXES-04: home_all() submits swHomeAll=1 to controller."""
+    """home_all() submits swHomeAll=1 to controller."""
     from unittest.mock import MagicMock, patch
     from dmccodegui.screens.axes_setup import AxesSetupScreen
 
@@ -347,10 +408,17 @@ def test_quick_action_home_all():
     ctrl.cmd.assert_called_once_with("swHomeAll=1")
 
 
-# ── No-polling verification ───────────────────────────────────────────────────
+# ── No-polling verification ──────────────────────────────────────────────────
 
 
 def test_no_poll_tick_method():
-    """AXES-05: AxesSetupScreen has no _poll_tick — polling was removed."""
+    """AxesSetupScreen has no _poll_tick — polling was removed."""
     from dmccodegui.screens.axes_setup import AxesSetupScreen
     assert not hasattr(AxesSetupScreen, '_poll_tick')
+
+
+def test_no_selected_axis():
+    """AxesSetupScreen no longer has _selected_axis — all axes visible."""
+    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    screen = AxesSetupScreen()
+    assert not hasattr(screen, '_selected_axis')

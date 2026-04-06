@@ -2,12 +2,13 @@
 #:import dp kivy.metrics.dp
 
 # ──────────────────────────────────────────────────────────────────────────────
-# AxesSetupScreen
+# AxesSetupScreen — All axes visible, mode toggle, save button
 #
-# Layout: horizontal split
-#   Left  (18%) — Sidebar: axis selector ToggleButtons + quick action buttons
-#   VDivider
-#   Right (82%) — Main content: position cards + jog controls + teach buttons
+# Layout: vertical stack
+#   Top row  — Mode toggle (Set Rest / Set Start) + Quick action buttons
+#   Step row — Step size toggles (10 / 5 / 1)
+#   Axis rows — One row per axis: label, saved value, << pos >> jog controls
+#   Bottom   — Save button (text/color changes with mode)
 # ──────────────────────────────────────────────────────────────────────────────
 
 <AxesSetupScreen>:
@@ -19,440 +20,692 @@
             size: self.size
 
     BoxLayout:
-        orientation: 'horizontal'
+        orientation: 'vertical'
         spacing: 0
         padding: 0
 
-        # ── Left sidebar ──────────────────────────────────────────────────────
+        # ── Top bar: mode toggle + quick actions ─────────────────────────────
         BoxLayout:
-            orientation: 'vertical'
-            size_hint_x: 0.18
-            spacing: '4dp'
-            padding: '6dp', '8dp', '6dp', '8dp'
+            orientation: 'horizontal'
+            size_hint_y: None
+            height: '64dp'
+            padding: '16dp', '10dp', '16dp', '10dp'
+            spacing: '12dp'
+            canvas.before:
+                Color:
+                    rgba: theme.bg_dark
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+                Color:
+                    rgba: theme.border
+                Rectangle:
+                    pos: self.x, self.y
+                    size: self.width, dp(1)
 
-            # Axis selector group — ids assigned so _rebuild_axis_sidebar() can
-            # show/hide buttons programmatically via opacity/disabled swap
-            ToggleButton:
-                id: axis_btn_a
-                text: 'A  Knife Length'
-                group: 'axis_sel'
-                state: 'down'
-                font_size: '20sp'
-                bold: True
-                size_hint_y: None
-                height: '64dp'
-                on_release: root.select_axis('A')
-                background_normal: ''
-                background_down: ''
-                background_color: (0.980, 0.569, 0.043, 0.25) if self.state == 'down' else theme.bg_panel
-                color: (0.980, 0.569, 0.043, 1) if self.state == 'down' else theme.text_mid
-                canvas.before:
-                    Color:
-                        rgba: (0.980, 0.569, 0.043, 1) if self.state == 'down' else (0, 0, 0, 0)
-                    Rectangle:
-                        pos: self.x, self.y
-                        size: dp(4), self.height
+            # Mode toggle group
+            BoxLayout:
+                orientation: 'horizontal'
+                size_hint_x: None
+                width: '360dp'
+                spacing: 0
 
-            ToggleButton:
-                id: axis_btn_b
-                text: 'B  Knife Curve'
-                group: 'axis_sel'
-                font_size: '20sp'
-                bold: True
-                size_hint_y: None
-                height: '64dp'
-                on_release: root.select_axis('B')
-                background_normal: ''
-                background_down: ''
-                background_color: (0.659, 0.333, 0.965, 0.25) if self.state == 'down' else theme.bg_panel
-                color: (0.659, 0.333, 0.965, 1) if self.state == 'down' else theme.text_mid
-                canvas.before:
-                    Color:
-                        rgba: (0.659, 0.333, 0.965, 1) if self.state == 'down' else (0, 0, 0, 0)
-                    Rectangle:
-                        pos: self.x, self.y
-                        size: dp(4), self.height
+                ToggleButton:
+                    id: mode_rest_btn
+                    text: 'Set Rest Points'
+                    group: 'mode_sel'
+                    state: 'down'
+                    font_size: '18sp'
+                    bold: True
+                    size_hint_x: 0.5
+                    on_release: root.set_mode('rest')
+                    background_normal: ''
+                    background_down: ''
+                    background_color: (0.031, 0.314, 0.471, 1) if self.state == 'down' else theme.bg_panel
+                    color: theme.text_main if self.state == 'down' else theme.text_mid
 
-            ToggleButton:
-                id: axis_btn_c
-                text: 'C  Grinder Up/Down'
-                group: 'axis_sel'
-                font_size: '20sp'
-                bold: True
-                size_hint_y: None
-                height: '64dp'
-                on_release: root.select_axis('C')
-                background_normal: ''
-                background_down: ''
-                background_color: (0.024, 0.714, 0.831, 0.25) if self.state == 'down' else theme.bg_panel
-                color: (0.024, 0.714, 0.831, 1) if self.state == 'down' else theme.text_mid
-                canvas.before:
-                    Color:
-                        rgba: (0.024, 0.714, 0.831, 1) if self.state == 'down' else (0, 0, 0, 0)
-                    Rectangle:
-                        pos: self.x, self.y
-                        size: dp(4), self.height
+                ToggleButton:
+                    id: mode_start_btn
+                    text: 'Set Start Points'
+                    group: 'mode_sel'
+                    font_size: '18sp'
+                    bold: True
+                    size_hint_x: 0.5
+                    on_release: root.set_mode('start')
+                    background_normal: ''
+                    background_down: ''
+                    background_color: (0.031, 0.471, 0.188, 1) if self.state == 'down' else theme.bg_panel
+                    color: theme.text_main if self.state == 'down' else theme.text_mid
 
-            ToggleButton:
-                id: axis_btn_d
-                text: 'D  Knife Angle'
-                group: 'axis_sel'
-                font_size: '20sp'
-                bold: True
-                size_hint_y: None
-                height: '64dp'
-                on_release: root.select_axis('D')
-                background_normal: ''
-                background_down: ''
-                background_color: (0.980, 0.749, 0.043, 0.25) if self.state == 'down' else theme.bg_panel
-                color: (0.980, 0.749, 0.043, 1) if self.state == 'down' else theme.text_mid
-                canvas.before:
-                    Color:
-                        rgba: (0.980, 0.749, 0.043, 1) if self.state == 'down' else (0, 0, 0, 0)
-                    Rectangle:
-                        pos: self.x, self.y
-                        size: dp(4), self.height
-
-            # Divider between axis select and quick actions
             Widget:
-                size_hint_y: None
-                height: '2dp'
-                canvas:
-                    Color:
-                        rgba: theme.border
-                    Rectangle:
-                        pos: self.pos
-                        size: self.size
+                # Spacer
 
+            # Quick actions
             Label:
-                text: 'Quick Actions'
-                font_size: '14sp'
+                text: 'Quick:'
+                font_size: '13sp'
                 color: theme.text_dim
-                size_hint_y: None
-                height: '24dp'
-                halign: 'center'
+                size_hint_x: None
+                width: '46dp'
+                halign: 'right'
                 valign: 'middle'
                 text_size: self.size
 
             Button:
-                text: 'Go to Rest All'
-                font_size: '17sp'
+                text: 'Go to Rest'
+                font_size: '15sp'
                 bold: True
-                size_hint_y: None
-                height: '52dp'
+                size_hint_x: None
+                width: '110dp'
                 background_color: theme.bg_row
-                color: theme.text_main
+                color: theme.text_mid
                 on_release: root.go_to_rest_all()
 
             Button:
-                text: 'Go to Start All'
-                font_size: '17sp'
+                text: 'Go to Start'
+                font_size: '15sp'
                 bold: True
-                size_hint_y: None
-                height: '52dp'
+                size_hint_x: None
+                width: '110dp'
                 background_color: theme.bg_row
-                color: theme.text_main
+                color: theme.text_mid
                 on_release: root.go_to_start_all()
 
             Button:
                 text: 'Home All'
-                font_size: '17sp'
+                font_size: '15sp'
                 bold: True
-                size_hint_y: None
-                height: '52dp'
+                size_hint_x: None
+                width: '100dp'
                 background_color: theme.bg_row
-                color: theme.text_main
+                color: theme.text_mid
                 on_release: root.home_all()
 
+        # ── Step size row ────────────────────────────────────────────────────
+        BoxLayout:
+            orientation: 'horizontal'
+            size_hint_y: None
+            height: '48dp'
+            padding: '16dp', '6dp', '16dp', '6dp'
+            spacing: '8dp'
+            canvas.before:
+                Color:
+                    rgba: (0.039, 0.059, 0.102, 1)
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+                Color:
+                    rgba: theme.border
+                Rectangle:
+                    pos: self.x, self.y
+                    size: self.width, dp(1)
+
             Widget:
-                # Spacer to fill remaining sidebar space
+                # Left spacer
 
-        # ── Vertical divider ──────────────────────────────────────────────────
-        VDivider:
+            Label:
+                text: 'Step Size'
+                font_size: '14sp'
+                color: theme.text_dim
+                size_hint_x: None
+                width: '70dp'
+                halign: 'right'
+                valign: 'middle'
+                text_size: self.size
 
-        # ── Main content area ─────────────────────────────────────────────────
+            ToggleButton:
+                id: step_10
+                text: '10'
+                group: 'step_sel'
+                state: 'down'
+                font_size: '16sp'
+                bold: True
+                size_hint_x: None
+                width: '60dp'
+                on_release: root.set_step(10.0)
+
+            ToggleButton:
+                id: step_5
+                text: '5'
+                group: 'step_sel'
+                font_size: '16sp'
+                bold: True
+                size_hint_x: None
+                width: '60dp'
+                on_release: root.set_step(5.0)
+
+            ToggleButton:
+                id: step_1
+                text: '1'
+                group: 'step_sel'
+                font_size: '16sp'
+                bold: True
+                size_hint_x: None
+                width: '60dp'
+                on_release: root.set_step(1.0)
+
+            Label:
+                text: 'mm'
+                font_size: '14sp'
+                color: theme.text_dim
+                size_hint_x: None
+                width: '30dp'
+                halign: 'left'
+                valign: 'middle'
+                text_size: self.size
+
+            Widget:
+                # Right spacer
+
+        # ── Axis rows ────────────────────────────────────────────────────────
         BoxLayout:
             orientation: 'vertical'
-            size_hint_x: 0.82
-            spacing: '12dp'
-            padding: '16dp', '12dp', '16dp', '12dp'
+            padding: '16dp', '12dp', '16dp', '8dp'
+            spacing: '10dp'
 
-            # ── Position cards row ────────────────────────────────────────────
+            # ── Axis A ───────────────────────────────────────────────────────
             BoxLayout:
+                id: axis_row_a
                 orientation: 'horizontal'
                 size_hint_y: None
-                height: '160dp'
+                height: '80dp'
                 spacing: '12dp'
-
-                # Rest Point card
-                CardFrame:
-                    orientation: 'vertical'
-                    spacing: '6dp'
-                    padding: '12dp'
-
-                    Label:
-                        text: 'Rest Point'
-                        font_size: '18sp'
-                        color: theme.text_mid
-                        size_hint_y: None
-                        height: '30dp'
-                        halign: 'center'
-                        valign: 'middle'
-                        text_size: self.size
-
-                    Label:
-                        id: rest_value_label
-                        text: root.pos_rest[root._selected_axis]
-                        font_size: '32sp'
-                        bold: True
-                        color: theme.text_main
-                        halign: 'center'
-                        valign: 'middle'
-                        text_size: self.size
-
-                    Label:
-                        text: 'deg' if root._selected_axis == 'D' else 'mm'
-                        font_size: '16sp'
-                        color: theme.text_dim
-                        size_hint_y: None
-                        height: '24dp'
-                        halign: 'center'
-                        valign: 'middle'
-                        text_size: self.size
-
-                # Start Point card
-                CardFrame:
-                    orientation: 'vertical'
-                    spacing: '6dp'
-                    padding: '12dp'
-
-                    Label:
-                        text: 'Start Point'
-                        font_size: '18sp'
-                        color: theme.text_mid
-                        size_hint_y: None
-                        height: '30dp'
-                        halign: 'center'
-                        valign: 'middle'
-                        text_size: self.size
-
-                    Label:
-                        id: start_value_label
-                        text: root.pos_start[root._selected_axis]
-                        font_size: '32sp'
-                        bold: True
-                        color: theme.text_main
-                        halign: 'center'
-                        valign: 'middle'
-                        text_size: self.size
-
-                    Label:
-                        text: 'deg' if root._selected_axis == 'D' else 'mm'
-                        font_size: '16sp'
-                        color: theme.text_dim
-                        size_hint_y: None
-                        height: '24dp'
-                        halign: 'center'
-                        valign: 'middle'
-                        text_size: self.size
-
-                # Current Position card (larger, accent color)
-                CardFrame:
-                    orientation: 'vertical'
-                    spacing: '6dp'
-                    padding: '12dp'
-
-                    Label:
-                        text: 'Current Position'
-                        font_size: '18sp'
-                        color: theme.text_mid
-                        size_hint_y: None
-                        height: '30dp'
-                        halign: 'center'
-                        valign: 'middle'
-                        text_size: self.size
-
-                    Label:
-                        id: current_value_label
-                        text: root.pos_current[root._selected_axis]
-                        font_size: '40sp'
-                        bold: True
-                        color: (0.133, 0.773, 0.369, 1)
-                        halign: 'center'
-                        valign: 'middle'
-                        text_size: self.size
-
-                    Label:
-                        text: 'deg' if root._selected_axis == 'D' else 'mm'
-                        font_size: '16sp'
-                        color: theme.text_dim
-                        size_hint_y: None
-                        height: '24dp'
-                        halign: 'center'
-                        valign: 'middle'
-                        text_size: self.size
-
-            # ── Jog controls section ──────────────────────────────────────────
-            BoxLayout:
-                orientation: 'vertical'
-                size_hint_y: None
-                height: '180dp'
-                spacing: '8dp'
-
-                Label:
-                    text: 'Jog Control'
-                    font_size: '18sp'
-                    color: theme.text_mid
-                    size_hint_y: None
-                    height: '28dp'
-                    halign: 'center'
-                    valign: 'middle'
-                    text_size: self.size
-
-                # Arrow buttons + step toggles in a row
-                BoxLayout:
-                    orientation: 'horizontal'
-                    spacing: '16dp'
-                    size_hint_y: None
-                    height: '100dp'
-                    pos_hint: {'center_x': 0.5}
-
-                    Widget:
-                        # Spacer
-
-                    # Left arrow button
-                    Button:
-                        text: '<<'
-                        font_size: '36sp'
-                        bold: True
-                        size_hint: None, None
-                        size: dp(100), dp(100)
-                        background_color: theme.bg_panel
-                        color: theme.text_main
-                        on_release: root.jog_axis(root._selected_axis, -1)
-                        canvas.after:
-                            Color:
-                                rgba: theme.border
-                            Line:
-                                rectangle: (self.x, self.y, self.width, self.height)
-                                width: 1.5
-
-                    # Step size toggles (vertical group)
-                    BoxLayout:
-                        orientation: 'vertical'
-                        size_hint: None, None
-                        size: dp(140), dp(100)
-                        spacing: '2dp'
-
-                        Label:
-                            text: 'Step (' + ('deg' if root._selected_axis == 'D' else 'mm') + ')'
-                            font_size: '14sp'
-                            color: theme.text_dim
-                            size_hint_y: None
-                            height: '20dp'
-                            halign: 'center'
-                            valign: 'middle'
-                            text_size: self.size
-
-                        BoxLayout:
-                            orientation: 'horizontal'
-                            spacing: '2dp'
-
-                            ToggleButton:
-                                id: step_10
-                                text: '10'
-                                group: 'step_sel'
-                                state: 'down'
-                                font_size: '18sp'
-                                bold: True
-                                on_release: root.set_step(10.0)
-
-                            ToggleButton:
-                                id: step_5
-                                text: '5'
-                                group: 'step_sel'
-                                font_size: '18sp'
-                                bold: True
-                                on_release: root.set_step(5.0)
-
-                            ToggleButton:
-                                id: step_1
-                                text: '1'
-                                group: 'step_sel'
-                                font_size: '18sp'
-                                bold: True
-                                on_release: root.set_step(1.0)
-
-                    # Right arrow button
-                    Button:
-                        text: '>>'
-                        font_size: '36sp'
-                        bold: True
-                        size_hint: None, None
-                        size: dp(100), dp(100)
-                        background_color: theme.bg_panel
-                        color: theme.text_main
-                        on_release: root.jog_axis(root._selected_axis, 1)
-                        canvas.after:
-                            Color:
-                                rgba: theme.border
-                            Line:
-                                rectangle: (self.x, self.y, self.width, self.height)
-                                width: 1.5
-
-                    Widget:
-                        # Spacer
-
-            # ── Horizontal divider ────────────────────────────────────────────
-            Widget:
-                size_hint_y: None
-                height: '2dp'
-                canvas:
+                padding: '12dp', '8dp'
+                canvas.before:
                     Color:
-                        rgba: theme.border
-                    Rectangle:
+                        rgba: theme.bg_panel
+                    RoundedRectangle:
                         pos: self.pos
                         size: self.size
+                        radius: [8,]
+                    Color:
+                        rgba: (0.980, 0.569, 0.043, 0.35)
+                    Line:
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                        width: 1.2
 
-            # ── Teach buttons row ─────────────────────────────────────────────
-            BoxLayout:
-                orientation: 'vertical'
-                size_hint_y: None
-                height: '120dp'
-                spacing: '8dp'
+                # Color indicator bar
+                Widget:
+                    size_hint: None, None
+                    size: dp(5), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    canvas:
+                        Color:
+                            rgba: (0.980, 0.569, 0.043, 1)
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [3,]
+
+                # Axis label
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '160dp'
+                    Label:
+                        text: 'A'
+                        font_size: '24sp'
+                        bold: True
+                        color: (0.980, 0.569, 0.043, 1)
+                        halign: 'left'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.6
+                    Label:
+                        text: 'Knife Length'
+                        font_size: '13sp'
+                        color: theme.text_dim
+                        halign: 'left'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.4
+
+                # Saved value column
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '110dp'
+                    Label:
+                        id: saved_label_a
+                        text: 'Saved Rest'
+                        font_size: '11sp'
+                        color: theme.text_dim
+                        halign: 'center'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.4
+                    Label:
+                        id: saved_val_a
+                        text: '---'
+                        font_size: '20sp'
+                        bold: True
+                        color: theme.text_mid
+                        halign: 'center'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.6
+
+                # Jog controls
+                Widget:
+                    size_hint_x: 0.05
+
+                Button:
+                    text: '<<'
+                    font_size: '26sp'
+                    bold: True
+                    size_hint: None, None
+                    size: dp(72), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    background_color: theme.bg_row
+                    color: theme.text_mid
+                    on_release: root.jog_axis('A', -1)
 
                 Label:
-                    text: 'Captures all active axes at current position and burns to NV memory'
-                    font_size: '16sp'
-                    color: theme.text_dim
-                    size_hint_y: None
-                    height: '28dp'
+                    id: pos_a
+                    text: '---'
+                    font_size: '32sp'
+                    bold: True
+                    color: (0.133, 0.773, 0.369, 1)
                     halign: 'center'
                     valign: 'middle'
                     text_size: self.size
+                    size_hint_x: None
+                    width: '160dp'
+
+                Button:
+                    text: '>>'
+                    font_size: '26sp'
+                    bold: True
+                    size_hint: None, None
+                    size: dp(72), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    background_color: theme.bg_row
+                    color: theme.text_mid
+                    on_release: root.jog_axis('A', 1)
+
+                Widget:
+                    size_hint_x: 0.05
+
+            # ── Axis B ───────────────────────────────────────────────────────
+            BoxLayout:
+                id: axis_row_b
+                orientation: 'horizontal'
+                size_hint_y: None
+                height: '80dp'
+                spacing: '12dp'
+                padding: '12dp', '8dp'
+                canvas.before:
+                    Color:
+                        rgba: theme.bg_panel
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [8,]
+                    Color:
+                        rgba: (0.659, 0.333, 0.965, 0.35)
+                    Line:
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                        width: 1.2
+
+                Widget:
+                    size_hint: None, None
+                    size: dp(5), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    canvas:
+                        Color:
+                            rgba: (0.659, 0.333, 0.965, 1)
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [3,]
 
                 BoxLayout:
-                    orientation: 'horizontal'
-                    size_hint_y: None
-                    height: '60dp'
-                    spacing: '20dp'
-                    padding: '40dp', 0
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '160dp'
+                    Label:
+                        text: 'B'
+                        font_size: '24sp'
+                        bold: True
+                        color: (0.659, 0.333, 0.965, 1)
+                        halign: 'left'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.6
+                    Label:
+                        text: 'Knife Curve'
+                        font_size: '13sp'
+                        color: theme.text_dim
+                        halign: 'left'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.4
 
-                    Button:
-                        text: 'Teach as Rest Point'
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '110dp'
+                    Label:
+                        id: saved_label_b
+                        text: 'Saved Rest'
+                        font_size: '11sp'
+                        color: theme.text_dim
+                        halign: 'center'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.4
+                    Label:
+                        id: saved_val_b
+                        text: '---'
                         font_size: '20sp'
                         bold: True
-                        background_color: (0.031, 0.314, 0.471, 1)
-                        color: theme.text_main
-                        on_release: root.teach_rest_point()
+                        color: theme.text_mid
+                        halign: 'center'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.6
 
-                    Button:
-                        text: 'Teach as Start Point'
+                Widget:
+                    size_hint_x: 0.05
+
+                Button:
+                    text: '<<'
+                    font_size: '26sp'
+                    bold: True
+                    size_hint: None, None
+                    size: dp(72), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    background_color: theme.bg_row
+                    color: theme.text_mid
+                    on_release: root.jog_axis('B', -1)
+
+                Label:
+                    id: pos_b
+                    text: '---'
+                    font_size: '32sp'
+                    bold: True
+                    color: (0.133, 0.773, 0.369, 1)
+                    halign: 'center'
+                    valign: 'middle'
+                    text_size: self.size
+                    size_hint_x: None
+                    width: '160dp'
+
+                Button:
+                    text: '>>'
+                    font_size: '26sp'
+                    bold: True
+                    size_hint: None, None
+                    size: dp(72), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    background_color: theme.bg_row
+                    color: theme.text_mid
+                    on_release: root.jog_axis('B', 1)
+
+                Widget:
+                    size_hint_x: 0.05
+
+            # ── Axis C ───────────────────────────────────────────────────────
+            BoxLayout:
+                id: axis_row_c
+                orientation: 'horizontal'
+                size_hint_y: None
+                height: '80dp'
+                spacing: '12dp'
+                padding: '12dp', '8dp'
+                canvas.before:
+                    Color:
+                        rgba: theme.bg_panel
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [8,]
+                    Color:
+                        rgba: (0.024, 0.714, 0.831, 0.35)
+                    Line:
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                        width: 1.2
+
+                Widget:
+                    size_hint: None, None
+                    size: dp(5), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    canvas:
+                        Color:
+                            rgba: (0.024, 0.714, 0.831, 1)
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [3,]
+
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '160dp'
+                    Label:
+                        text: 'C'
+                        font_size: '24sp'
+                        bold: True
+                        color: (0.024, 0.714, 0.831, 1)
+                        halign: 'left'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.6
+                    Label:
+                        text: 'Grinder Up/Down'
+                        font_size: '13sp'
+                        color: theme.text_dim
+                        halign: 'left'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.4
+
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '110dp'
+                    Label:
+                        id: saved_label_c
+                        text: 'Saved Rest'
+                        font_size: '11sp'
+                        color: theme.text_dim
+                        halign: 'center'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.4
+                    Label:
+                        id: saved_val_c
+                        text: '---'
                         font_size: '20sp'
                         bold: True
-                        background_color: (0.031, 0.471, 0.188, 1)
-                        color: theme.text_main
-                        on_release: root.teach_start_point()
+                        color: theme.text_mid
+                        halign: 'center'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.6
+
+                Widget:
+                    size_hint_x: 0.05
+
+                Button:
+                    text: '<<'
+                    font_size: '26sp'
+                    bold: True
+                    size_hint: None, None
+                    size: dp(72), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    background_color: theme.bg_row
+                    color: theme.text_mid
+                    on_release: root.jog_axis('C', -1)
+
+                Label:
+                    id: pos_c
+                    text: '---'
+                    font_size: '32sp'
+                    bold: True
+                    color: (0.133, 0.773, 0.369, 1)
+                    halign: 'center'
+                    valign: 'middle'
+                    text_size: self.size
+                    size_hint_x: None
+                    width: '160dp'
+
+                Button:
+                    text: '>>'
+                    font_size: '26sp'
+                    bold: True
+                    size_hint: None, None
+                    size: dp(72), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    background_color: theme.bg_row
+                    color: theme.text_mid
+                    on_release: root.jog_axis('C', 1)
+
+                Widget:
+                    size_hint_x: 0.05
+
+            # ── Axis D ───────────────────────────────────────────────────────
+            BoxLayout:
+                id: axis_row_d
+                orientation: 'horizontal'
+                size_hint_y: None
+                height: '80dp'
+                spacing: '12dp'
+                padding: '12dp', '8dp'
+                canvas.before:
+                    Color:
+                        rgba: theme.bg_panel
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [8,]
+                    Color:
+                        rgba: (0.980, 0.749, 0.043, 0.35)
+                    Line:
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                        width: 1.2
+
+                Widget:
+                    size_hint: None, None
+                    size: dp(5), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    canvas:
+                        Color:
+                            rgba: (0.980, 0.749, 0.043, 1)
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [3,]
+
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '160dp'
+                    Label:
+                        text: 'D'
+                        font_size: '24sp'
+                        bold: True
+                        color: (0.980, 0.749, 0.043, 1)
+                        halign: 'left'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.6
+                    Label:
+                        text: 'Knife Angle'
+                        font_size: '13sp'
+                        color: theme.text_dim
+                        halign: 'left'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.4
+
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '110dp'
+                    Label:
+                        id: saved_label_d
+                        text: 'Saved Rest'
+                        font_size: '11sp'
+                        color: theme.text_dim
+                        halign: 'center'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.4
+                    Label:
+                        id: saved_val_d
+                        text: '---'
+                        font_size: '20sp'
+                        bold: True
+                        color: theme.text_mid
+                        halign: 'center'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.6
+
+                Widget:
+                    size_hint_x: 0.05
+
+                Button:
+                    text: '<<'
+                    font_size: '26sp'
+                    bold: True
+                    size_hint: None, None
+                    size: dp(72), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    background_color: theme.bg_row
+                    color: theme.text_mid
+                    on_release: root.jog_axis('D', -1)
+
+                Label:
+                    id: pos_d
+                    text: '---'
+                    font_size: '32sp'
+                    bold: True
+                    color: (0.133, 0.773, 0.369, 1)
+                    halign: 'center'
+                    valign: 'middle'
+                    text_size: self.size
+                    size_hint_x: None
+                    width: '160dp'
+
+                Button:
+                    text: '>>'
+                    font_size: '26sp'
+                    bold: True
+                    size_hint: None, None
+                    size: dp(72), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    background_color: theme.bg_row
+                    color: theme.text_mid
+                    on_release: root.jog_axis('D', 1)
+
+                Widget:
+                    size_hint_x: 0.05
 
             Widget:
-                # Bottom spacer
+                # Bottom spacer above save button
+
+        # ── Save button ──────────────────────────────────────────────────────
+        BoxLayout:
+            orientation: 'horizontal'
+            size_hint_y: None
+            height: '72dp'
+            padding: '20dp', '8dp', '20dp', '14dp'
+
+            Widget:
+                # Left spacer
+
+            Button:
+                id: save_btn
+                text: 'SAVE AS REST POINTS'
+                font_size: '20sp'
+                bold: True
+                size_hint_x: None
+                width: '320dp'
+                background_color: (0.031, 0.314, 0.471, 1)
+                color: theme.text_main
+                on_release: root.save_points()
+
+            Widget:
+                # Right spacer

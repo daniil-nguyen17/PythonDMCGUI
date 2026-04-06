@@ -1,10 +1,9 @@
 """
 axes_setup.py — AxesSetupScreen
 
-The primary setup tool for positioning axes before grinding. Setup/Admin personnel
-can select any axis (A, B, C, D) from a sidebar, jog it with arrow buttons at
-selectable step sizes (10mm/5mm/1mm), teach rest/start points for all axes at once
-(capturing all active axes in one operation), and trigger quick action commands.
+All axes visible at once with jog controls per axis. Two modes: "Set Rest
+Points" and "Set Start Points" — a single Save button writes the current
+positions as rest or start points accordingly.
 
 AXIS DEFINITIONS:
   A — Knife Length
@@ -17,27 +16,29 @@ CPM (Counts Per Millimeter):
   Read live from controller on enter via "MG cpm{axis}". Falls back to AXIS_CPM_DEFAULTS.
   D axis is rotation — same CPM constant used for "degrees" label in UI.
 
-TEACH OPERATION:
-  teach_rest_point() and teach_start_point() each:
-    1. Read current positions for active axes via "MG _TD{axis}" (from mc.get_axis_list())
-    2. Write scalar DMC variables for active axes only in one semicolon-separated command
-    3. Send BV to burn values to NV memory
-  Guard: skipped if cycle_running is True.
+MODE:
+  _mode = "rest" | "start"
+  Controls which saved values are shown in the "Saved" column and which
+  variable set (restPt / startPt) the Save button writes to.
 
-AXIS SIDEBAR:
-  _rebuild_axis_sidebar() hides the D axis button (opacity=0, disabled=True) on Serration
-  machines by reading mc.get_axis_list(). Called on every on_pre_enter so hot-swap works.
-  If the currently selected axis is no longer in the active axis list, auto-selects 'A'.
+SAVE:
+  save_points() delegates to teach_rest_point() or teach_start_point()
+  based on _mode. Each reads current _TD positions, writes to controller,
+  burns BV, and reads back to confirm.
 
-QUICK ACTIONS (software variable commands — adjust variable names at integration):
+AXIS VISIBILITY:
+  _rebuild_axis_rows() hides the D axis row (opacity=0, disabled=True) on
+  Serration machines by reading mc.get_axis_list(). Called on every
+  on_pre_enter so hot-swap works.
+
+QUICK ACTIONS (software variable commands):
   go_to_rest_all()  → swGoRest=1
   go_to_start_all() → swGoStart=1
   home_all()        → swHomeAll=1
-  (These send single-variable commands; the controller program handles axis routing.)
 
-POLLING:
-  No automatic polling. Positions are read once on tab enter and refreshed
-  after each jog or teach operation (request-response only).
+NO POLLING:
+  Positions are read once on tab enter and refreshed after each jog or
+  teach operation (request-response only).
 
 JOG:
   Uses PR (position relative) + BG per axis.
@@ -65,6 +66,7 @@ from kivy.clock import Clock
 from ..app_state import MachineState
 from ..controller import GalilController
 from ..utils import jobs
+from ..hmi.dmc_vars import HMI_SETP, HMI_TRIGGER_FIRE, HMI_TRIGGER_DEFAULT
 import dmccodegui.machine_config as mc
 
 
@@ -76,7 +78,7 @@ AXIS_CPM_DEFAULTS: dict[str, float] = {
     "D": 500.0,
 }
 
-# Axis display names used in the sidebar
+# Axis display names (used in code references; KV has its own labels)
 AXIS_LABELS: dict[str, str] = {
     "A": "A  Knife Length",
     "B": "B  Knife Curve",
@@ -92,24 +94,24 @@ AXIS_COLORS: dict[str, list[float]] = {
     "D": [0.980, 0.749, 0.043, 1],   # yellow
 }
 
-# Map axis letter to KV id for sidebar button
-_AXIS_BTN_IDS: dict[str, str] = {
-    "A": "axis_btn_a",
-    "B": "axis_btn_b",
-    "C": "axis_btn_c",
-    "D": "axis_btn_d",
+# Map axis letter to KV id for axis row (for hide/show on Serration)
+_AXIS_ROW_IDS: dict[str, str] = {
+    "A": "axis_row_a",
+    "B": "axis_row_b",
+    "C": "axis_row_c",
+    "D": "axis_row_d",
 }
 
 
 class AxesSetupScreen(Screen):
-    """Full axes setup screen: sidebar, jog controls, teach buttons, quick actions."""
+    """All-axes setup screen with mode toggle, jog per axis, and save button."""
 
     # Injected by main.py after ScreenManager is built
     controller: GalilController = ObjectProperty(None, allownone=True)  # type: ignore
     state: MachineState = ObjectProperty(None, allownone=True)          # type: ignore
 
-    # Currently selected axis shown in the main panel
-    _selected_axis = StringProperty("A")
+    # Current mode: "rest" or "start"
+    _mode = StringProperty("rest")
 
     # Current jog step size in mm (or degrees for D axis)
     _current_step_mm = NumericProperty(10.0)
@@ -128,74 +130,123 @@ class AxesSetupScreen(Screen):
     # Suppress UI callbacks during programmatic updates
     _loading = BooleanProperty(False)
 
-    # CPM cache — populated from controller on enter, seeded with defaults
+    # True once CPM values have been read from the controller.
+    # Jog is blocked until this is True to prevent moves with wrong CPM.
+    _cpm_ready = BooleanProperty(False)
+
+    # CPM cache — empty until read from controller (no defaults used for jog)
     _axis_cpm: dict[str, float]
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._axis_cpm = dict(AXIS_CPM_DEFAULTS)
+        self._axis_cpm = {}
+        self._cpm_ready = False
 
     def on_pre_enter(self, *args):
         """One-time read of all positions and CPM on tab entry.
 
-        Also rebuilds the axis sidebar to match the active machine type —
+        Also rebuilds axis row visibility to match the active machine type —
         this enables hot-swap: changing machine type and re-entering the
-        screen immediately shows the correct sidebar layout.
+        screen immediately shows the correct layout.
         """
-        # Rebuild sidebar for current machine type
-        self._rebuild_axis_sidebar()
+        # Clear CPM so stale values from a previous visit can't be used
+        self._axis_cpm = {}
+        self._cpm_ready = False
 
-        # One-time read of CPM, current positions, and taught points
+        # Show/hide axis rows for current machine type
+        self._rebuild_axis_rows()
+
+        # Update saved-value column labels for current mode
+        self._update_saved_labels()
+
+        # Fire hmiSetp to tell controller we're in setup mode, then read values
         if self.controller and self.controller.is_connected():
-            jobs.submit(self._read_initial_values)
+            jobs.submit(self._enter_setup_and_read)
 
-    # ── Axis sidebar ──────────────────────────────────────────────────────────
+    def on_leave(self, *args):
+        """Reset hmiSetp=1 to exit setup mode and clear CPM ready flag."""
+        self._cpm_ready = False
+        if self.controller and self.controller.is_connected():
+            try:
+                self.controller.cmd(f"{HMI_SETP}={HMI_TRIGGER_DEFAULT}")
+            except Exception:
+                pass
 
-    def _rebuild_axis_sidebar(self) -> None:
-        """Show/hide axis sidebar buttons based on the active machine type.
+    # ── Axis row visibility ──────────────────────────────────────────────────
+
+    def _rebuild_axis_rows(self) -> None:
+        """Show/hide axis rows based on the active machine type.
 
         Uses opacity/disabled swap (NOT widget add/remove) to preserve KV ids.
-        If the currently selected axis is not in the active axis list,
-        auto-selects 'A' (the first visible axis).
-
         Uses mc.get_axis_list() to determine which axes are active.
         On error (machine not configured), falls back to showing all 4 axes.
         """
         try:
             axis_list = mc.get_axis_list()
         except ValueError:
-            # machine_config not yet configured — show all axes as fallback
             axis_list = ["A", "B", "C", "D"]
 
         if not axis_list:
-            print("[AxesSetup] _rebuild_axis_sidebar: empty axis_list, skipping")
+            print("[AxesSetup] _rebuild_axis_rows: empty axis_list, skipping")
             return
 
-        for axis, btn_id in _AXIS_BTN_IDS.items():
-            btn = self.ids.get(btn_id)
-            if btn is None:
+        for axis, row_id in _AXIS_ROW_IDS.items():
+            row = self.ids.get(row_id)
+            if row is None:
                 continue
             visible = axis in axis_list
-            btn.opacity = 1.0 if visible else 0.0
-            btn.disabled = not visible
+            row.opacity = 1.0 if visible else 0.0
+            row.disabled = not visible
+            row.size_hint_y = None if visible else 0
+            row.height = "80dp" if visible else 0
 
-        # If selected axis is now hidden, auto-select the first visible one
-        if self._selected_axis not in axis_list:
-            self._selected_axis = axis_list[0]
-            # Also update KV toggle button state: set first axis button to 'down'
-            first_btn_id = _AXIS_BTN_IDS.get(axis_list[0])
-            if first_btn_id:
-                first_btn = self.ids.get(first_btn_id)
-                if first_btn is not None:
-                    first_btn.state = "down"
+    # ── Mode toggle ──────────────────────────────────────────────────────────
 
-    # ── Axis selection ────────────────────────────────────────────────────────
+    def set_mode(self, mode: str) -> None:
+        """Switch between 'rest' and 'start' mode. Updates saved-value labels
+        and save button text/color."""
+        self._mode = mode
+        self._update_saved_labels()
+        self._update_save_button()
 
-    def select_axis(self, axis: str) -> None:
-        """Set the active axis shown in the main panel."""
-        self._selected_axis = axis
+    def _update_position_labels(self) -> None:
+        """Push pos_current values directly to KV label widgets.
+
+        KV expressions like root.pos_current.get('A') do NOT rebind when the
+        dict changes, so we must update the Label.text imperatively.
+        """
+        for axis in ("A", "B", "C", "D"):
+            lbl = self.ids.get(f"pos_{axis.lower()}")
+            if lbl:
+                lbl.text = self.pos_current.get(axis, "---")
+
+    def _update_saved_labels(self) -> None:
+        """Update the 'Saved Rest' / 'Saved Start' labels and values in each
+        axis row to match the current mode."""
+        label_text = "Saved Rest" if self._mode == "rest" else "Saved Start"
+        source = self.pos_rest if self._mode == "rest" else self.pos_start
+
+        for axis in ("A", "B", "C", "D"):
+            lbl = self.ids.get(f"saved_label_{axis.lower()}")
+            val = self.ids.get(f"saved_val_{axis.lower()}")
+            if lbl:
+                lbl.text = label_text
+            if val:
+                val.text = source.get(axis, "---")
+
+    def _update_save_button(self) -> None:
+        """Update save button text and color based on current mode."""
+        btn = self.ids.get("save_btn")
+        if not btn:
+            return
+        if self._mode == "rest":
+            btn.text = "SAVE AS REST POINTS"
+            btn.background_color = (0.031, 0.314, 0.471, 1)
+        else:
+            btn.text = "SAVE AS START POINTS"
+            btn.background_color = (0.031, 0.471, 0.188, 1)
 
     # ── Step size ─────────────────────────────────────────────────────────────
 
@@ -216,31 +267,66 @@ class AxesSetupScreen(Screen):
         if not self.controller or not self.controller.is_connected():
             return
 
-        cpm = self._axis_cpm.get(axis, AXIS_CPM_DEFAULTS.get(axis, 0.0))
+        if not self._cpm_ready:
+            print(f"[AxesSetup] Jog blocked — CPM not yet read from controller")
+            return
+
+        cpm = self._axis_cpm.get(axis, 0.0)
         if cpm <= 0:
+            print(f"[AxesSetup] Jog blocked — no CPM value for axis {axis}, _axis_cpm={self._axis_cpm}")
             return
 
         counts = int(direction * self._current_step_mm * cpm)
+        print(f"[AxesSetup] Jog {axis}: step={self._current_step_mm} * cpm={cpm} = {counts} counts")
         ctrl = self.controller
+
+        lbl_id = f"pos_{axis.lower()}"
+
+        def _push_pos(val_str):
+            """Push a position string to the single axis label on the main thread."""
+            def _update(*_):
+                self.pos_current[axis] = val_str
+                lbl = self.ids.get(lbl_id)
+                if lbl:
+                    lbl.text = val_str
+            Clock.schedule_once(_update)
 
         def do_jog():
             try:
                 ctrl.cmd(f"PR{axis}={counts}")
                 ctrl.cmd(f"BG{axis}")
-                # Read back new position after move command
-                raw = ctrl.cmd(f"MG _TD{axis}").strip()
-
-                def update_pos(*_):
+                # Poll position live while axis is moving, update label each tick
+                import time
+                for _ in range(60):  # up to 6 seconds max
+                    time.sleep(0.1)
                     try:
-                        self.pos_current[axis] = f"{float(raw):.1f}"
-                    except (ValueError, TypeError):
+                        raw = ctrl.cmd(f"MG _TD{axis}").strip()
+                        _push_pos(f"{float(raw):.1f}")
+                    except Exception:
                         pass
-
-                Clock.schedule_once(update_pos)
+                    try:
+                        bg_raw = ctrl.cmd(f"MG _BG{axis}").strip()
+                        if float(bg_raw) == 0:
+                            break  # motion complete
+                    except Exception:
+                        break
+                # Final position read after motion stopped
+                raw = ctrl.cmd(f"MG _TD{axis}").strip()
+                print(f"[AxesSetup] Jog {axis} final: MG _TD{axis} -> {raw}")
+                _push_pos(f"{float(raw):.1f}")
             except Exception as e:
                 print(f"[AxesSetup] Jog {axis} failed: {e}")
 
         jobs.submit(do_jog)
+
+    # ── Save ─────────────────────────────────────────────────────────────────
+
+    def save_points(self) -> None:
+        """Delegate to teach_rest_point or teach_start_point based on mode."""
+        if self._mode == "rest":
+            self.teach_rest_point()
+        else:
+            self.teach_start_point()
 
     # ── Teach ─────────────────────────────────────────────────────────────────
 
@@ -248,12 +334,10 @@ class AxesSetupScreen(Screen):
         """
         Capture active axis positions and store as rest points.
 
-        Reads positions only for axes in mc.get_axis_list() to avoid
-        controller errors on undefined variables (e.g. no D axis on Serration).
-
         1. Read MG _TD{axis} for each axis in mc.get_axis_list()
-        2. Write restPt{axis}=val for each axis in one semicolon-separated command
+        2. Write restPt{axis}=val in one semicolon-separated command
         3. Send BV to burn to NV memory
+        4. Read back to confirm
         Guard: skipped if cycle_running is True.
         """
         if self.state and self.state.cycle_running:
@@ -274,13 +358,11 @@ class AxesSetupScreen(Screen):
 
         def do_teach():
             try:
-                # Read positions for active axes only
                 vals: dict[str, int] = {}
                 for axis in axis_list:
                     raw = ctrl.cmd(f"MG _TD{axis}").strip()
                     vals[axis] = int(float(raw))
 
-                # Build write command for active axes only
                 parts = [f"restPt{axis}={vals[axis]}" for axis in axis_list]
                 write_cmd = ";".join(parts)
                 ctrl.cmd(write_cmd)
@@ -302,10 +384,12 @@ class AxesSetupScreen(Screen):
                         pass
 
                 def update_ui(*_):
-                    for axis, val in readback.items():
-                        self.pos_rest[axis] = val
-                    for axis, val in current.items():
-                        self.pos_current[axis] = val
+                    self.pos_rest.update(readback)
+                    self.pos_current.update(current)
+                    self._update_position_labels()
+                    # Refresh saved-value column if in rest mode
+                    if self._mode == "rest":
+                        self._update_saved_labels()
 
                 Clock.schedule_once(update_ui)
             except Exception as e:
@@ -317,12 +401,10 @@ class AxesSetupScreen(Screen):
         """
         Capture active axis positions and store as start points.
 
-        Reads positions only for axes in mc.get_axis_list() to avoid
-        controller errors on undefined variables (e.g. no D axis on Serration).
-
         1. Read MG _TD{axis} for each axis in mc.get_axis_list()
-        2. Write startPt{axis}=val for each axis in one semicolon-separated command
+        2. Write startPt{axis}=val in one semicolon-separated command
         3. Send BV to burn to NV memory
+        4. Read back to confirm
         Guard: skipped if cycle_running is True.
         """
         if self.state and self.state.cycle_running:
@@ -343,19 +425,16 @@ class AxesSetupScreen(Screen):
 
         def do_teach():
             try:
-                # Read positions for active axes only
                 vals: dict[str, int] = {}
                 for axis in axis_list:
                     raw = ctrl.cmd(f"MG _TD{axis}").strip()
                     vals[axis] = int(float(raw))
 
-                # Build write command for active axes only
                 parts = [f"startPt{axis}={vals[axis]}" for axis in axis_list]
                 write_cmd = ";".join(parts)
                 ctrl.cmd(write_cmd)
                 ctrl.cmd("BV")
 
-                # Read back from controller to confirm values were stored
                 readback: dict[str, str] = {}
                 current: dict[str, str] = {}
                 for axis in axis_list:
@@ -371,10 +450,12 @@ class AxesSetupScreen(Screen):
                         pass
 
                 def update_ui(*_):
-                    for axis, val in readback.items():
-                        self.pos_start[axis] = val
-                    for axis, val in current.items():
-                        self.pos_current[axis] = val
+                    self.pos_start.update(readback)
+                    self.pos_current.update(current)
+                    self._update_position_labels()
+                    # Refresh saved-value column if in start mode
+                    if self._mode == "start":
+                        self._update_saved_labels()
 
                 Clock.schedule_once(update_ui)
             except Exception as e:
@@ -413,13 +494,35 @@ class AxesSetupScreen(Screen):
 
     # ── Initial load ──────────────────────────────────────────────────────────
 
+    def _enter_setup_and_read(self) -> None:
+        """Fire hmiSetp=0 to enter setup mode, then read all initial values."""
+        ctrl = self.controller
+        if not ctrl or not ctrl.is_connected():
+            return
+        try:
+            ctrl.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}")
+            print(f"[AxesSetup] Fired {HMI_SETP}={HMI_TRIGGER_FIRE}")
+        except Exception as e:
+            print(f"[AxesSetup] Failed to fire hmiSetp: {e}")
+        self._read_initial_values()
+
+    @staticmethod
+    def _read_one(ctrl, command: str) -> str | None:
+        """Send a single MG command, return stripped response or None on error."""
+        try:
+            raw = ctrl.cmd(command).strip()
+            return raw
+        except Exception as e:
+            print(f"[AxesSetup] Read failed: {command} -> {e}")
+            return None
+
     def _read_initial_values(self) -> None:
         """
         Background job: one-time read of CPM, current positions, and taught
         rest/start points from controller. Called once on on_pre_enter.
 
-        Only reads for active axes (from mc.get_axis_list()) to avoid
-        controller errors on undefined variables.
+        Each value is read individually with its own cmd() call.
+        All reads are logged so misalignment can be debugged.
         """
         ctrl = self.controller
         if not ctrl or not ctrl.is_connected():
@@ -430,49 +533,71 @@ class AxesSetupScreen(Screen):
         except ValueError:
             axis_list = ["A", "B", "C", "D"]
 
-        # Read CPM values for each axis (attempt all — CPM vars exist on most machines)
-        cpm_updates = {}
+        rd = self._read_one
+
+        # ── 1. CPM values (all 4 axes) ───────────────────────────────────
+        # Only axes with a successful read get a CPM value.
+        # Axes that fail stay out of _axis_cpm so jog is blocked for them.
+        cpm_updates: dict[str, float] = {}
         for axis in ("A", "B", "C", "D"):
-            try:
-                raw = ctrl.cmd(f"MG cpm{axis}").strip()
-                val = float(raw)
-                if val > 0:
-                    cpm_updates[axis] = val
-            except Exception:
-                pass  # Keep default
+            raw = rd(ctrl, f"MG cpm{axis}")
+            if raw is not None:
+                try:
+                    val = float(raw)
+                    if val > 0:
+                        cpm_updates[axis] = val
+                    else:
+                        print(f"[AxesSetup] CPM {axis} returned {val} (not positive), jog blocked for this axis")
+                except (ValueError, TypeError):
+                    print(f"[AxesSetup] CPM {axis} parse failed: '{raw}', jog blocked for this axis")
+            else:
+                print(f"[AxesSetup] CPM {axis} read failed, jog blocked for this axis")
+        print(f"[AxesSetup] CPM values from controller: {cpm_updates}")
 
-        # Read current positions for active axes
-        current_updates: dict[str, str] = {}
-        for axis in axis_list:
-            try:
-                raw = ctrl.cmd(f"MG _TD{axis}").strip()
-                current_updates[axis] = f"{float(raw):.1f}"
-            except Exception:
-                pass
-
-        # Read existing rest/start points for active axes only
+        # ── 2. Rest points (active axes only) ────────────────────────────
         rest_updates: dict[str, str] = {}
+        for axis in axis_list:
+            raw = rd(ctrl, f"MG restPt{axis}")
+            if raw is not None:
+                try:
+                    rest_updates[axis] = f"{float(raw):.1f}"
+                except (ValueError, TypeError):
+                    pass
+        print(f"[AxesSetup] Rest points read: {rest_updates}")
+
+        # ── 3. Start points (active axes only) ───────────────────────────
         start_updates: dict[str, str] = {}
         for axis in axis_list:
-            try:
-                raw = ctrl.cmd(f"MG restPt{axis}").strip()
-                rest_updates[axis] = f"{float(raw):.1f}"
-            except Exception:
-                pass
-            try:
-                raw = ctrl.cmd(f"MG startPt{axis}").strip()
-                start_updates[axis] = f"{float(raw):.1f}"
-            except Exception:
-                pass
+            raw = rd(ctrl, f"MG startPt{axis}")
+            if raw is not None:
+                try:
+                    start_updates[axis] = f"{float(raw):.1f}"
+                except (ValueError, TypeError):
+                    pass
+        print(f"[AxesSetup] Start points read: {start_updates}")
+
+        # ── 4. Current positions LAST (active axes only) ─────────────────
+        # Read _TD last so it reflects the most up-to-date position
+        current_updates: dict[str, str] = {}
+        for axis in axis_list:
+            raw = rd(ctrl, f"MG _TD{axis}")
+            if raw is not None:
+                try:
+                    current_updates[axis] = f"{float(raw):.1f}"
+                except (ValueError, TypeError):
+                    pass
+        print(f"[AxesSetup] Current positions read: {current_updates}")
 
         def apply_updates(*_):
             self._axis_cpm.update(cpm_updates)
-            for axis, val in current_updates.items():
-                self.pos_current[axis] = val
-            for axis, val in rest_updates.items():
-                self.pos_rest[axis] = val
-            for axis, val in start_updates.items():
-                self.pos_start[axis] = val
+            self._cpm_ready = True
+            self.pos_current.update(current_updates)
+            self.pos_rest.update(rest_updates)
+            self.pos_start.update(start_updates)
+            # Push to KV labels imperatively (DictProperty doesn't rebind .get())
+            self._update_position_labels()
+            # Refresh the saved-value column with loaded data
+            self._update_saved_labels()
 
         Clock.schedule_once(apply_updates)
 

@@ -438,7 +438,15 @@ try:
         # ------------------------------------------------------------------
 
         def on_pre_enter(self, *args) -> None:
-            """Subscribe to state changes and update import button interlock."""
+            """Subscribe to state changes, fire hmiSetp, and update import button interlock."""
+            # Fire hmiSetp to tell controller we're in setup mode
+            if self.controller is not None:
+                try:
+                    from dmccodegui.hmi.dmc_vars import HMI_SETP, HMI_TRIGGER_FIRE
+                    self.controller.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}")
+                except Exception:
+                    pass
+
             if self.state is not None:
                 self._unsubscribe = self.state.subscribe(
                     lambda s: Clock.schedule_once(lambda *_: self._update_import_button())
@@ -446,7 +454,15 @@ try:
             self._update_import_button()
 
         def on_leave(self, *args) -> None:
-            """Unsubscribe from state changes when leaving the screen."""
+            """Unsubscribe from state changes and reset hmiSetp when leaving."""
+            # Reset hmiSetp=1 to exit setup mode
+            if self.controller is not None:
+                try:
+                    from dmccodegui.hmi.dmc_vars import HMI_SETP, HMI_TRIGGER_DEFAULT
+                    self.controller.cmd(f"{HMI_SETP}={HMI_TRIGGER_DEFAULT}")
+                except Exception:
+                    pass
+
             if self._unsubscribe is not None:
                 self._unsubscribe()
                 self._unsubscribe = None

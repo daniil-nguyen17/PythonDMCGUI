@@ -326,3 +326,102 @@ class TestValidateImport:
         assert errors == []
         # Reset
         mc.set_active_type("4-Axes Flat Grind")
+
+
+# ---------------------------------------------------------------------------
+# UI-01: motion_active gating on import button (ProfilesScreen._update_import_button)
+# ---------------------------------------------------------------------------
+
+class TestProfilesImportButtonGating:
+    """_update_import_button() gates on dmc_state (motion_active) not cycle_running."""
+
+    def _make_state(self, connected: bool, dmc_state: int):
+        """Create a minimal mock state object."""
+        from unittest.mock import MagicMock
+        state = MagicMock()
+        state.connected = connected
+        state.dmc_state = dmc_state
+        return state
+
+    def _make_btn(self):
+        """Create a mock button object."""
+        from unittest.mock import MagicMock
+        btn = MagicMock()
+        btn.disabled = False
+        btn.opacity = 1.0
+        return btn
+
+    def _make_screen(self, state, btn):
+        """Create a minimal ProfilesScreen-like object with patched ids."""
+        from unittest.mock import MagicMock
+        from dmccodegui.screens.profiles import ProfilesScreen
+        screen = ProfilesScreen.__new__(ProfilesScreen)
+        screen._unsubscribe = None
+        screen._pending_parsed = None
+        screen.state = state
+        screen.controller = None
+        # Patch ids to return the mock button
+        mock_ids = MagicMock()
+        mock_ids.import_btn = btn
+        screen.ids = mock_ids
+        return screen
+
+    def test_import_disabled_when_grinding(self):
+        """Import button is disabled when dmc_state=STATE_GRINDING and connected=True."""
+        from dmccodegui.hmi.dmc_vars import STATE_GRINDING
+        state = self._make_state(connected=True, dmc_state=STATE_GRINDING)
+        btn = self._make_btn()
+        screen = self._make_screen(state, btn)
+
+        screen._update_import_button()
+
+        assert btn.disabled is True, "Button should be disabled during GRINDING"
+        assert btn.opacity == pytest.approx(0.4), "Opacity should be 0.4 during GRINDING"
+
+    def test_import_disabled_when_homing(self):
+        """Import button is disabled when dmc_state=STATE_HOMING and connected=True."""
+        from dmccodegui.hmi.dmc_vars import STATE_HOMING
+        state = self._make_state(connected=True, dmc_state=STATE_HOMING)
+        btn = self._make_btn()
+        screen = self._make_screen(state, btn)
+
+        screen._update_import_button()
+
+        assert btn.disabled is True, "Button should be disabled during HOMING"
+        assert btn.opacity == pytest.approx(0.4), "Opacity should be 0.4 during HOMING"
+
+    def test_import_disabled_when_disconnected(self):
+        """Import button is disabled when connected=False."""
+        from dmccodegui.hmi.dmc_vars import STATE_IDLE
+        state = self._make_state(connected=False, dmc_state=STATE_IDLE)
+        btn = self._make_btn()
+        screen = self._make_screen(state, btn)
+
+        screen._update_import_button()
+
+        assert btn.disabled is True, "Button should be disabled when disconnected"
+        assert btn.opacity == pytest.approx(0.4), "Opacity should be 0.4 when disconnected"
+
+    def test_import_enabled_when_idle(self):
+        """Import button is enabled when dmc_state=STATE_IDLE and connected=True."""
+        from dmccodegui.hmi.dmc_vars import STATE_IDLE
+        state = self._make_state(connected=True, dmc_state=STATE_IDLE)
+        btn = self._make_btn()
+        screen = self._make_screen(state, btn)
+
+        screen._update_import_button()
+
+        assert btn.disabled is False, "Button should be enabled when IDLE and connected"
+        assert btn.opacity == pytest.approx(1.0), "Opacity should be 1.0 when IDLE"
+
+    def test_import_enabled_when_setup(self):
+        """Import button is enabled when dmc_state=STATE_SETUP and connected=True."""
+        from dmccodegui.hmi.dmc_vars import STATE_SETUP
+        state = self._make_state(connected=True, dmc_state=STATE_SETUP)
+        btn = self._make_btn()
+        screen = self._make_screen(state, btn)
+
+        screen._update_import_button()
+
+        assert btn.disabled is False, "Button should be enabled when SETUP and connected"
+        assert btn.opacity == pytest.approx(1.0), "Opacity should be 1.0 when SETUP"

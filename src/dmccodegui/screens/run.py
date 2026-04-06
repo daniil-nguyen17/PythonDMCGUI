@@ -217,9 +217,9 @@ class RunScreen(Screen):
             right: cycle status + axis positions), bottom action bar.
 
     Threading model:
-      - _update_clock() fires at 10 Hz on the Kivy main thread (Clock.schedule_interval)
-      - If controller is connected it submits _do_poll() to the background job thread
-      - _do_poll() posts UI updates back to main thread via Clock.schedule_once
+      - MachineState.subscribe() delivers state changes from the centralized poller
+      - _apply_state() is the single path for updating all Kivy properties
+      - Plot redraws run on a separate 5 Hz clock to protect E-STOP latency
 
     KV file: ui/run.kv
     """
@@ -229,6 +229,9 @@ class RunScreen(Screen):
     state: MachineState = ObjectProperty(None, allownone=True)  # type: ignore
 
     # Kivy properties — bound in run.kv
+    # NOTE: RunScreen.cycle_running is a Kivy BooleanProperty (for KV bindings/opacity).
+    # MachineState.cycle_running is a Python @property derived from dmc_state.
+    # These are distinct — _apply_state bridges the two.
     cycle_running = BooleanProperty(False)
     cycle_tooth = StringProperty("0")
     cycle_pass = StringProperty("0")
@@ -262,11 +265,20 @@ class RunScreen(Screen):
     bcomp_offsets = ListProperty([0.0])          # one offset per serration tooth
     selected_bcomp_value = StringProperty("0")   # display value for the selected bar
 
+    # Knife count display strings (Phase 10)
+    session_knife_count = StringProperty("0")
+    stone_knife_count = StringProperty("0")
+
+    # Disconnect banner (empty string = no banner visible)
+    disconnect_banner = StringProperty("")
+
     # -----------------------------------------------------------------------
     # Internal state
     # -----------------------------------------------------------------------
-    _update_clock_event = None
+    _state_unsub = None          # unsubscribe callable returned by MachineState.subscribe()
     _plot_clock_event = None
+    _disconnect_clock = None     # 1 Hz elapsed time updater for disconnect banner
+    _disconnect_t0: float | None = None   # monotonic time of disconnect start
     _plot_buf_x: deque = None  # type: ignore — initialized in __init__
     _plot_buf_y: deque = None  # type: ignore
     _fig = None
@@ -316,26 +328,37 @@ class RunScreen(Screen):
     def on_pre_enter(self, *args) -> None:
         """Called by Kivy when operator navigates to this screen.
 
-        Applies machine type widget visibility, reads CPM values once in the
-        background, then starts the 10 Hz poll loop.
-        Shows disconnected indicators immediately if no controller.
+        Applies machine type widget visibility, subscribes to MachineState for
+        live updates, and applies the current state immediately so values are
+        visible before the next poll fires.
         Also starts the 5 Hz plot redraw clock.
         """
         # Apply machine-type-specific widget visibility first
         self._apply_machine_type_widgets()
 
-        # Controller polling disabled — no program loaded yet.
-        self._show_disconnected()
-        # Start 10 Hz position poll (guarded — _update_clock checks is_connected)
-        self._update_clock_event = Clock.schedule_interval(self._update_clock, 1.0 / 10)
-        # Start 5 Hz plot redraw (separate from poll to protect E-STOP latency)
+        # Subscribe to MachineState — unsubscribe callable stored for on_leave
+        if self.state is not None:
+            self._state_unsub = self.state.subscribe(
+                lambda s: Clock.schedule_once(lambda *_: self._apply_state(s))
+            )
+            # Apply current state immediately (shows values without waiting for next poll)
+            self._apply_state(self.state)
+
+        # Start 5 Hz plot redraw (separate clock to protect E-STOP latency)
         self._plot_clock_event = Clock.schedule_interval(self._tick_plot, 1.0 / PLOT_UPDATE_HZ)
 
     def on_leave(self, *args) -> None:
-        """Called by Kivy when operator navigates away. Stops the poll loop and plot clock."""
-        if self._update_clock_event:
-            self._update_clock_event.cancel()
-            self._update_clock_event = None
+        """Called by Kivy when operator navigates away.
+
+        Unsubscribes from MachineState and cancels all clocks.
+        """
+        if self._state_unsub:
+            self._state_unsub()
+            self._state_unsub = None
+        if self._disconnect_clock:
+            self._disconnect_clock.cancel()
+            self._disconnect_clock = None
+            self._disconnect_t0 = None
         if self._plot_clock_event:
             self._plot_clock_event.cancel()
             self._plot_clock_event = None
@@ -379,81 +402,59 @@ class RunScreen(Screen):
             pos_d_row.opacity = 0.0 if serration else 1.0
 
     # -----------------------------------------------------------------------
-    # Polling loop
+    # State subscription handler
     # -----------------------------------------------------------------------
 
-    def _update_clock(self, dt: float) -> None:
-        """10 Hz Kivy clock callback. Submits background poll if connected."""
-        if not self.controller or not self.controller.is_connected():
-            self._show_disconnected()
-            return
-        jobs.submit(self._do_poll)
+    def _apply_state(self, s: MachineState) -> None:
+        """Main thread: apply MachineState to RunScreen Kivy properties.
 
-    def _do_poll(self) -> None:
-        """Background thread: read axis positions and cycle status from controller.
-
-        Posts results to main thread via Clock.schedule_once.
-        On Serration machines, reads bComp array data instead of deltaC.
-        On Flat/Convex machines, skips D-axis read is not needed — still reads D
-        for position display; the D row is hidden via opacity in the UI.
+        Called on every MachineState change notification. This is the single
+        path for updating all reactive Kivy properties on this screen.
         """
-        serration = False
-        try:
-            serration = mc.is_serration()
-        except ValueError:
-            pass
+        import time as _time
 
-        try:
-            pos: dict[str, float] = {}
-            axes_to_poll = ("A", "B", "C") if serration else ("A", "B", "C", "D")
-            for axis in axes_to_poll:
-                try:
-                    raw = self.controller.cmd(f"MG _TP{axis}")
-                    pos[axis] = float(raw.strip())
-                except Exception:
-                    pos[axis] = None  # type: ignore[assignment]
+        # Connection state
+        if s.connected:
+            # Clear disconnect banner and stop elapsed timer
+            if self.disconnect_banner:
+                self.disconnect_banner = ""
+            if self._disconnect_clock:
+                self._disconnect_clock.cancel()
+                self._disconnect_clock = None
+                self._disconnect_t0 = None
 
-            cycle: dict[str, object] = {}
-            if serration:
-                for var, key in (
-                    (CYCLE_VAR_TOOTH, "tooth"),
-                    (CYCLE_VAR_PASS, "pass"),
-                    (CYCLE_VAR_DEPTH, "depth"),
-                ):
+            # Axis positions — format as integer with comma thousands separator
+            for axis, prop in (("A", "pos_a"), ("B", "pos_b"), ("C", "pos_c"), ("D", "pos_d")):
+                val = s.pos.get(axis)
+                if val is not None:
                     try:
-                        raw = self.controller.cmd(f"MG {var}")
-                        cycle[key] = float(raw.strip())
-                    except Exception:
-                        cycle[key] = None
-
-            Clock.schedule_once(lambda *_: self._apply_ui(pos, cycle))
-
-        except Exception as e:
-            print(f"[RunScreen] Poll error: {e}")
-
-    def _apply_ui(self, pos: dict, cycle: dict) -> None:
-        """Main thread: update all reactive Kivy properties from poll results."""
-        serration = False
-        try:
-            serration = mc.is_serration()
-        except ValueError:
-            pass
-
-        # Axis positions — format as integer with comma thousands separator
-        for axis, prop in (("A", "pos_a"), ("B", "pos_b"), ("C", "pos_c"), ("D", "pos_d")):
-            val = pos.get(axis)
-            if val is None:
-                setattr(self, prop, "---")
-            else:
-                try:
-                    setattr(self, prop, f"{int(val):,}")
-                except (ValueError, TypeError):
+                        setattr(self, prop, f"{int(val):,}")
+                    except (ValueError, TypeError):
+                        setattr(self, prop, "---")
+                else:
                     setattr(self, prop, "---")
 
-        # Feed raw A/B positions to plot buffer (only during active cycle)
-        if self.cycle_running:
-            raw_a = pos.get("A")
-            raw_b = pos.get("B")
+            # Knife counts
+            self.session_knife_count = str(s.session_knife_count)
+            self.stone_knife_count = str(s.stone_knife_count)
+
+            # Cycle running from controller state (drives Kivy property for KV bindings)
+            self.cycle_running = s.cycle_running
+
+        else:
+            # Disconnected: freeze positions (don't overwrite with zeros)
+            # Start disconnect elapsed timer if not already running
+            if self._disconnect_clock is None:
+                self._disconnect_t0 = _time.monotonic()
+                self._tick_disconnect_banner(0)  # immediate first tick
+                self._disconnect_clock = Clock.schedule_interval(
+                    self._tick_disconnect_banner, 1.0
+                )
+
+        # Feed raw A/B to plot buffer during active cycle
+        if s.cycle_running and s.connected:
+            raw_a = s.pos.get("A")
+            raw_b = s.pos.get("B")
             if raw_a is not None and raw_b is not None:
                 try:
                     self._plot_buf_x.append(float(raw_a))
@@ -461,56 +462,15 @@ class RunScreen(Screen):
                 except (ValueError, TypeError):
                     pass
 
-        # Cycle completion percentage
-        pct = cycle.get("pct")
-        if pct is not None:
-            try:
-                pct_float = float(pct)
-                self.cycle_completion_pct = max(0.0, min(100.0, pct_float))
-            except (ValueError, TypeError):
-                pass
-
-        # Serration-specific fields
-        if serration:
-            tooth = cycle.get("tooth")
-            if tooth is not None:
-                try:
-                    self.cycle_tooth = str(int(float(tooth)))
-                except (ValueError, TypeError):
-                    pass
-
-            pass_num = cycle.get("pass")
-            if pass_num is not None:
-                try:
-                    self.cycle_pass = str(int(float(pass_num)))
-                except (ValueError, TypeError):
-                    pass
-
-            depth = cycle.get("depth")
-            if depth is not None:
-                try:
-                    self.cycle_depth = f"{float(depth):.2f}"
-                except (ValueError, TypeError):
-                    pass
-
-        # Elapsed time — derived from _cycle_start_time (set when cycle starts)
-        if self._cycle_start_time is not None and self.cycle_running:
-            elapsed_s = time.time() - self._cycle_start_time
-            self.cycle_elapsed = _format_mmss(elapsed_s)
-
-            # ETA: only meaningful when pct > 1% to avoid noise / div-by-zero
-            pct_val = self.cycle_completion_pct
-            if pct_val > 1.0:
-                eta_s = elapsed_s / pct_val * (100.0 - pct_val)
-                self.cycle_eta = _format_mmss(eta_s)
-            else:
-                self.cycle_eta = "--:--"
-        else:
-            if not self.cycle_running:
-                self.cycle_eta = "--:--"
+    def _tick_disconnect_banner(self, dt: float) -> None:
+        """1 Hz callback: update disconnect elapsed time banner."""
+        import time as _time
+        if self._disconnect_t0 is not None:
+            elapsed = int(_time.monotonic() - self._disconnect_t0)
+            self.disconnect_banner = f"DISCONNECTED ({elapsed}s)"
 
     def _show_disconnected(self) -> None:
-        """Show disconnected state: '---' for all positions, clear cycle values."""
+        """Show disconnected state: '---' for all positions."""
         self.pos_a = "---"
         self.pos_b = "---"
         self.pos_c = "---"
@@ -545,29 +505,6 @@ class RunScreen(Screen):
         self._ax.relim()
         self._ax.autoscale_view()
         self._fig.canvas.draw_idle()
-
-    def _read_cpm_values(self) -> None:
-        """Background thread: read CPM (counts per unit) for each axis.
-
-        CPM axis variables may not exist on 3-axis machines — catches silently.
-        Posts results back to main thread.
-        """
-        cpm: dict[str, str] = {}
-        for axis in ("A", "B", "C", "D"):
-            try:
-                raw = self.controller.cmd(f"MG cpm{axis}")
-                val = float(raw.strip())
-                cpm[axis] = f"{int(val):,} cts = 1 unit"
-            except Exception:
-                cpm[axis] = ""
-
-        def _apply_cpm(*_):
-            self.cpm_a = cpm.get("A", "")
-            self.cpm_b = cpm.get("B", "")
-            self.cpm_c = cpm.get("C", "")
-            self.cpm_d = cpm.get("D", "")
-
-        Clock.schedule_once(_apply_cpm)
 
     # -----------------------------------------------------------------------
     # Action handlers

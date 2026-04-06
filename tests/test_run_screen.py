@@ -125,19 +125,28 @@ def test_plot_buffer_properties():
 
 
 def test_plot_buffer_only_during_cycle():
-    """RUN-07: _apply_ui only appends to plot buffers when cycle_running is True."""
+    """RUN-07: _apply_state only appends to plot buffers when cycle is running and connected."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    import sys, os as _os
+    sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), '..', 'src'))
     from dmccodegui.screens.run import RunScreen
+    from dmccodegui.app_state import MachineState
+    from dmccodegui.hmi.dmc_vars import STATE_GRINDING, STATE_IDLE
+
     r = RunScreen()
-    # With cycle_running=False (default), buffer should stay empty
-    r.cycle_running = False
-    r._apply_ui({"A": 100.0, "B": 200.0}, {})
-    assert len(r._plot_buf_x) == 0, "Buffer should be empty when cycle_running is False"
-    assert len(r._plot_buf_y) == 0, "Buffer should be empty when cycle_running is False"
-    # With cycle_running=True, buffer should receive one entry
-    r.cycle_running = True
-    r._apply_ui({"A": 100.0, "B": 200.0}, {})
+
+    # With dmc_state=STATE_IDLE (not grinding), buffer should stay empty
+    s = MachineState(connected=True, dmc_state=STATE_IDLE,
+                     pos={"A": 100.0, "B": 200.0, "C": 0.0, "D": 0.0})
+    r._apply_state(s)
+    assert len(r._plot_buf_x) == 0, "Buffer should be empty when not grinding"
+    assert len(r._plot_buf_y) == 0, "Buffer should be empty when not grinding"
+
+    # With dmc_state=STATE_GRINDING and connected, buffer should receive one entry
+    s2 = MachineState(connected=True, dmc_state=STATE_GRINDING,
+                      pos={"A": 100.0, "B": 200.0, "C": 0.0, "D": 0.0})
+    r._apply_state(s2)
     assert len(r._plot_buf_x) == 1, f"Expected 1 entry in _plot_buf_x, got {len(r._plot_buf_x)}"
     assert len(r._plot_buf_y) == 1, f"Expected 1 entry in _plot_buf_y, got {len(r._plot_buf_y)}"
 

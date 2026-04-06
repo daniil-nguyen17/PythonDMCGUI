@@ -19,8 +19,8 @@ Requirements for Flat Grind HMI-controller integration. Each maps to roadmap pha
 ### State Polling
 
 - [x] **POLL-01**: HMI polls hmiState from controller at 10 Hz and updates MachineState.dmc_state
-- [ ] **POLL-02**: HMI polls axis positions (A, B, C, D) from controller and displays live values on Run page
-- [ ] **POLL-03**: HMI detects controller connection loss and displays disconnected status
+- [x] **POLL-02**: HMI polls axis positions (A, B, C, D) from controller and displays live values on Run page
+- [x] **POLL-03**: HMI detects controller connection loss and displays disconnected status
 - [x] **POLL-04**: HMI reads knife count (ctSesKni) from controller and displays on Run page
 
 ### Safety
@@ -117,8 +117,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DMC-05 | Phase 9 | Complete |
 | DMC-06 | Phase 9 | Complete |
 | POLL-01 | Phase 10 | Complete |
-| POLL-02 | Phase 10 | Pending |
-| POLL-03 | Phase 10 | Pending |
+| POLL-02 | Phase 10 | Complete |
+| POLL-03 | Phase 10 | Complete |
 | POLL-04 | Phase 10 | Complete |
 | SAFE-01 | Phase 11 | Pending |
 | SAFE-02 | Phase 11 | Pending |

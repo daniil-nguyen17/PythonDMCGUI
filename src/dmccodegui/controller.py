@@ -70,6 +70,7 @@ class GalilController:
         self._logger: Optional[callable] = None
         self._max_edges: int = MAX_EDGES_DEFAULT
         self._transport = None
+        self._address: str = ""
 
     #logging
     def set_logger(self, fn: Optional[callable]) -> None:
@@ -117,6 +118,7 @@ class GalilController:
         try:
             self._driver.GOpen(address)
             self._connected = True
+            self._address = address
             if self._logger:
                 try:
                     self._logger(f"Connected to: {address}")
@@ -145,6 +147,33 @@ class GalilController:
                 except Exception:
                     pass
    
+    def reset_handle(self, address: Optional[str] = None) -> bool:
+        """Close and reopen the gclib handle without going through a full disconnect/reconnect.
+
+        Used by E-STOP recovery path to reset controller state while preserving the
+        connection to the same address. Does NOT call disconnect() — the handle stays
+        associated with the same GalilController instance.
+
+        Args:
+            address: Controller address. If None, uses the last connected address.
+
+        Returns:
+            True on success (_connected stays/becomes True).
+            False on failure (_connected set to False).
+        """
+        addr = address or self._address
+        if not addr:
+            return False
+        try:
+            self._driver.GClose()
+            self._driver.GOpen(addr)
+            self._connected = True
+            return True
+        except Exception as e:
+            log.error("reset_handle error: %s", e)
+            self._connected = False
+            return False
+
     # used to check if connected in active paths
     def is_connected(self) -> bool:
         return self._connected

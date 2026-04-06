@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Dict, Optional
 
+from kivy.clock import Clock
 from kivy.properties import BooleanProperty, NumericProperty, ObjectProperty
 from kivy.uix.screenmanager import Screen
 
@@ -88,6 +89,8 @@ class ParametersScreen(Screen):
         self._dirty: Dict[str, str] = {}
         # Widget refs for border color updates {var_name: widget_ref}
         self._field_widgets: Dict[str, object] = {}
+        # Unsubscribe callback for state subscription (live apply button gating)
+        self._state_unsub = None
 
     # ---------------------------------------------------------------------------
     # Validation
@@ -180,8 +183,14 @@ class ParametersScreen(Screen):
             return
         if self.controller is None or not self.controller.is_connected():
             return
-        if self.state is not None and self.state.cycle_running:
-            return
+        if self.state is not None:
+            from dmccodegui.hmi.dmc_vars import STATE_GRINDING, STATE_HOMING
+            motion_active = (
+                not self.state.connected
+                or self.state.dmc_state in (STATE_GRINDING, STATE_HOMING)
+            )
+            if motion_active:
+                return
 
         # Snapshot dirty dict and param defs before background job
         dirty_snapshot = dict(self._dirty)
@@ -234,6 +243,34 @@ class ParametersScreen(Screen):
                 self._set_field_state(widget, 'valid')
 
         submit(_job)
+
+    # ---------------------------------------------------------------------------
+    # Apply button visual gate
+    # ---------------------------------------------------------------------------
+
+    def _update_apply_button(self) -> None:
+        """Disable Apply button when motion is active or disconnected."""
+        apply_btn = getattr(self, '_apply_btn', None)
+        if apply_btn is None:
+            # Try to find it via ids
+            try:
+                apply_btn = self.ids.get('apply_btn')
+            except Exception:
+                return
+            if apply_btn is None:
+                return
+        if self.state is None:
+            motion_active = False
+        else:
+            from dmccodegui.hmi.dmc_vars import STATE_GRINDING, STATE_HOMING
+            motion_active = (
+                not self.state.connected
+                or self.state.dmc_state in (STATE_GRINDING, STATE_HOMING)
+            )
+        # Only gate if not already role-gated (operator readonly makes it invisible)
+        if not (self.state is not None and not self.state.setup_unlocked):
+            apply_btn.disabled = motion_active
+            apply_btn.opacity = 0.4 if motion_active else 1.0
 
     # ---------------------------------------------------------------------------
     # Read from controller
@@ -375,6 +412,13 @@ class ParametersScreen(Screen):
                 except Exception:
                     pass
 
+        # Subscribe to state changes for live apply button gating
+        if self.state is not None:
+            self._state_unsub = self.state.subscribe(
+                lambda s: Clock.schedule_once(lambda *_: self._update_apply_button())
+            )
+        self._update_apply_button()
+
         self.read_from_controller()
 
     def on_leave(self, *args):
@@ -383,6 +427,11 @@ class ParametersScreen(Screen):
         Tab switches between axes_setup and parameters (sibling setup screens)
         do NOT fire exit-setup — this avoids spurious setup exit/re-enter cycles.
         """
+        # Unsubscribe from state changes
+        if self._state_unsub is not None:
+            self._state_unsub()
+            self._state_unsub = None
+
         next_screen = ""
         if self.manager:
             next_screen = self.manager.current

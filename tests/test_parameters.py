@@ -167,6 +167,7 @@ def test_apply_sends_dirty():
     """PARAM-06: apply_to_controller() sends controller.cmd('{var}={value}') for dirty params."""
     _setup_env()
     from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.hmi.dmc_vars import STATE_IDLE
 
     screen = ParametersScreen()
     mock_controller = MagicMock()
@@ -174,7 +175,8 @@ def test_apply_sends_dirty():
     mock_controller.cmd.return_value = '100.0'
     screen.controller = mock_controller
     screen.state = MagicMock()
-    screen.state.cycle_running = False
+    screen.state.connected = True
+    screen.state.dmc_state = STATE_IDLE
     screen._controller_vals = {p['var']: 100.0 for p in PARAM_DEFS}
 
     # Mark fdA as dirty
@@ -189,7 +191,8 @@ def test_apply_sends_dirty():
         job_fn = fn
 
     with patch('dmccodegui.screens.parameters.submit', side_effect=capture_job):
-        screen.apply_to_controller()
+        with patch('dmccodegui.screens.parameters.mc.get_param_defs', return_value=PARAM_DEFS):
+            screen.apply_to_controller()
 
     assert job_fn is not None, "apply_to_controller should submit a background job"
     job_fn()  # execute the job synchronously
@@ -207,6 +210,7 @@ def test_apply_burns_nv():
     """PARAM-06: apply_to_controller() sends BV after all writes."""
     _setup_env()
     from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.hmi.dmc_vars import STATE_IDLE
 
     screen = ParametersScreen()
     mock_controller = MagicMock()
@@ -214,7 +218,8 @@ def test_apply_burns_nv():
     mock_controller.cmd.return_value = '100.0'
     screen.controller = mock_controller
     screen.state = MagicMock()
-    screen.state.cycle_running = False
+    screen.state.connected = True
+    screen.state.dmc_state = STATE_IDLE
     screen._controller_vals = {p['var']: 100.0 for p in PARAM_DEFS}
     screen._dirty = {'fdA': '200.0'}
     screen.pending_count = 1
@@ -226,7 +231,8 @@ def test_apply_burns_nv():
         job_fn = fn
 
     with patch('dmccodegui.screens.parameters.submit', side_effect=capture_job):
-        screen.apply_to_controller()
+        with patch('dmccodegui.screens.parameters.mc.get_param_defs', return_value=PARAM_DEFS):
+            screen.apply_to_controller()
 
     job_fn()
 
@@ -244,6 +250,7 @@ def test_apply_reads_back():
     """PARAM-06: apply_to_controller() reads back params after BV."""
     _setup_env()
     from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.hmi.dmc_vars import STATE_IDLE
 
     screen = ParametersScreen()
     mock_controller = MagicMock()
@@ -251,7 +258,8 @@ def test_apply_reads_back():
     mock_controller.cmd.return_value = ' 100.0000 \r\n'
     screen.controller = mock_controller
     screen.state = MagicMock()
-    screen.state.cycle_running = False
+    screen.state.connected = True
+    screen.state.dmc_state = STATE_IDLE
     screen._controller_vals = {p['var']: 100.0 for p in PARAM_DEFS}
     screen._dirty = {'fdA': '200.0'}
     screen.pending_count = 1
@@ -263,7 +271,8 @@ def test_apply_reads_back():
         job_fn = fn
 
     with patch('dmccodegui.screens.parameters.submit', side_effect=capture_job):
-        screen.apply_to_controller()
+        with patch('dmccodegui.screens.parameters.mc.get_param_defs', return_value=PARAM_DEFS):
+            screen.apply_to_controller()
 
     job_fn()
 
@@ -273,17 +282,19 @@ def test_apply_reads_back():
     assert len(mg_calls) > 0, "Should have MG reads after BV"
 
 
-def test_apply_skips_when_cycle_running():
-    """PARAM-06: apply_to_controller() is a no-op when cycle is running."""
+def test_apply_skips_when_motion_active():
+    """PARAM-06: apply_to_controller() is a no-op when motion is active (GRINDING)."""
     _setup_env()
     from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.hmi.dmc_vars import STATE_GRINDING
 
     screen = ParametersScreen()
     mock_controller = MagicMock()
     mock_controller.is_connected.return_value = True
     screen.controller = mock_controller
     screen.state = MagicMock()
-    screen.state.cycle_running = True
+    screen.state.connected = True
+    screen.state.dmc_state = STATE_GRINDING
     screen._dirty = {'fdA': '200.0'}
     screen.pending_count = 1
 
@@ -292,7 +303,7 @@ def test_apply_skips_when_cycle_running():
     with patch('dmccodegui.screens.parameters.submit', side_effect=lambda fn, *a, **k: submitted.append(fn)):
         screen.apply_to_controller()
 
-    assert len(submitted) == 0, "Should not submit job when cycle is running"
+    assert len(submitted) == 0, "Should not submit job when motion is active (GRINDING)"
 
 
 # ---------------------------------------------------------------------------
@@ -321,7 +332,9 @@ def test_read_clears_dirty():
         job_fn = fn
 
     with patch('dmccodegui.screens.parameters.submit', side_effect=capture_job):
-        screen.read_from_controller()
+        with patch('dmccodegui.screens.parameters.mc.is_configured', return_value=True):
+            with patch('dmccodegui.screens.parameters.mc.get_param_defs', return_value=PARAM_DEFS):
+                screen.read_from_controller()
 
     assert job_fn is not None
     job_fn()
@@ -593,10 +606,16 @@ class TestParametersApplyMotionGating:
     """apply_to_controller() uses motion_active gate (dmc_state) not cycle_running."""
 
     def _run_apply(self, screen):
-        """Run apply_to_controller() and return submitted jobs list."""
+        """Run apply_to_controller() and return submitted jobs list.
+
+        Patches mc.get_param_defs so apply_to_controller() can proceed past the
+        guard (when motion_active=False) without requiring machine_config init.
+        """
+        from dmccodegui.screens.parameters import PARAM_DEFS
         submitted = []
         with patch('dmccodegui.screens.parameters.submit', side_effect=lambda fn, *a, **k: submitted.append(fn)):
-            screen.apply_to_controller()
+            with patch('dmccodegui.screens.parameters.mc.get_param_defs', return_value=PARAM_DEFS):
+                screen.apply_to_controller()
         return submitted
 
     def test_apply_skips_when_grinding(self):

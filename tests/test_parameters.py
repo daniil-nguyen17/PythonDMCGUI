@@ -552,3 +552,169 @@ def test_exit_skips_to_sibling_setup_screen():
     calls = [c[0][0] for c in mock_controller.cmd.call_args_list]
     assert not any('hmiExSt=0' in s for s in calls), \
         f"Should NOT send hmiExSt=0 when navigating to sibling setup screen, got: {calls}"
+
+
+# ---------------------------------------------------------------------------
+# UI-01: motion_active gating on Parameters Apply button
+# ---------------------------------------------------------------------------
+
+def _make_state_with_dmc(connected: bool, dmc_state: int):
+    """Create a mock state with connected and dmc_state fields."""
+    state = MagicMock()
+    state.connected = connected
+    state.dmc_state = dmc_state
+    # cycle_running is derived from dmc_state == STATE_GRINDING
+    from dmccodegui.hmi.dmc_vars import STATE_GRINDING
+    state.cycle_running = (dmc_state == STATE_GRINDING)
+    return state
+
+
+def _make_apply_screen_with_state(connected: bool, dmc_state: int):
+    """Create a ParametersScreen with a mock state configured for motion_active tests.
+
+    The screen has one dirty param (fdA) and a connected mock controller.
+    """
+    _setup_env()
+    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+
+    screen = ParametersScreen()
+    mock_controller = MagicMock()
+    mock_controller.is_connected.return_value = True
+    mock_controller.cmd.return_value = '100.0'
+    screen.controller = mock_controller
+    screen.state = _make_state_with_dmc(connected=connected, dmc_state=dmc_state)
+    screen._controller_vals = {p['var']: 100.0 for p in PARAM_DEFS}
+    screen._dirty = {'fdA': '200.0'}
+    screen.pending_count = 1
+    return screen, mock_controller
+
+
+class TestParametersApplyMotionGating:
+    """apply_to_controller() uses motion_active gate (dmc_state) not cycle_running."""
+
+    def _run_apply(self, screen):
+        """Run apply_to_controller() and return submitted jobs list."""
+        submitted = []
+        with patch('dmccodegui.screens.parameters.submit', side_effect=lambda fn, *a, **k: submitted.append(fn)):
+            screen.apply_to_controller()
+        return submitted
+
+    def test_apply_skips_when_grinding(self):
+        """apply_to_controller() does not submit job when dmc_state=STATE_GRINDING."""
+        from dmccodegui.hmi.dmc_vars import STATE_GRINDING
+        screen, _ = _make_apply_screen_with_state(connected=True, dmc_state=STATE_GRINDING)
+
+        submitted = self._run_apply(screen)
+
+        assert len(submitted) == 0, \
+            "Should not submit job when dmc_state=STATE_GRINDING"
+
+    def test_apply_skips_when_homing(self):
+        """apply_to_controller() does not submit job when dmc_state=STATE_HOMING."""
+        from dmccodegui.hmi.dmc_vars import STATE_HOMING
+        screen, _ = _make_apply_screen_with_state(connected=True, dmc_state=STATE_HOMING)
+
+        submitted = self._run_apply(screen)
+
+        assert len(submitted) == 0, \
+            "Should not submit job when dmc_state=STATE_HOMING"
+
+    def test_apply_skips_when_disconnected(self):
+        """apply_to_controller() does not submit job when connected=False."""
+        from dmccodegui.hmi.dmc_vars import STATE_IDLE
+        screen, _ = _make_apply_screen_with_state(connected=False, dmc_state=STATE_IDLE)
+
+        submitted = self._run_apply(screen)
+
+        assert len(submitted) == 0, \
+            "Should not submit job when disconnected"
+
+    def test_apply_proceeds_when_idle(self):
+        """apply_to_controller() submits job when dmc_state=STATE_IDLE and connected."""
+        from dmccodegui.hmi.dmc_vars import STATE_IDLE
+        screen, _ = _make_apply_screen_with_state(connected=True, dmc_state=STATE_IDLE)
+
+        submitted = self._run_apply(screen)
+
+        assert len(submitted) == 1, \
+            "Should submit job when dmc_state=STATE_IDLE and connected"
+
+    def test_apply_proceeds_when_setup(self):
+        """apply_to_controller() submits job when dmc_state=STATE_SETUP and connected."""
+        from dmccodegui.hmi.dmc_vars import STATE_SETUP
+        screen, _ = _make_apply_screen_with_state(connected=True, dmc_state=STATE_SETUP)
+
+        submitted = self._run_apply(screen)
+
+        assert len(submitted) == 1, \
+            "Should submit job when dmc_state=STATE_SETUP and connected"
+
+
+class TestParametersUpdateApplyButton:
+    """_update_apply_button() visually gates Apply button based on motion_active."""
+
+    def _make_screen_with_apply_btn(self, connected: bool, dmc_state: int):
+        """Create a ParametersScreen with a mock apply button."""
+        _setup_env()
+        from dmccodegui.screens.parameters import ParametersScreen
+
+        screen = ParametersScreen()
+        screen.state = _make_state_with_dmc(connected=connected, dmc_state=dmc_state)
+        # Inject mock apply button via _apply_btn attribute
+        mock_btn = MagicMock()
+        mock_btn.disabled = False
+        mock_btn.opacity = 1.0
+        screen._apply_btn = mock_btn
+        # setup_unlocked = True so role gate doesn't interfere
+        screen.state.setup_unlocked = True
+        return screen, mock_btn
+
+    def test_apply_btn_disabled_when_grinding(self):
+        """_update_apply_button() disables apply button when dmc_state=STATE_GRINDING."""
+        from dmccodegui.hmi.dmc_vars import STATE_GRINDING
+        screen, btn = self._make_screen_with_apply_btn(connected=True, dmc_state=STATE_GRINDING)
+
+        screen._update_apply_button()
+
+        assert btn.disabled is True, "Apply button should be disabled during GRINDING"
+        assert btn.opacity == pytest.approx(0.4), "Apply button opacity should be 0.4 during GRINDING"
+
+    def test_apply_btn_disabled_when_homing(self):
+        """_update_apply_button() disables apply button when dmc_state=STATE_HOMING."""
+        from dmccodegui.hmi.dmc_vars import STATE_HOMING
+        screen, btn = self._make_screen_with_apply_btn(connected=True, dmc_state=STATE_HOMING)
+
+        screen._update_apply_button()
+
+        assert btn.disabled is True, "Apply button should be disabled during HOMING"
+        assert btn.opacity == pytest.approx(0.4), "Apply button opacity should be 0.4 during HOMING"
+
+    def test_apply_btn_disabled_when_disconnected(self):
+        """_update_apply_button() disables apply button when connected=False."""
+        from dmccodegui.hmi.dmc_vars import STATE_IDLE
+        screen, btn = self._make_screen_with_apply_btn(connected=False, dmc_state=STATE_IDLE)
+
+        screen._update_apply_button()
+
+        assert btn.disabled is True, "Apply button should be disabled when disconnected"
+        assert btn.opacity == pytest.approx(0.4), "Apply button opacity should be 0.4 when disconnected"
+
+    def test_apply_btn_enabled_when_idle(self):
+        """_update_apply_button() enables apply button when dmc_state=STATE_IDLE and connected."""
+        from dmccodegui.hmi.dmc_vars import STATE_IDLE
+        screen, btn = self._make_screen_with_apply_btn(connected=True, dmc_state=STATE_IDLE)
+
+        screen._update_apply_button()
+
+        assert btn.disabled is False, "Apply button should be enabled when IDLE and connected"
+        assert btn.opacity == pytest.approx(1.0), "Apply button opacity should be 1.0 when IDLE"
+
+    def test_apply_btn_enabled_when_setup(self):
+        """_update_apply_button() enables apply button when dmc_state=STATE_SETUP and connected."""
+        from dmccodegui.hmi.dmc_vars import STATE_SETUP
+        screen, btn = self._make_screen_with_apply_btn(connected=True, dmc_state=STATE_SETUP)
+
+        screen._update_apply_button()
+
+        assert btn.disabled is False, "Apply button should be enabled when SETUP and connected"
+        assert btn.opacity == pytest.approx(1.0), "Apply button opacity should be 1.0 when SETUP"

@@ -189,11 +189,28 @@ IF (@IN[26] = 0) | (hmiCalc = 0)
   JS #W_REL
 ENDIF
 
-' --- BUTTON 32: RETURN TO MAIN ---
-IF (@IN[32] = 0)
+' --- HMI: GO TO REST ---
+IF (hmiGoRs = 0)
+  hmiGoRs = 1
+  MG "HMI: GOING TO REST"
+  JS #GOREST
+  JS #W_REL
+ENDIF
+
+' --- HMI: GO TO START ---
+IF (hmiGoSt = 0)
+  hmiGoSt = 1
+  MG "HMI: GOING TO START"
+  JS #GOSTR
+  JS #W_REL
+ENDIF
+
+' --- BUTTON 32 OR HMI EXIT SETUP ---
+IF (@IN[32] = 0) | (hmiExSt = 0)
+  hmiExSt = 1
   MG "RETURNING TO MAIN MENU"
   JS #W_REL
-  EN;                      
+  EN;
 ENDIF
 
 WT 100
@@ -487,6 +504,9 @@ idx      = 0
 ' --- HMI trigger variables (default=1, send 0 to trigger) ---
 hmiGrnd = 1;  hmiSetp = 1;  hmiMore = 1;  hmiLess = 1
 hmiNewS = 1;  hmiHome = 1;  hmiJog  = 1;  hmiCalc = 1
+hmiGoRs = 1;   ' HMI trigger: go to rest position (in setup)
+hmiGoSt = 1;   ' HMI trigger: go to start position (in setup)
+hmiExSt = 1;   ' HMI trigger: exit setup, return to #MAIN
 ' --- Machine state (1=IDLE 2=GRINDING 3=SETUP 4=HOMING) ---
 hmiState = 1
 ' --- Position scalars (4 axes, unused hold 0) ---

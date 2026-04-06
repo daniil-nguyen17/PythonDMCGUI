@@ -70,9 +70,9 @@ Full context: `.planning/phases/08-CONTEXT.md`
   5. App closes cleanly without leaving a dangling gclib handle — verified by successfully opening a new connection immediately after a forced close
 **Plans:** 3/3 plans complete
 Plans:
-- [ ] 09-01-PLAN.md — Create hmi/dmc_vars.py constants module and MachineState.dmc_state field
-- [ ] 09-02-PLAN.md — Modify DMC program: HMI variables, OR conditions, hmiState, array-to-scalar conversion
-- [ ] 09-03-PLAN.md — Migrate 4 Python screen files from stale array ops to dmc_vars constants
+- [x] 09-01-PLAN.md — Create hmi/dmc_vars.py constants module and MachineState.dmc_state field
+- [x] 09-02-PLAN.md — Modify DMC program: HMI variables, OR conditions, hmiState, array-to-scalar conversion
+- [x] 09-03-PLAN.md — Migrate 4 Python screen files from stale array ops to dmc_vars constants
 
 ### Phase 10: State Poll
 **Goal**: The HMI reads authoritative state from the controller on every poll tick — axis positions display real values, connection loss is detected, and knife count reflects controller data — all verified against the real controller before any write commands are sent.
@@ -83,7 +83,11 @@ Plans:
   2. Disconnecting the controller network cable causes a visible disconnected status on the HMI within 2 seconds — no crash, no freeze
   3. Reconnecting the cable (or restarting the controller) causes the HMI to resume polling without an app restart
   4. The knife count label on the Run page shows the same value as ctSesKni queried directly from the DMC terminal
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 10-01-PLAN.md — Extend dmc_vars.py, MachineState, and DMC program with knife count + Thread 2
+- [ ] 10-02-PLAN.md — Create ControllerPoller module and wire into app lifecycle
+- [ ] 10-03-PLAN.md — Migrate RunScreen to MachineState subscription, add knife count and disconnect UI
 
 ### Phase 11: E-STOP Safety
 **Goal**: The stop path halts motion within 200 ms from any screen, is never queued behind normal controller jobs, and all motion-triggering buttons are gated on real controller state — validated on hardware before any motion commands are wired.
@@ -148,8 +152,8 @@ Plans:
 | 6. Machine-Type Differentiation | v1.0 | 3/3 | Complete | 2026-04-04 |
 | 7. Admin and User Management | v1.0 | 2/2 | Complete | 2026-04-06 |
 | 8. Pi Kiosk and Deployment | v1.1 | 0/TBD | Deferred | - |
-| 9. DMC Foundation | 3/3 | Complete   | 2026-04-06 | - |
-| 10. State Poll | v2.0 | 0/TBD | Not started | - |
+| 9. DMC Foundation | v2.0 | 3/3 | Complete | 2026-04-06 |
+| 10. State Poll | v2.0 | 0/3 | Not started | - |
 | 11. E-STOP Safety | v2.0 | 0/TBD | Not started | - |
 | 12. Run Page Wiring | v2.0 | 0/TBD | Not started | - |
 | 13. Setup Loop | v2.0 | 0/TBD | Not started | - |

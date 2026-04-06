@@ -152,21 +152,27 @@ def test_plot_buffer_only_during_cycle():
 
 
 def test_trail_clears_on_start():
-    """RUN-07: on_start_pause_toggle('down') clears both plot buffers."""
+    """RUN-07: on_start_grind() clears both plot buffers immediately."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from unittest.mock import MagicMock, patch
     from dmccodegui.screens.run import RunScreen
+    from dmccodegui.controller import GalilController
     r = RunScreen()
+    mock_ctrl = MagicMock(spec=GalilController)
+    mock_ctrl.is_connected.return_value = True
+    r.controller = mock_ctrl
     # Manually add data to buffers
     r._plot_buf_x.append(1.0)
     r._plot_buf_x.append(2.0)
     r._plot_buf_y.append(10.0)
     r._plot_buf_y.append(20.0)
     assert len(r._plot_buf_x) == 2, "Pre-condition: buffer should have 2 entries"
-    # Trigger start — controller is None so background job will fail silently
-    r.on_start_pause_toggle("down")
-    assert len(r._plot_buf_x) == 0, "_plot_buf_x must be cleared on Start"
-    assert len(r._plot_buf_y) == 0, "_plot_buf_y must be cleared on Start"
+    # Trigger start
+    with patch('dmccodegui.utils.jobs.submit'):
+        r.on_start_grind()
+    assert len(r._plot_buf_x) == 0, "_plot_buf_x must be cleared on on_start_grind"
+    assert len(r._plot_buf_y) == 0, "_plot_buf_y must be cleared on on_start_grind"
 
 
 # ---------------------------------------------------------------------------
@@ -321,10 +327,14 @@ def test_start_grind_clears_plot_buffers():
     """RUN-07: on_start_grind() clears both plot buffers immediately."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
-    from unittest.mock import patch
+    from unittest.mock import MagicMock, patch
     from dmccodegui.screens.run import RunScreen
+    from dmccodegui.controller import GalilController
 
     r = RunScreen()
+    mock_ctrl = MagicMock(spec=GalilController)
+    mock_ctrl.is_connected.return_value = True
+    r.controller = mock_ctrl
     # Manually add data to buffers
     r._plot_buf_x.append(1.0)
     r._plot_buf_x.append(2.0)

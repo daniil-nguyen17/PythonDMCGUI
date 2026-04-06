@@ -22,7 +22,10 @@ import kivy_matplotlib_widget  # noqa: F401 — registers MatplotFigure in Kivy 
 
 from ..app_state import MachineState
 from ..controller import GalilController
-from ..hmi.dmc_vars import STATE_GRINDING, STATE_HOMING
+from ..hmi.dmc_vars import (
+    STATE_GRINDING, STATE_HOMING,
+    HMI_GRND, HMI_MORE, HMI_LESS, HMI_TRIGGER_FIRE, STARTPT_C,
+)
 from ..utils import jobs
 import dmccodegui.machine_config as mc
 
@@ -531,75 +534,119 @@ class RunScreen(Screen):
         from ..utils.jobs import submit_urgent
         submit_urgent(do_stop)
 
-    def on_start_pause_toggle(self, btn_state: str) -> None:
-        """Handle Start/Pause ToggleButton press.
+    def on_start_grind(self) -> None:
+        """Send hmiGrnd=0 via jobs.submit to start/continue grinding cycle.
 
-        Parameters
-        ----------
-        btn_state : str — Kivy ToggleButton state: 'down' = START pressed,
-                          'normal' = PAUSE (was running, now pausing).
+        Clears the A/B position plot trail so each cycle gets a fresh view.
+        Uses the HMI one-shot trigger pattern — never XQ direct calls.
         """
-        if btn_state == "down":
-            # Clear plot trail for fresh cycle view
-            self._plot_buf_x.clear()
-            self._plot_buf_y.clear()
-            if self._plot_line is not None:
-                self._plot_line.set_data([], [])
-                if self._fig and self._fig.canvas:
-                    self._fig.canvas.draw_idle()
+        if not self.controller or not self.controller.is_connected():
+            return
 
-            # START — begin cycle
-            self._cycle_start_time = time.time()
-            self.cycle_running = True
-            self.cycle_elapsed = "00:00"
-            self.cycle_eta = "--:--"
-            self.cycle_completion_pct = 0
+        # Clear plot trail for fresh cycle view (main thread — safe)
+        self._plot_buf_x.clear()
+        self._plot_buf_y.clear()
+        if self._plot_line is not None:
+            self._plot_line.set_data([], [])
+            if self._fig and self._fig.canvas:
+                self._fig.canvas.draw_idle()
 
-            def _start_cycle():
-                try:
-                    self.controller.cmd("XQ #CYCLE")
-                except Exception as e:
-                    print(f"[RunScreen] Start cycle error: {e}")
-                    Clock.schedule_once(lambda *_: self._alert(f"Start failed: {e}"))
-
-            jobs.submit(_start_cycle)
-        else:
-            # PAUSE — halt execution
-            self.cycle_running = False
-
-            def _pause_cycle():
-                try:
-                    self.controller.cmd("HX")
-                except Exception as e:
-                    print(f"[RunScreen] Pause cycle error: {e}")
-                    Clock.schedule_once(lambda *_: self._alert(f"Pause failed: {e}"))
-
-            jobs.submit(_pause_cycle)
-
-    def on_go_to_rest(self) -> None:
-        """Handle Go to Rest button press.
-
-        Sends the REST command and resets the toggle button state.
-        """
-        # Reset toggle button to 'normal' (not pressed) state
-        try:
-            btn = self.ids.get("start_pause_btn")
-            if btn:
-                btn.state = "normal"
-        except Exception:
-            pass
-
-        self.cycle_running = False
-
-        def _go_rest():
+        def _fire():
             try:
-                self.controller.cmd("XQ #REST")
+                self.controller.cmd(f"{HMI_GRND}={HMI_TRIGGER_FIRE}")
             except Exception as e:
-                print(f"[RunScreen] Go to rest error: {e}")
-                Clock.schedule_once(lambda *_: self._alert(f"Go to rest failed: {e}"))
+                Clock.schedule_once(lambda *_: self._alert(f"Start failed: {e}"))
 
-        if self.controller and self.controller.is_connected():
-            jobs.submit(_go_rest)
+        jobs.submit(_fire)
+
+    def on_more_stone(self) -> None:
+        """Send hmiMore=0 with startPtC readback (before/after 400ms delay).
+
+        Reads startPtC before firing the trigger, sleeps 400ms for the DMC
+        #MOREGRI subroutine to complete, then reads startPtC after to confirm
+        the position change. Posts a human-readable before/after alert.
+        """
+        if not self.controller or not self.controller.is_connected():
+            return
+
+        ctrl = self.controller
+
+        def _fire():
+            import time as _time
+            before: float | None = None
+            after: float | None = None
+            try:
+                before_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
+                before = float(before_raw)
+            except Exception:
+                pass
+
+            try:
+                ctrl.cmd(f"{HMI_MORE}={HMI_TRIGGER_FIRE}")
+            except Exception as e:
+                Clock.schedule_once(lambda *_: self._alert(f"More stone failed: {e}"))
+                return
+
+            _time.sleep(0.4)
+
+            try:
+                after_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
+                after = float(after_raw)
+            except Exception:
+                pass
+
+            if before is not None and after is not None:
+                Clock.schedule_once(
+                    lambda *_: self._alert(f"Stone +: startPtC {before:,.0f} -> {after:,.0f}")
+                )
+            else:
+                Clock.schedule_once(lambda *_: self._alert("Stone compensation applied"))
+
+        jobs.submit(_fire)
+
+    def on_less_stone(self) -> None:
+        """Send hmiLess=0 with startPtC readback (before/after 400ms delay).
+
+        Mirror of on_more_stone but fires HMI_LESS and prefixes the alert
+        with "Stone -:".
+        """
+        if not self.controller or not self.controller.is_connected():
+            return
+
+        ctrl = self.controller
+
+        def _fire():
+            import time as _time
+            before: float | None = None
+            after: float | None = None
+            try:
+                before_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
+                before = float(before_raw)
+            except Exception:
+                pass
+
+            try:
+                ctrl.cmd(f"{HMI_LESS}={HMI_TRIGGER_FIRE}")
+            except Exception as e:
+                Clock.schedule_once(lambda *_: self._alert(f"Less stone failed: {e}"))
+                return
+
+            _time.sleep(0.4)
+
+            try:
+                after_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
+                after = float(after_raw)
+            except Exception:
+                pass
+
+            if before is not None and after is not None:
+                Clock.schedule_once(
+                    lambda *_: self._alert(f"Stone -: startPtC {before:,.0f} -> {after:,.0f}")
+                )
+            else:
+                Clock.schedule_once(lambda *_: self._alert("Stone compensation applied"))
+
+        jobs.submit(_fire)
 
     # -----------------------------------------------------------------------
     # Delta-C (Knife Grind Adjustment) — Flat/Convex machines

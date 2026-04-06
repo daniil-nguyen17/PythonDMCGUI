@@ -32,6 +32,7 @@ try:
     from . import screens as _screens  # noqa: F401 - ensure screen classes are registered with Factory
     from .screens.pin_overlay import PINOverlay
     from .theme_manager import theme as app_theme
+    from .hmi.poll import ControllerPoller
     import dmccodegui.machine_config as mc
 except Exception:  # Allows running as a script: python src/dmccodegui/main.py
     from dmccodegui.app_state import MachineState
@@ -41,6 +42,7 @@ except Exception:  # Allows running as a script: python src/dmccodegui/main.py
     import dmccodegui.screens as _screens  # type: ignore  # noqa: F401
     from dmccodegui.screens.pin_overlay import PINOverlay
     from dmccodegui.theme_manager import theme as app_theme
+    from dmccodegui.hmi.poll import ControllerPoller
     import dmccodegui.machine_config as mc
 
 
@@ -69,6 +71,7 @@ class DMCApp(App):
         self.state = MachineState()
         self.controller = GalilController()
         self._poll_cancel = None
+        self._poller = None
         self._idle_event = None
         # AuthManager — path resolved at __init__ time so tests can override
         users_path = os.path.join(
@@ -142,8 +145,7 @@ class DMCApp(App):
         # Set initial screen to setup (connection screen)
         sm.current = 'setup'
 
-        # Start periodic poll (disabled for now to prevent spam)
-        # self._poll_cancel = jobs.schedule(1.0, self._poll_controller)
+        # Polling is handled by ControllerPoller (started when controller connects)
 
         # Hook controller logger to push messages into state and show banner
         self.controller.set_logger(lambda msg: Clock.schedule_once(lambda *_: self._log_message(msg)))
@@ -151,6 +153,7 @@ class DMCApp(App):
         # Detect pre-existing connection (e.g., controller opened by previous run)
         if self.controller.verify_connection():
             self.state.set_connected(True)
+            self._start_poller()
             # Connection present — show machine type picker first if not configured,
             # then PIN overlay. Use callback chaining to guarantee order.
             Clock.schedule_once(lambda *_: self._show_startup_flow(), 0)
@@ -165,6 +168,7 @@ class DMCApp(App):
                         if ok:
                             self.state.connected_address = addr
                             self.state.log(f"Connected to: {addr}")
+                            self._start_poller()
                             # Auto-connect succeeded — startup flow (picker then PIN)
                             Clock.schedule_once(lambda *_: self._show_startup_flow(), 0)
                         else:
@@ -318,6 +322,7 @@ class DMCApp(App):
 
     def _on_connect_from_setup(self) -> None:
         """Called when setup screen successfully connects. Show picker then PIN overlay."""
+        self._start_poller()
         Clock.schedule_once(lambda *_: self._show_startup_flow(), 0)
 
     # ------------------------------------------------------------------
@@ -346,7 +351,22 @@ class DMCApp(App):
                 pass
 
     # ------------------------------------------------------------------
-    # Controller poll
+    # Centralized controller poller (Phase 10)
+    # ------------------------------------------------------------------
+
+    def _start_poller(self) -> None:
+        """Create and start the ControllerPoller if not already running."""
+        if self._poller is None:
+            self._poller = ControllerPoller(self.controller, self.state)
+        self._poller.start()
+
+    def _stop_poller(self) -> None:
+        """Stop the ControllerPoller if it is running."""
+        if self._poller:
+            self._poller.stop()
+
+    # ------------------------------------------------------------------
+    # Controller poll (legacy — disabled; centralized poller handles this now)
     # ------------------------------------------------------------------
 
     def _poll_controller(self) -> None:
@@ -364,6 +384,7 @@ class DMCApp(App):
     def on_stop(self):
         if self._poll_cancel:
             self._poll_cancel()
+        self._stop_poller()
         if self._idle_event:
             self._idle_event.cancel()
         jobs.shutdown()
@@ -386,6 +407,7 @@ class DMCApp(App):
             pass
 
     def disconnect_and_refresh(self) -> None:
+        self._stop_poller()
         def do_disc():
             self.controller.disconnect()
             def on_ui():

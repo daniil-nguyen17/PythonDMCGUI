@@ -138,6 +138,7 @@ class GalilController:
             pass
         finally:
             self._connected = False
+            self._driver = None  # allow connect() to create a fresh handle on reconnect
             if self._logger:
                 try:
                     self._logger("Disconnected")
@@ -194,7 +195,9 @@ class GalilController:
             raise RuntimeError("No controller connected")
         try:
             # Completely suppress debug output for status polling commands
-            is_status_command = (command.startswith("MG _TP") or command.startswith("MG _TS"))
+            # Also suppress poller-frequency MG commands to avoid 10 Hz log flood
+            is_status_command = (command.startswith("MG _TP") or command.startswith("MG _TS")
+                                 or command.startswith("MG hmi") or command.startswith("MG ct"))
             if not is_status_command:
                 print(f"[CTRL] Sending command: {command}")
             resp = self._driver.GCommand(command)

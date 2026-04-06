@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Axes Setup and Parameters** - Unified jog/teach screen and grouped parameter editor for Setup role (completed 2026-04-04)
 - [x] **Phase 5: CSV Profile System** - Safe import/export of knife profiles with machine-type validation (completed 2026-04-04)
 - [x] **Phase 6: Machine-Type Differentiation** - Full support for Flat Grind, Convex Grind, and Serration Grind variants (completed 2026-04-04)
-- [ ] **Phase 7: Admin and User Management** - Admin screen for user CRUD and PIN assignment
+- [x] **Phase 7: Admin and User Management** - Admin screen for user CRUD and PIN assignment (completed 2026-04-06)
 - [ ] **Phase 8: Pi Kiosk and Deployment** - Kiosk lockout, systemd autostart, SD card packaging
 
 ## Phase Details
@@ -129,7 +129,7 @@ Plans:
   1. Admin user can open a dedicated user management screen (behind Admin PIN) to view all existing users
   2. Admin user can create a new user by entering a name, PIN, and role assignment
   3. Admin user can delete a user or change their PIN and role from the management screen
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 07-01-PLAN.md — AuthManager CRUD methods + TabBar "users" tab registration (TDD)
@@ -162,5 +162,5 @@ Note: Phase 3 depends on Phase 2; Phase 4 depends on Phase 1 (not Phase 2/3 — 
 | 4. Axes Setup and Parameters | 3/3 | Complete   | 2026-04-04 |
 | 5. CSV Profile System | 3/3 | Complete   | 2026-04-04 |
 | 6. Machine-Type Differentiation | 3/3 | Complete   | 2026-04-04 |
-| 7. Admin and User Management | 1/2 | In Progress|  |
+| 7. Admin and User Management | 2/2 | Complete   | 2026-04-06 |
 | 8. Pi Kiosk and Deployment | 0/TBD | Not started | - |

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 07-01-PLAN.md
-last_updated: "2026-04-06T00:46:12.156Z"
+stopped_at: "Checkpoint: Task 3 human-verify for 07-02-PLAN.md"
+last_updated: "2026-04-06T00:51:17.258Z"
 last_activity: "2026-04-04 — Plan 01-03 complete: PIN overlay auth flow, role-gated tabs, idle auto-lock"
 progress:
   total_phases: 8
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 20
-  completed_plans: 19
+  completed_plans: 20
   percent: 8
 ---
 
@@ -68,6 +68,7 @@ Progress: [█░░░░░░░░░] 8%
 | Phase 06 P02 | 4 | 2 tasks | 5 files |
 | Phase 06 P03 | 11 | 3 tasks | 7 files |
 | Phase 07 P01 | 122 | 2 tasks | 4 files |
+| Phase 07 P02 | 3 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -126,6 +127,10 @@ Recent decisions affecting current work:
 - [Phase 06-03]: is_serration BooleanProperty defaults to False; set dynamically in on_pre_enter from mc.is_serration()
 - [Phase 07-01]: update_user PIN duplicate check excludes self so same-PIN reassignment is valid
 - [Phase 07-01]: ROLE_TABS[admin] users tab appended at end, not inserted, to maintain visual order
+- [Phase 07-02]: UsersScreen._rebuild_cards() called on every on_pre_enter — simple always-correct list refresh
+- [Phase 07-02]: UserEditOverlay uses Clock.schedule_once for field init — ensures widget IDs bound before text assignment
+- [Phase 07-02]: Role selector buttons disabled not hidden when editing current user — visual cue for self-demotion guard
+- [Phase 07-02]: Force logout on self-delete calls state.set_auth('', 'operator') — resets auth state for TabBar/PIN overlay to handle
 
 ### Pending Todos
 
@@ -139,6 +144,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-06T00:46:12.154Z
-Stopped at: Completed 07-01-PLAN.md
+Last session: 2026-04-06T00:51:17.255Z
+Stopped at: Checkpoint: Task 3 human-verify for 07-02-PLAN.md
 Resume file: None

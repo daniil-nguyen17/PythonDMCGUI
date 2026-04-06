@@ -158,7 +158,7 @@ Plans:
 | 9. DMC Foundation | v2.0 | 3/3 | Complete | 2026-04-06 |
 | 10. State Poll | v2.0 | 3/3 | Complete | 2026-04-06 |
 | 11. E-STOP Safety | 2/2 | Complete   | 2026-04-06 | - |
-| 12. Run Page Wiring | 1/1 | Complete   | 2026-04-06 | - |
+| 12. Run Page Wiring | 1/1 | Complete    | 2026-04-06 | - |
 | 13. Setup Loop | v2.0 | 0/TBD | Not started | - |
 | 14. State-Driven UI | v2.0 | 0/TBD | Not started | - |
 

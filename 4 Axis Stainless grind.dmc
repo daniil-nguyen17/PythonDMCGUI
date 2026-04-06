@@ -462,12 +462,14 @@ ctSesKni = 0
 ctKniNow = 0
 mainSp   = 10000
 idx      = 0
-' --- position arrays - now 4 elements for A B C D ---
-DM startPt[4]; ' A B C D absolute start positions
-DM restPt[4];  ' A B C D rest/park positions
-
-' --- HMI buttons ---
-DM hmiBtn[40]
+' --- HMI trigger variables (default=1, send 0 to trigger) ---
+hmiGrnd = 1;  hmiSetp = 1;  hmiMore = 1;  hmiLess = 1
+hmiNewS = 1;  hmiHome = 1;  hmiJog  = 1;  hmiCalc = 1
+' --- Machine state (1=IDLE 2=GRINDING 3=SETUP 4=HOMING) ---
+hmiState = 1
+' --- Position scalars (4 axes, unused hold 0) ---
+startPtA = 0; startPtB = 0; startPtC = 0; startPtD = 0
+restPtA  = 0; restPtB  = 0; restPtC  = 0; restPtD  = 0
 
 MG "PARAMS DONE"
 EN

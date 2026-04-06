@@ -35,7 +35,7 @@ Full context: `.planning/phases/08-CONTEXT.md`
 ### 🚧 v2.0 Flat Grind Integration (Phases 9-14)
 
 - [x] **Phase 9: DMC Foundation** — Modify DMC program and add Python HMI constants/state fields — hard prerequisite for all wiring (completed 2026-04-06)
-- [ ] **Phase 10: State Poll** — Wire 10 Hz poll to read hmiState and axis positions from real controller
+- [x] **Phase 10: State Poll** — Wire 10 Hz poll to read hmiState and axis positions from real controller (completed 2026-04-06)
 - [ ] **Phase 11: E-STOP Safety** — Validate priority stop path and motion-state gate before any motion commands are wired
 - [ ] **Phase 12: Run Page Wiring** — Wire all operator Run page buttons to real DMC subroutines
 - [ ] **Phase 13: Setup Loop** — Wire Setup page entry, homing, jog, teach points, parameters write, and exit
@@ -83,7 +83,7 @@ Plans:
   2. Disconnecting the controller network cable causes a visible disconnected status on the HMI within 2 seconds — no crash, no freeze
   3. Reconnecting the cable (or restarting the controller) causes the HMI to resume polling without an app restart
   4. The knife count label on the Run page shows the same value as ctSesKni queried directly from the DMC terminal
-**Plans:** 1/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [ ] 10-01-PLAN.md — Extend dmc_vars.py, MachineState, and DMC program with knife count + Thread 2
 - [ ] 10-02-PLAN.md — Create ControllerPoller module and wire into app lifecycle
@@ -153,7 +153,7 @@ Plans:
 | 7. Admin and User Management | v1.0 | 2/2 | Complete | 2026-04-06 |
 | 8. Pi Kiosk and Deployment | v1.1 | 0/TBD | Deferred | - |
 | 9. DMC Foundation | v2.0 | 3/3 | Complete | 2026-04-06 |
-| 10. State Poll | 1/3 | In Progress|  | - |
+| 10. State Poll | 3/3 | Complete   | 2026-04-06 | - |
 | 11. E-STOP Safety | v2.0 | 0/TBD | Not started | - |
 | 12. Run Page Wiring | v2.0 | 0/TBD | Not started | - |
 | 13. Setup Loop | v2.0 | 0/TBD | Not started | - |

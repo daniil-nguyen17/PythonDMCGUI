@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Flat Grind Integration
 status: planning
-stopped_at: Completed 10-01-PLAN.md
-last_updated: "2026-04-06T04:52:40.885Z"
+stopped_at: Completed 10-03-PLAN.md
+last_updated: "2026-04-06T04:58:48.525Z"
 last_activity: 2026-04-06 — Roadmap created
 progress:
   total_phases: 7
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 6
 ---
 
 # Project State
@@ -65,6 +65,8 @@ Progress (v2.0): [░░░░░░░░░░] 0% (0/6 phases)
 | Phase 09 P02 | 2 | 2 tasks | 1 files |
 | Phase 09-dmc-foundation P03 | 12 | 2 tasks | 6 files |
 | Phase 10-state-poll P01 | 18 | 2 tasks | 5 files |
+| Phase 10-state-poll P02 | 16 | 2 tasks | 5 files |
+| Phase 10-state-poll P03 | 8 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -91,6 +93,9 @@ Decisions affecting current work (v2.0):
 - [Phase 10-state-poll]: cycle_running is a @property on MachineState derived from dmc_state == STATE_GRINDING — never stored, controller is the single source of truth
 - [Phase 10-state-poll]: DMC knife counting inline at grind completion (#DONE block) rather than Thread 2 observer — simpler and avoids inter-thread race conditions
 - [Phase 10-state-poll]: Thread 2 (#THRD2) is a passive WT 100 observer placeholder — main thread subroutines retain ownership of all hmiState transitions
+- [Phase 10-state-poll]: TYPE_CHECKING guard in poll.py avoids circular import: hmi/__init__.py does not eagerly import poll
+- [Phase 10-state-poll]: 7 separate MG commands per poll cycle (not batch) — safe individual reads per RESEARCH.md recommendation
+- [Phase 10-state-poll]: test_plot_buffer_only_during_cycle updated to use _apply_state with MachineState API instead of deleted _apply_ui
 
 ### Research Flags (require hardware validation)
 
@@ -109,7 +114,7 @@ Decisions affecting current work (v2.0):
 
 ## Session Continuity
 
-Last session: 2026-04-06T04:52:40.882Z
-Stopped at: Completed 10-01-PLAN.md
+Last session: 2026-04-06T04:58:48.523Z
+Stopped at: Completed 10-03-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 9`

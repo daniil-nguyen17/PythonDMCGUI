@@ -243,6 +243,30 @@ def test_no_stale_position_strings_in_screen_files():
 
 
 # ---------------------------------------------------------------------------
+# Knife count variable name constants
+# ---------------------------------------------------------------------------
+
+class TestKnifeCountConstants:
+    """CT_SES_KNI and CT_STN_KNI constants have correct values and fit 8-char limit."""
+
+    def test_ct_ses_kni_constant(self):
+        from dmccodegui.hmi.dmc_vars import CT_SES_KNI
+        assert CT_SES_KNI == "ctSesKni"
+
+    def test_ct_stn_kni_constant(self):
+        from dmccodegui.hmi.dmc_vars import CT_STN_KNI
+        assert CT_STN_KNI == "ctStnKni"
+
+    def test_ct_ses_kni_length(self):
+        from dmccodegui.hmi.dmc_vars import CT_SES_KNI
+        assert len(CT_SES_KNI) <= 8, f"{CT_SES_KNI!r} exceeds 8-char DMC limit"
+
+    def test_ct_stn_kni_length(self):
+        from dmccodegui.hmi.dmc_vars import CT_STN_KNI
+        assert len(CT_STN_KNI) <= 8, f"{CT_STN_KNI!r} exceeds 8-char DMC limit"
+
+
+# ---------------------------------------------------------------------------
 # MachineState.dmc_state field
 # ---------------------------------------------------------------------------
 

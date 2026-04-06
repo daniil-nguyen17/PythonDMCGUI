@@ -101,3 +101,13 @@ STARTPT_BY_AXIS: dict[str, str] = {
     "C": STARTPT_C,
     "D": STARTPT_D,
 }
+
+# ---------------------------------------------------------------------------
+# Knife count variable names
+# Session knife count: increments each grind cycle, resets on new session (#NEWSESS)
+# Stone knife count: increments each grind cycle, resets only when stone is changed
+# Both fit within the 8-character DMC variable name limit.
+# ---------------------------------------------------------------------------
+
+CT_SES_KNI: str = "ctSesKni"  # Session knife count (resets each new stone session)
+CT_STN_KNI: str = "ctStnKni"  # Stone knife count (cumulative per grindstone)

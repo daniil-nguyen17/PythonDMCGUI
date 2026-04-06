@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List
 
+from .hmi.dmc_vars import STATE_GRINDING
+
 
 ChangeListener = Callable[["MachineState"], None]
 
@@ -28,7 +30,7 @@ class MachineState:
     setup_unlocked: bool = False
 
     # Cycle status fields (Phase 2)
-    cycle_running: bool = False
+    # NOTE: cycle_running is a @property derived from dmc_state — not a stored field.
     cycle_tooth: int = 0
     cycle_pass: int = 0
     cycle_depth: float = 0.0
@@ -38,7 +40,21 @@ class MachineState:
     # DMC controller state field (Phase 9)
     dmc_state: int = 0  # hmiState from controller; 0=uninitialized, 1=IDLE, 2=GRINDING, 3=SETUP, 4=HOMING
 
+    # Knife count fields (Phase 10)
+    session_knife_count: int = 0  # Increments each grind; resets on new stone session
+    stone_knife_count: int = 0    # Increments each grind; resets only when stone changes
+
     _listeners: List[ChangeListener] = field(default_factory=list, repr=False)
+
+    @property
+    def cycle_running(self) -> bool:
+        """Derived from dmc_state — True only when the controller reports GRINDING (2).
+
+        State authority is the controller's hmiState variable. Python does not store
+        cycle_running independently; it is computed from the polled dmc_state value.
+        Read-only — assignment raises AttributeError.
+        """
+        return self.dmc_state == STATE_GRINDING
 
     def subscribe(self, fn: ChangeListener) -> Callable[[], None]:
         self._listeners.append(fn)

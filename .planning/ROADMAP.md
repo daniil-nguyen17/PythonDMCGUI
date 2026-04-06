@@ -68,7 +68,11 @@ Full context: `.planning/phases/08-CONTEXT.md`
   3. Querying hmiState from the controller returns a distinct nonzero integer at each named state boundary (IDLE, GRINDING, SETUP, HOMING) — not a constant or undefined
   4. Python code references all DMC array names (startPt, restPt) and variable names through constants in hmi/dmc_vars.py — no raw 8-char string literals in screen files
   5. App closes cleanly without leaving a dangling gclib handle — verified by successfully opening a new connection immediately after a forced close
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 09-01-PLAN.md — Create hmi/dmc_vars.py constants module and MachineState.dmc_state field
+- [ ] 09-02-PLAN.md — Modify DMC program: HMI variables, OR conditions, hmiState, array-to-scalar conversion
+- [ ] 09-03-PLAN.md — Migrate 4 Python screen files from stale array ops to dmc_vars constants
 
 ### Phase 10: State Poll
 **Goal**: The HMI reads authoritative state from the controller on every poll tick — axis positions display real values, connection loss is detected, and knife count reflects controller data — all verified against the real controller before any write commands are sent.
@@ -144,7 +148,7 @@ Full context: `.planning/phases/08-CONTEXT.md`
 | 6. Machine-Type Differentiation | v1.0 | 3/3 | Complete | 2026-04-04 |
 | 7. Admin and User Management | v1.0 | 2/2 | Complete | 2026-04-06 |
 | 8. Pi Kiosk and Deployment | v1.1 | 0/TBD | Deferred | - |
-| 9. DMC Foundation | v2.0 | 0/TBD | Not started | - |
+| 9. DMC Foundation | v2.0 | 0/3 | Planning | - |
 | 10. State Poll | v2.0 | 0/TBD | Not started | - |
 | 11. E-STOP Safety | v2.0 | 0/TBD | Not started | - |
 | 12. Run Page Wiring | v2.0 | 0/TBD | Not started | - |

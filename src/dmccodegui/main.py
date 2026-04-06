@@ -430,20 +430,61 @@ class DMCApp(App):
         jobs.submit(do_disc)
 
     def e_stop(self) -> None:
+        """Emergency stop: ST ABCD + HX via priority path, then handle reset.
+
+        Stays connected — no disconnect() call, no navigation change.
+        """
         def do_estop():
             try:
                 if self.controller.is_connected():
-                    self.controller.cmd('AB')
-            finally:
-                self.controller.disconnect()
-            def on_ui():
-                self.state.set_connected(False)
+                    self.controller.cmd("ST ABCD")
+                    self.controller.cmd("HX")
+                    self.controller.reset_handle()
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error("e_stop error: %s", e)
+            # Stay connected -- no disconnect() call, no navigation change
+            Clock.schedule_once(lambda *_: self._log_message("E-STOP -- motion halted, program stopped"))
+        jobs.submit_urgent(do_estop)
+
+    def recover(self) -> None:
+        """Show confirmation dialog, then send XQ #AUTO to restart DMC program.
+
+        NOTE: XQ #AUTO is the single authorized XQ call in the codebase.
+        It restarts the entire DMC program from the top (#CONFIG -> #PARAMS ->
+        #COMPED -> #HOME -> #MAIN -> waiting loop). This is NOT a subroutine
+        trigger and does not violate the HMI one-shot variable pattern rule.
+        """
+        from kivy.uix.modalview import ModalView
+        from kivy.uix.boxlayout import BoxLayout
+        from kivy.uix.button import Button
+        from kivy.uix.label import Label
+
+        modal = ModalView(auto_dismiss=True, size_hint=(0.45, 0.35))
+        layout = BoxLayout(orientation='vertical', padding='20dp', spacing='16dp')
+        layout.add_widget(Label(text='Restart machine program?', font_size='22sp'))
+
+        def _confirm(*_):
+            modal.dismiss()
+            def do_recover():
                 try:
-                    self.root.ids.sm.current = 'setup'
-                except Exception:
-                    pass
-            Clock.schedule_once(lambda *_: on_ui())
-        jobs.submit(do_estop)
+                    self.controller.cmd("XQ #AUTO")
+                except Exception as e:
+                    Clock.schedule_once(
+                        lambda *_: self._log_message(f"Recovery failed: {e}")
+                    )
+            jobs.submit(do_recover)  # Normal submit -- recovery is not urgent
+
+        btn_row = BoxLayout(size_hint_y=None, height='56dp', spacing='12dp')
+        btn_confirm = Button(text='RESTART', background_color=(0.1, 0.4, 0.2, 1))
+        btn_cancel = Button(text='CANCEL', background_color=(0.2, 0.2, 0.2, 1))
+        btn_confirm.bind(on_release=_confirm)
+        btn_cancel.bind(on_release=lambda *_: modal.dismiss())
+        btn_row.add_widget(btn_confirm)
+        btn_row.add_widget(btn_cancel)
+        layout.add_widget(btn_row)
+        modal.add_widget(layout)
+        modal.open()
 
     # ------------------------------------------------------------------
     # Messaging helpers

@@ -92,6 +92,24 @@
         font_size: '16sp'
         on_release: app.toggle_theme()
 
+    # RECOVER button (always visible, disabled until DMC program stops)
+    Button:
+        id: recover_btn
+        text: 'RECOVER'
+        size_hint_x: None
+        width: '110dp'
+        size_hint_y: None
+        height: '56dp'
+        pos_hint: {'center_y': 0.5}
+        background_normal: ''
+        background_down: ''
+        background_color: (0.15, 0.50, 0.20, 1) if not self.disabled else (0.1, 0.15, 0.1, 1)
+        color: (1, 1, 1, 1) if not self.disabled else (0.4, 0.4, 0.4, 1)
+        font_size: '18sp'
+        bold: True
+        disabled: not root.recover_enabled
+        on_release: app.recover()
+
     # E-STOP button (always visible, always red)
     Button:
         text: 'E-STOP'

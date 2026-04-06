@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Callable, Optional
 
 from kivy.uix.boxlayout import BoxLayout
-from kivy.properties import StringProperty, ListProperty
+from kivy.properties import BooleanProperty, StringProperty, ListProperty
 
 
 class StatusBar(BoxLayout):
@@ -16,6 +16,7 @@ class StatusBar(BoxLayout):
     role_text = StringProperty("")
     banner_text = StringProperty("")
     machine_type_text = StringProperty("No Machine Type")
+    recover_enabled = BooleanProperty(False)
 
     # Cache previous values to skip redundant UI updates
     _prev_connected: bool = False
@@ -63,6 +64,9 @@ class StatusBar(BoxLayout):
         user = getattr(state, "current_user", "")
         role = getattr(state, "current_role", "")
         machine_type = getattr(state, "machine_type", "")
+        program_running = getattr(state, "program_running", False)
+        # RECOVER enabled when connected AND program is NOT running
+        self.recover_enabled = connected and not program_running
 
         if connected != self._prev_connected or address != self._prev_address:
             self._prev_connected = connected

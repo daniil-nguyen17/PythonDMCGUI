@@ -55,6 +55,7 @@ KV_FILES = [
     "ui/parameters.kv",    # ParametersScreen placeholder
     "ui/profiles.kv",      # ProfilesScreen (CSV import/export)
     "ui/diagnostics.kv",   # DiagnosticsScreen placeholder
+    "ui/users.kv",         # UsersScreen (Admin)
     "ui/base.kv",          # RootLayout - always last
 ]
 
@@ -98,6 +99,14 @@ class DMCApp(App):
             if hasattr(screen, 'controller') and hasattr(screen, 'state'):
                 screen.controller = self.controller
                 screen.state = self.state
+
+        # Inject auth_manager into UsersScreen
+        users_screen = next((s for s in sm.screens if getattr(s, 'name', '') == 'users'), None)
+        if users_screen:
+            if hasattr(users_screen, 'auth_manager'):
+                users_screen.auth_manager = self.auth_manager
+            if hasattr(users_screen, 'state'):
+                users_screen.state = self.state
 
         # Wire TabBar -> ScreenManager
         tab_bar = root.ids.tab_bar
@@ -328,7 +337,7 @@ class DMCApp(App):
             try:
                 tab_bar = self.root.ids.tab_bar
                 sm = self.root.ids.sm
-                if sm.current in ("axes_setup", "parameters", "diagnostics"):
+                if sm.current in ("axes_setup", "parameters", "diagnostics", "users"):
                     sm.current = "run"
                 # Reset tab bar to operator view
                 tab_bar._current_role = ""  # force rebuild

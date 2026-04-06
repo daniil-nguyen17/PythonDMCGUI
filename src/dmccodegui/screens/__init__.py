@@ -9,6 +9,7 @@ from .parameters import ParametersScreen
 from .profiles import ProfilesScreen
 from .diagnostics import DiagnosticsScreen
 from .pin_overlay import PINOverlay
+from .users import UsersScreen
 
 __all__ = [
     "SetupScreen",
@@ -20,4 +21,5 @@ __all__ = [
     "ProfilesScreen",
     "DiagnosticsScreen",
     "PINOverlay",
+    "UsersScreen",
 ]

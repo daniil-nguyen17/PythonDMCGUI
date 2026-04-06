@@ -19,7 +19,7 @@ def _tabs_for_role(role: str) -> list[str]:
     ROLE_TABS = {
         "operator": ["run"],
         "setup": ["run", "axes_setup", "parameters", "profiles"],
-        "admin": ["run", "axes_setup", "parameters", "profiles", "diagnostics"],
+        "admin": ["run", "axes_setup", "parameters", "profiles", "diagnostics", "users"],
     }
     return ROLE_TABS.get(role, ["run"])
 
@@ -41,8 +41,8 @@ class TestTabsForRole:
 
     def test_admin_tabs(self):
         result = _tabs_for_role("admin")
-        assert result == ["run", "axes_setup", "parameters", "profiles", "diagnostics"], (
-            f"Expected run+axes_setup+parameters+profiles+diagnostics, got {result}"
+        assert result == ["run", "axes_setup", "parameters", "profiles", "diagnostics", "users"], (
+            f"Expected run+axes_setup+parameters+profiles+diagnostics+users, got {result}"
         )
 
     def test_unknown_role_defaults_to_operator(self):
@@ -73,4 +73,26 @@ class TestProfilesTabRoleVisibility:
         result = _tabs_for_role("admin")
         assert "profiles" in result, (
             f"Admin should see 'profiles' tab; got {result}"
+        )
+
+
+class TestUsersTabRoleVisibility:
+    """Verify that the Users tab is visible for Admin only."""
+
+    def test_operator_does_not_see_users(self):
+        result = _tabs_for_role("operator")
+        assert "users" not in result, (
+            f"Operator should NOT see 'users' tab; got {result}"
+        )
+
+    def test_setup_does_not_see_users(self):
+        result = _tabs_for_role("setup")
+        assert "users" not in result, (
+            f"Setup should NOT see 'users' tab; got {result}"
+        )
+
+    def test_admin_sees_users(self):
+        result = _tabs_for_role("admin")
+        assert "users" in result, (
+            f"Admin should see 'users' tab; got {result}"
         )

@@ -279,3 +279,158 @@ def test_stop_visible_during_motion():
     assert hasattr(r, 'motion_active'), "RunScreen must have motion_active property"
     assert r.motion_active is True, \
         "Stop button must be visible (motion_active=True) during GRINDING"
+
+
+# ---------------------------------------------------------------------------
+# Phase 12 Plan 01: HMI one-shot trigger tests (Wave 0 stubs — fail until Task 1)
+# ---------------------------------------------------------------------------
+
+def test_start_grind_sends_hmi_trigger():
+    """RUN-01: on_start_grind() must submit a job that sends hmiGrnd=0 (NOT XQ #CYCLE)."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.controller import GalilController
+    from dmccodegui.hmi.dmc_vars import HMI_GRND, HMI_TRIGGER_FIRE
+
+    r = RunScreen()
+    mock_ctrl = MagicMock(spec=GalilController)
+    mock_ctrl.is_connected.return_value = True
+    r.controller = mock_ctrl
+
+    captured_fn = []
+
+    def capture_submit(fn, *a, **kw):
+        captured_fn.append(fn)
+
+    with patch('dmccodegui.utils.jobs.submit', side_effect=capture_submit):
+        r.on_start_grind()
+
+    assert len(captured_fn) == 1, "on_start_grind must call jobs.submit once"
+    # Execute the submitted _fire closure
+    captured_fn[0]()
+    cmd_calls = [c[0][0] for c in mock_ctrl.cmd.call_args_list]
+    expected = f"{HMI_GRND}={HMI_TRIGGER_FIRE}"
+    assert expected in cmd_calls, f"Expected '{expected}' in cmd calls, got {cmd_calls}"
+    xq_calls = [c for c in cmd_calls if "XQ" in c]
+    assert not xq_calls, f"on_start_grind must NOT send any XQ command; got {xq_calls}"
+
+
+def test_start_grind_clears_plot_buffers():
+    """RUN-07: on_start_grind() clears both plot buffers immediately."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from unittest.mock import patch
+    from dmccodegui.screens.run import RunScreen
+
+    r = RunScreen()
+    # Manually add data to buffers
+    r._plot_buf_x.append(1.0)
+    r._plot_buf_x.append(2.0)
+    r._plot_buf_y.append(10.0)
+    r._plot_buf_y.append(20.0)
+    assert len(r._plot_buf_x) == 2, "Pre-condition: buffer should have 2 entries"
+
+    with patch('dmccodegui.utils.jobs.submit'):
+        r.on_start_grind()
+
+    assert len(r._plot_buf_x) == 0, "_plot_buf_x must be cleared on on_start_grind"
+    assert len(r._plot_buf_y) == 0, "_plot_buf_y must be cleared on on_start_grind"
+
+
+def test_more_stone_sends_hmi_trigger():
+    """RUN-04: on_more_stone() must submit a job that sends hmiMore=0."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.controller import GalilController
+    from dmccodegui.hmi.dmc_vars import HMI_MORE, HMI_TRIGGER_FIRE, STARTPT_C
+
+    r = RunScreen()
+    mock_ctrl = MagicMock(spec=GalilController)
+    mock_ctrl.is_connected.return_value = True
+    mock_ctrl.cmd.return_value = "12345.0\n"
+    r.controller = mock_ctrl
+
+    captured_fn = []
+
+    def capture_submit(fn, *a, **kw):
+        captured_fn.append(fn)
+
+    with patch('dmccodegui.utils.jobs.submit', side_effect=capture_submit):
+        r.on_more_stone()
+
+    assert len(captured_fn) == 1, "on_more_stone must call jobs.submit once"
+    with patch('time.sleep'):
+        captured_fn[0]()
+    cmd_calls = [c[0][0] for c in mock_ctrl.cmd.call_args_list]
+    expected = f"{HMI_MORE}={HMI_TRIGGER_FIRE}"
+    assert expected in cmd_calls, f"Expected '{expected}' in cmd calls, got {cmd_calls}"
+
+
+def test_less_stone_sends_hmi_trigger():
+    """RUN-05: on_less_stone() must submit a job that sends hmiLess=0."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.controller import GalilController
+    from dmccodegui.hmi.dmc_vars import HMI_LESS, HMI_TRIGGER_FIRE
+
+    r = RunScreen()
+    mock_ctrl = MagicMock(spec=GalilController)
+    mock_ctrl.is_connected.return_value = True
+    mock_ctrl.cmd.return_value = "12345.0\n"
+    r.controller = mock_ctrl
+
+    captured_fn = []
+
+    def capture_submit(fn, *a, **kw):
+        captured_fn.append(fn)
+
+    with patch('dmccodegui.utils.jobs.submit', side_effect=capture_submit):
+        r.on_less_stone()
+
+    assert len(captured_fn) == 1, "on_less_stone must call jobs.submit once"
+    with patch('time.sleep'):
+        captured_fn[0]()
+    cmd_calls = [c[0][0] for c in mock_ctrl.cmd.call_args_list]
+    expected = f"{HMI_LESS}={HMI_TRIGGER_FIRE}"
+    assert expected in cmd_calls, f"Expected '{expected}' in cmd calls, got {cmd_calls}"
+
+
+def test_more_stone_reads_startptc_before_and_after():
+    """RUN-04: on_more_stone() reads startPtC before and after firing the trigger."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from unittest.mock import MagicMock, patch, call
+    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.controller import GalilController
+    from dmccodegui.hmi.dmc_vars import HMI_MORE, HMI_TRIGGER_FIRE, STARTPT_C
+
+    r = RunScreen()
+    mock_ctrl = MagicMock(spec=GalilController)
+    mock_ctrl.is_connected.return_value = True
+    # Sequence: before read → "1000.0", trigger → "", after read → "1001.0"
+    mock_ctrl.cmd.side_effect = ["1000.0\n", "\n", "1001.0\n"]
+    r.controller = mock_ctrl
+
+    captured_fn = []
+
+    def capture_submit(fn, *a, **kw):
+        captured_fn.append(fn)
+
+    with patch('dmccodegui.utils.jobs.submit', side_effect=capture_submit):
+        r.on_more_stone()
+
+    assert len(captured_fn) == 1, "on_more_stone must call jobs.submit once"
+    with patch('time.sleep'):
+        captured_fn[0]()
+
+    mg_calls = [c[0][0] for c in mock_ctrl.cmd.call_args_list
+                if f"MG {STARTPT_C}" in c[0][0]]
+    assert len(mg_calls) >= 2, (
+        f"Expected at least 2 'MG {STARTPT_C}' calls (before + after), got {len(mg_calls)}: {mg_calls}"
+    )

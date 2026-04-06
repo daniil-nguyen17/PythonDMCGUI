@@ -277,6 +277,9 @@ class RunScreen(Screen):
     session_knife_count = StringProperty("0")
     stone_knife_count = StringProperty("0")
 
+    # Stone Compensation readback — persistent label in Stone Compensation card (Phase 15)
+    start_pt_c = StringProperty("---")
+
     # Disconnect banner (empty string = no banner visible)
     disconnect_banner = StringProperty("")
 
@@ -354,6 +357,9 @@ class RunScreen(Screen):
 
         # Start 5 Hz plot redraw (separate clock to protect E-STOP latency)
         self._plot_clock_event = Clock.schedule_interval(self._tick_plot, 1.0 / PLOT_UPDATE_HZ)
+
+        # Read startPtC from controller so the Stone Compensation label is populated on entry
+        self._read_start_pt_c()
 
     def on_leave(self, *args) -> None:
         """Called by Kivy when operator navigates away.
@@ -560,11 +566,11 @@ class RunScreen(Screen):
         jobs.submit(_fire)
 
     def on_more_stone(self) -> None:
-        """Send hmiMore=0 with startPtC readback (before/after 400ms delay).
+        """Send hmiMore=0 then read startPtC after 400ms delay to update persistent label.
 
-        Reads startPtC before firing the trigger, sleeps 400ms for the DMC
-        #MOREGRI subroutine to complete, then reads startPtC after to confirm
-        the position change. Posts a human-readable before/after alert.
+        Fires the HMI_MORE trigger, sleeps 400ms for the DMC #MOREGRI subroutine to
+        complete, then reads startPtC and updates the persistent start_pt_c label.
+        No toast-style alert — operator sees the result in the Stone Compensation card.
         """
         if not self.controller or not self.controller.is_connected():
             return
@@ -573,14 +579,6 @@ class RunScreen(Screen):
 
         def _fire():
             import time as _time
-            before: float | None = None
-            after: float | None = None
-            try:
-                before_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
-                before = float(before_raw)
-            except Exception:
-                pass
-
             try:
                 ctrl.cmd(f"{HMI_MORE}={HMI_TRIGGER_FIRE}")
             except Exception as e:
@@ -591,24 +589,21 @@ class RunScreen(Screen):
 
             try:
                 after_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
-                after = float(after_raw)
-            except Exception:
-                pass
-
-            if before is not None and after is not None:
+                after = int(float(after_raw))
                 Clock.schedule_once(
-                    lambda *_: self._alert(f"Stone +: startPtC {before:,.0f} -> {after:,.0f}")
+                    lambda *_, v=after: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
                 )
-            else:
-                Clock.schedule_once(lambda *_: self._alert("Stone compensation applied"))
+            except Exception:
+                pass  # Label retains last known value
 
         jobs.submit(_fire)
 
     def on_less_stone(self) -> None:
-        """Send hmiLess=0 with startPtC readback (before/after 400ms delay).
+        """Send hmiLess=0 then read startPtC after 400ms delay to update persistent label.
 
-        Mirror of on_more_stone but fires HMI_LESS and prefixes the alert
-        with "Stone -:".
+        Mirror of on_more_stone but fires HMI_LESS. Sleeps 400ms for the DMC
+        #LESSGRI subroutine to complete, then reads startPtC and updates the
+        persistent start_pt_c label. No toast-style alert.
         """
         if not self.controller or not self.controller.is_connected():
             return
@@ -617,14 +612,6 @@ class RunScreen(Screen):
 
         def _fire():
             import time as _time
-            before: float | None = None
-            after: float | None = None
-            try:
-                before_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
-                before = float(before_raw)
-            except Exception:
-                pass
-
             try:
                 ctrl.cmd(f"{HMI_LESS}={HMI_TRIGGER_FIRE}")
             except Exception as e:
@@ -635,16 +622,12 @@ class RunScreen(Screen):
 
             try:
                 after_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
-                after = float(after_raw)
-            except Exception:
-                pass
-
-            if before is not None and after is not None:
+                after = int(float(after_raw))
                 Clock.schedule_once(
-                    lambda *_: self._alert(f"Stone -: startPtC {before:,.0f} -> {after:,.0f}")
+                    lambda *_, v=after: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
                 )
-            else:
-                Clock.schedule_once(lambda *_: self._alert("Stone compensation applied"))
+            except Exception:
+                pass  # Label retains last known value
 
         jobs.submit(_fire)
 
@@ -829,6 +812,20 @@ class RunScreen(Screen):
             Clock.schedule_once(_apply)
 
         jobs.submit(_do_read)
+
+    def _read_start_pt_c(self) -> None:
+        """Background: read startPtC from controller and update persistent label."""
+        if not self.controller or not self.controller.is_connected():
+            return
+        ctrl = self.controller
+        def _do():
+            try:
+                raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
+                val = int(float(raw))
+                Clock.schedule_once(lambda *_, v=val: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}"))
+            except Exception:
+                Clock.schedule_once(lambda *_: setattr(self, 'start_pt_c', '---'))
+        jobs.submit(_do)
 
     def on_apply_bcomp(self) -> None:
         """Write bComp offsets to controller bComp array and burn NV.

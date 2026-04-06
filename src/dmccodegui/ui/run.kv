@@ -795,6 +795,74 @@
                                 valign: 'top'
                                 text_size: self.size
 
+                # Stone Compensation card
+                BoxLayout:
+                    canvas.before:
+                        Color:
+                            rgba: theme.bg_panel
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [8,]
+                        Color:
+                            rgba: theme.border
+                        Line:
+                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                            width: 1.2
+                    size_hint_y: None
+                    height: '160dp'
+                    orientation: 'vertical'
+                    padding: ['12dp', '8dp']
+                    spacing: '6dp'
+
+                    Label:
+                        text: 'STONE COMPENSATION'
+                        font_size: '11sp'
+                        bold: True
+                        color: theme.text_mid
+                        halign: 'left'
+                        valign: 'middle'
+                        text_size: self.size
+                        size_hint_y: None
+                        height: '24dp'
+
+                    Label:
+                        id: start_pt_c_label
+                        text: root.start_pt_c
+                        font_size: '12sp'
+                        color: theme.text_mid
+                        halign: 'left'
+                        valign: 'middle'
+                        text_size: self.size
+                        size_hint_y: None
+                        height: '20dp'
+
+                    Button:
+                        id: more_stone_btn
+                        text: 'MORE STONE'
+                        font_size: '14sp'
+                        bold: True
+                        size_hint_y: None
+                        height: '44dp'
+                        background_normal: ''
+                        background_color: 0.02, 0.12, 0.06, 1
+                        color: 0.133, 0.773, 0.369, 1
+                        disabled: root.motion_active
+                        on_release: root.on_more_stone()
+
+                    Button:
+                        id: less_stone_btn
+                        text: 'LESS STONE'
+                        font_size: '14sp'
+                        bold: True
+                        size_hint_y: None
+                        height: '44dp'
+                        background_normal: ''
+                        background_color: 0.15, 0.08, 0.02, 1
+                        color: 0.984, 0.573, 0.235, 1
+                        disabled: root.motion_active
+                        on_release: root.on_less_stone()
+
         # -----------------------------------------------------------------------
         # BOTTOM ACTION BAR
         # -----------------------------------------------------------------------
@@ -838,26 +906,3 @@
                 disabled: not root.motion_active
                 on_release: root.on_stop()
 
-            Button:
-                id: more_stone_btn
-                text: 'MORE STONE'
-                font_size: '14sp'
-                bold: True
-                size_hint_x: 0.6
-                background_normal: ''
-                background_color: 0.118, 0.227, 0.373, 1
-                color: 0.576, 0.773, 0.992, 1
-                disabled: root.motion_active
-                on_release: root.on_more_stone()
-
-            Button:
-                id: less_stone_btn
-                text: 'LESS STONE'
-                font_size: '14sp'
-                bold: True
-                size_hint_x: 0.6
-                background_normal: ''
-                background_color: 0.118, 0.100, 0.200, 1
-                color: 0.780, 0.650, 0.990, 1
-                disabled: root.motion_active
-                on_release: root.on_less_stone()

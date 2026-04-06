@@ -411,8 +411,40 @@ def test_less_stone_sends_hmi_trigger():
     assert expected in cmd_calls, f"Expected '{expected}' in cmd calls, got {cmd_calls}"
 
 
-def test_more_stone_reads_startptc_before_and_after():
-    """RUN-04: on_more_stone() reads startPtC before and after firing the trigger."""
+# ---------------------------------------------------------------------------
+# Phase 15 Plan 01: Stone Compensation card — startPtC persistent readback
+# ---------------------------------------------------------------------------
+
+def test_run_screen_has_start_pt_c():
+    """Phase 15: RunScreen must have start_pt_c StringProperty defaulting to '---'."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from dmccodegui.screens.run import RunScreen
+    r = RunScreen()
+    assert hasattr(r, 'start_pt_c'), "RunScreen missing start_pt_c property"
+    assert r.start_pt_c == '---', f"Expected start_pt_c default '---', got '{r.start_pt_c}'"
+
+
+def test_read_start_pt_c_submits_job():
+    """Phase 15: _read_start_pt_c() must call jobs.submit when controller is connected."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.controller import GalilController
+
+    r = RunScreen()
+    mock_ctrl = MagicMock(spec=GalilController)
+    mock_ctrl.is_connected.return_value = True
+    r.controller = mock_ctrl
+
+    with patch('dmccodegui.utils.jobs.submit') as mock_submit:
+        r._read_start_pt_c()
+    mock_submit.assert_called_once()
+
+
+def test_more_stone_updates_start_pt_c():
+    """Phase 15: on_more_stone() updates start_pt_c property (not _alert) after fire+sleep+read."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
     from unittest.mock import MagicMock, patch, call
@@ -423,8 +455,94 @@ def test_more_stone_reads_startptc_before_and_after():
     r = RunScreen()
     mock_ctrl = MagicMock(spec=GalilController)
     mock_ctrl.is_connected.return_value = True
-    # Sequence: before read → "1000.0", trigger → "", after read → "1001.0"
-    mock_ctrl.cmd.side_effect = ["1000.0\n", "\n", "1001.0\n"]
+    # Trigger response + after-read value
+    mock_ctrl.cmd.side_effect = ["", "5000.0\n"]
+    r.controller = mock_ctrl
+
+    captured_fn = []
+
+    def capture_submit(fn, *a, **kw):
+        captured_fn.append(fn)
+
+    scheduled_callbacks = []
+
+    def capture_schedule(fn, *a, **kw):
+        scheduled_callbacks.append(fn)
+
+    with patch('dmccodegui.utils.jobs.submit', side_effect=capture_submit):
+        r.on_more_stone()
+
+    assert len(captured_fn) == 1, "on_more_stone must call jobs.submit once"
+
+    with patch('time.sleep'), \
+         patch('kivy.clock.Clock.schedule_once', side_effect=capture_schedule):
+        captured_fn[0]()
+
+    assert len(scheduled_callbacks) >= 1, "start_pt_c update must schedule a Clock callback"
+    # Execute the scheduled callback(s) to apply the property update
+    for cb in scheduled_callbacks:
+        cb(0)
+    assert r.start_pt_c != '---', f"start_pt_c should be updated after More Stone, got '{r.start_pt_c}'"
+    assert 'Stone Pos:' in r.start_pt_c, f"Expected 'Stone Pos:' in start_pt_c, got '{r.start_pt_c}'"
+
+
+def test_less_stone_updates_start_pt_c():
+    """Phase 15: on_less_stone() updates start_pt_c property (not _alert) after fire+sleep+read."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from unittest.mock import MagicMock, patch, call
+    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.controller import GalilController
+    from dmccodegui.hmi.dmc_vars import HMI_LESS, HMI_TRIGGER_FIRE, STARTPT_C
+
+    r = RunScreen()
+    mock_ctrl = MagicMock(spec=GalilController)
+    mock_ctrl.is_connected.return_value = True
+    # Trigger response + after-read value
+    mock_ctrl.cmd.side_effect = ["", "4900.0\n"]
+    r.controller = mock_ctrl
+
+    captured_fn = []
+
+    def capture_submit(fn, *a, **kw):
+        captured_fn.append(fn)
+
+    scheduled_callbacks = []
+
+    def capture_schedule(fn, *a, **kw):
+        scheduled_callbacks.append(fn)
+
+    with patch('dmccodegui.utils.jobs.submit', side_effect=capture_submit):
+        r.on_less_stone()
+
+    assert len(captured_fn) == 1, "on_less_stone must call jobs.submit once"
+
+    with patch('time.sleep'), \
+         patch('kivy.clock.Clock.schedule_once', side_effect=capture_schedule):
+        captured_fn[0]()
+
+    assert len(scheduled_callbacks) >= 1, "start_pt_c update must schedule a Clock callback"
+    # Execute the scheduled callback(s) to apply the property update
+    for cb in scheduled_callbacks:
+        cb(0)
+    assert r.start_pt_c != '---', f"start_pt_c should be updated after Less Stone, got '{r.start_pt_c}'"
+    assert 'Stone Pos:' in r.start_pt_c, f"Expected 'Stone Pos:' in start_pt_c, got '{r.start_pt_c}'"
+
+
+def test_more_stone_reads_startptc_after():
+    """Phase 15: on_more_stone() reads startPtC after firing the trigger (no before read)."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from unittest.mock import MagicMock, patch, call
+    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.controller import GalilController
+    from dmccodegui.hmi.dmc_vars import HMI_MORE, HMI_TRIGGER_FIRE, STARTPT_C
+
+    r = RunScreen()
+    mock_ctrl = MagicMock(spec=GalilController)
+    mock_ctrl.is_connected.return_value = True
+    # Sequence: trigger → "", after read → "1001.0"
+    mock_ctrl.cmd.side_effect = ["\n", "1001.0\n"]
     r.controller = mock_ctrl
 
     captured_fn = []
@@ -441,6 +559,6 @@ def test_more_stone_reads_startptc_before_and_after():
 
     mg_calls = [c[0][0] for c in mock_ctrl.cmd.call_args_list
                 if f"MG {STARTPT_C}" in c[0][0]]
-    assert len(mg_calls) >= 2, (
-        f"Expected at least 2 'MG {STARTPT_C}' calls (before + after), got {len(mg_calls)}: {mg_calls}"
+    assert len(mg_calls) == 1, (
+        f"Expected exactly 1 'MG {STARTPT_C}' call (after only — before removed), got {len(mg_calls)}: {mg_calls}"
     )

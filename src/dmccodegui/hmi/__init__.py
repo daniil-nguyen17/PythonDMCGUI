@@ -6,4 +6,4 @@ Galil DMC controller.
 """
 from . import dmc_vars
 
-__all__ = ["dmc_vars"]
+__all__ = ["dmc_vars", "poll"]

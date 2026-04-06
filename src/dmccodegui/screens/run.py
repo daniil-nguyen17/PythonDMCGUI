@@ -22,6 +22,7 @@ import kivy_matplotlib_widget  # noqa: F401 — registers MatplotFigure in Kivy 
 
 from ..app_state import MachineState
 from ..controller import GalilController
+from ..hmi.dmc_vars import STATE_GRINDING, STATE_HOMING
 from ..utils import jobs
 import dmccodegui.machine_config as mc
 
@@ -233,6 +234,10 @@ class RunScreen(Screen):
     # MachineState.cycle_running is a Python @property derived from dmc_state.
     # These are distinct — _apply_state bridges the two.
     cycle_running = BooleanProperty(False)
+    # motion_active is True when dmc_state is GRINDING or HOMING, or when disconnected.
+    # KV binds disabled: root.motion_active on all motion-triggering buttons.
+    # The STOP button is visible (opacity=1) only when motion_active is True.
+    motion_active = BooleanProperty(False)
     cycle_tooth = StringProperty("0")
     cycle_pass = StringProperty("0")
     cycle_depth = StringProperty("0.00")
@@ -440,9 +445,13 @@ class RunScreen(Screen):
 
             # Cycle running from controller state (drives Kivy property for KV bindings)
             self.cycle_running = s.cycle_running
+            # Motion gate: True when axes may be in motion (disables motion buttons)
+            self.motion_active = s.dmc_state in (STATE_GRINDING, STATE_HOMING)
 
         else:
             # Disconnected: freeze positions (don't overwrite with zeros)
+            self.cycle_running = False
+            self.motion_active = True  # Disable all motion buttons when disconnected
             # Start disconnect elapsed timer if not already running
             if self._disconnect_clock is None:
                 self._disconnect_t0 = _time.monotonic()
@@ -509,6 +518,18 @@ class RunScreen(Screen):
     # -----------------------------------------------------------------------
     # Action handlers
     # -----------------------------------------------------------------------
+
+    def on_stop(self) -> None:
+        """Send ST ABCD via priority path (halts axes, DMC program thread stays alive)."""
+        if not self.controller or not self.controller.is_connected():
+            return
+        def do_stop():
+            try:
+                self.controller.cmd("ST ABCD")
+            except Exception as e:
+                Clock.schedule_once(lambda *_: self._alert(f"Stop failed: {e}"))
+        from ..utils.jobs import submit_urgent
+        submit_urgent(do_stop)
 
     def on_start_pause_toggle(self, btn_state: str) -> None:
         """Handle Start/Pause ToggleButton press.

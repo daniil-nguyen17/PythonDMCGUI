@@ -822,7 +822,22 @@
                 background_down: ''
                 background_color: (0.47, 0.25, 0.06, 1) if self.state == 'down' else (0.09, 0.40, 0.20, 1)
                 color: (0.992, 0.910, 0.541, 1) if self.state == 'down' else (0.733, 0.969, 0.827, 1)
+                disabled: root.motion_active
                 on_release: root.on_start_pause_toggle(self.state)
+
+            Button:
+                id: stop_btn
+                text: 'STOP'
+                font_size: '16sp'
+                bold: True
+                size_hint_x: 0.6
+                background_normal: ''
+                background_down: ''
+                background_color: (0.88, 0.06, 0.06, 1) if not self.disabled else (0.3, 0.1, 0.1, 1)
+                color: (1, 1, 1, 1) if not self.disabled else (0.5, 0.5, 0.5, 1)
+                opacity: 1.0 if root.motion_active else 0.0
+                disabled: not root.motion_active
+                on_release: root.on_stop()
 
             Button:
                 id: go_to_rest_btn
@@ -833,4 +848,5 @@
                 background_normal: ''
                 background_color: 0.118, 0.227, 0.373, 1
                 color: 0.576, 0.773, 0.992, 1
+                disabled: root.motion_active
                 on_release: root.on_go_to_rest()

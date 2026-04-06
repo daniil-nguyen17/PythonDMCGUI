@@ -167,3 +167,115 @@ def test_trail_clears_on_start():
     r.on_start_pause_toggle("down")
     assert len(r._plot_buf_x) == 0, "_plot_buf_x must be cleared on Start"
     assert len(r._plot_buf_y) == 0, "_plot_buf_y must be cleared on Start"
+
+
+# ---------------------------------------------------------------------------
+# SAFE-02: Stop button and motion gate tests (Phase 11 Plan 02)
+# ---------------------------------------------------------------------------
+
+def test_stop_sends_st_only():
+    """on_stop() must send ST ABCD only (no HX) via submit_urgent."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.controller import GalilController
+
+    r = RunScreen()
+    mock_ctrl = MagicMock(spec=GalilController)
+    mock_ctrl.is_connected.return_value = True
+    r.controller = mock_ctrl
+
+    captured_fn = []
+
+    def capture_urgent(fn, *a, **kw):
+        captured_fn.append(fn)
+
+    with patch('dmccodegui.utils.jobs.submit_urgent', side_effect=capture_urgent):
+        r.on_stop()
+
+    assert len(captured_fn) == 1, "on_stop must call submit_urgent once"
+    # Execute the do_stop inner function
+    captured_fn[0]()
+    cmd_calls = [c[0][0] for c in mock_ctrl.cmd.call_args_list]
+    assert 'ST ABCD' in cmd_calls, f"Expected 'ST ABCD' in cmd calls, got {cmd_calls}"
+    assert 'HX' not in cmd_calls, f"on_stop must NOT send HX; got {cmd_calls}"
+
+
+def test_motion_gate_grinding():
+    """motion_active must be True when dmc_state is STATE_GRINDING."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.app_state import MachineState
+    from dmccodegui.hmi.dmc_vars import STATE_GRINDING
+
+    r = RunScreen()
+    s = MachineState(connected=True, dmc_state=STATE_GRINDING,
+                     pos={"A": 0.0, "B": 0.0, "C": 0.0, "D": 0.0})
+    r._apply_state(s)
+    assert r.motion_active is True, \
+        f"Expected motion_active=True during GRINDING, got {r.motion_active}"
+
+
+def test_motion_gate_homing():
+    """motion_active must be True when dmc_state is STATE_HOMING."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.app_state import MachineState
+    from dmccodegui.hmi.dmc_vars import STATE_HOMING
+
+    r = RunScreen()
+    s = MachineState(connected=True, dmc_state=STATE_HOMING,
+                     pos={"A": 0.0, "B": 0.0, "C": 0.0, "D": 0.0})
+    r._apply_state(s)
+    assert r.motion_active is True, \
+        f"Expected motion_active=True during HOMING, got {r.motion_active}"
+
+
+def test_motion_gate_disconnected():
+    """motion_active must be True when disconnected (disables all motion buttons)."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.app_state import MachineState
+
+    r = RunScreen()
+    s = MachineState(connected=False)
+    r._apply_state(s)
+    assert r.motion_active is True, \
+        f"Expected motion_active=True when disconnected, got {r.motion_active}"
+
+
+def test_motion_gate_idle():
+    """motion_active must be False when dmc_state is STATE_IDLE and connected."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.app_state import MachineState
+    from dmccodegui.hmi.dmc_vars import STATE_IDLE
+
+    r = RunScreen()
+    s = MachineState(connected=True, dmc_state=STATE_IDLE,
+                     pos={"A": 0.0, "B": 0.0, "C": 0.0, "D": 0.0})
+    r._apply_state(s)
+    assert r.motion_active is False, \
+        f"Expected motion_active=False when IDLE and connected, got {r.motion_active}"
+
+
+def test_stop_visible_during_motion():
+    """motion_active=True should drive stop button visibility (property exists and is True)."""
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.app_state import MachineState
+    from dmccodegui.hmi.dmc_vars import STATE_GRINDING
+
+    r = RunScreen()
+    s = MachineState(connected=True, dmc_state=STATE_GRINDING,
+                     pos={"A": 0.0, "B": 0.0, "C": 0.0, "D": 0.0})
+    r._apply_state(s)
+    assert hasattr(r, 'motion_active'), "RunScreen must have motion_active property"
+    assert r.motion_active is True, \
+        "Stop button must be visible (motion_active=True) during GRINDING"

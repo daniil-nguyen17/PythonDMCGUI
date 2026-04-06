@@ -350,3 +350,191 @@ def test_setup_not_readonly():
     screen = ParametersScreen()
     result = screen._apply_role_mode(setup_unlocked=True)
     assert result is False, f"Expected readonly=False for setup, got {result}"
+
+
+# ---------------------------------------------------------------------------
+# Varcalc integration tests (Plan 13-03)
+# ---------------------------------------------------------------------------
+
+def _make_apply_screen():
+    """Helper: create ParametersScreen with one dirty param, mock controller."""
+    _setup_env()
+    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+
+    screen = ParametersScreen()
+    mock_controller = MagicMock()
+    mock_controller.is_connected.return_value = True
+    mock_controller.cmd.return_value = '100.0'
+    screen.controller = mock_controller
+    screen.state = MagicMock()
+    screen.state.cycle_running = False
+    screen.state.dmc_state = 1
+    screen._controller_vals = {p['var']: 100.0 for p in PARAM_DEFS}
+    screen._dirty = {'fdA': '200.0'}
+    screen.pending_count = 1
+    return screen, mock_controller
+
+
+def _run_apply_job(screen):
+    """Submit apply_to_controller capturing the job, run it synchronously."""
+    job_fn = None
+
+    def capture_job(fn, *args, **kwargs):
+        nonlocal job_fn
+        job_fn = fn
+
+    with patch('dmccodegui.screens.parameters.submit', side_effect=capture_job):
+        screen.apply_to_controller()
+
+    assert job_fn is not None, "apply_to_controller should submit a background job"
+    job_fn()
+    return job_fn
+
+
+def test_apply_fires_hmi_calc():
+    """SETP-06: apply_to_controller sends hmiCalc=0 after writing params."""
+    _setup_env()
+    screen, mock_controller = _make_apply_screen()
+
+    _run_apply_job(screen)
+
+    calls = [c[0][0] for c in mock_controller.cmd.call_args_list]
+    assert any('hmiCalc=0' in s for s in calls), \
+        f"Expected hmiCalc=0 cmd, got: {calls}"
+
+
+def test_apply_readback_after_delay():
+    """SETP-06: apply_to_controller calls time.sleep(0.5) then reads back all params."""
+    _setup_env()
+    screen, mock_controller = _make_apply_screen()
+
+    sleep_calls = []
+    with patch('dmccodegui.screens.parameters.submit', side_effect=lambda fn, *a, **k: fn()):
+        with patch('time.sleep', side_effect=lambda s: sleep_calls.append(s)):
+            screen.apply_to_controller()
+
+    assert any(abs(s - 0.5) < 1e-9 for s in sleep_calls), \
+        f"Expected time.sleep(0.5), got sleep calls: {sleep_calls}"
+
+    calls = [c[0][0] for c in mock_controller.cmd.call_args_list]
+    # After hmiCalc=0 + sleep, MG reads must follow
+    calc_idx = next((i for i, c in enumerate(calls) if 'hmiCalc' in c), None)
+    mg_indices = [i for i, c in enumerate(calls) if c.startswith('MG ')]
+    assert calc_idx is not None, "hmiCalc=0 must be sent"
+    assert len(mg_indices) > 0, "MG readback calls must occur after hmiCalc fire"
+    assert all(i > calc_idx for i in mg_indices), \
+        "All MG readbacks must come after hmiCalc=0"
+
+
+def test_apply_bv_after_readback():
+    """SETP-06: BV is sent after readback (not before varcalc)."""
+    _setup_env()
+    screen, mock_controller = _make_apply_screen()
+
+    with patch('dmccodegui.screens.parameters.submit', side_effect=lambda fn, *a, **k: fn()):
+        with patch('time.sleep'):
+            screen.apply_to_controller()
+
+    calls = [c[0][0] for c in mock_controller.cmd.call_args_list]
+    calc_idx = next((i for i, c in enumerate(calls) if 'hmiCalc' in c), None)
+    mg_indices = [i for i, c in enumerate(calls) if c.startswith('MG ')]
+    bv_idx = next((i for i, c in enumerate(calls) if c == 'BV'), None)
+
+    assert calc_idx is not None, "hmiCalc=0 must be present"
+    assert len(mg_indices) > 0, "MG readbacks must be present"
+    assert bv_idx is not None, "BV must be present"
+    last_mg = max(mg_indices)
+    assert bv_idx > last_mg, f"BV must come after all MG readbacks (bv={bv_idx}, last_mg={last_mg})"
+    assert bv_idx > calc_idx, "BV must come after hmiCalc=0"
+
+
+# ---------------------------------------------------------------------------
+# Smart enter/exit tests (Plan 13-03)
+# ---------------------------------------------------------------------------
+
+def test_enter_skips_fire_when_already_setup():
+    """SETP-07: on_pre_enter with dmc_state=STATE_SETUP does NOT send hmiSetp=0."""
+    _setup_env()
+    from dmccodegui.screens.parameters import ParametersScreen
+    from dmccodegui.hmi.dmc_vars import STATE_SETUP
+
+    screen = ParametersScreen()
+    mock_controller = MagicMock()
+    mock_controller.is_connected.return_value = True
+    screen.controller = mock_controller
+    state = MagicMock()
+    state.dmc_state = STATE_SETUP  # already in setup
+    state.setup_unlocked = True
+    screen.state = state
+
+    with patch('dmccodegui.screens.parameters.submit'):
+        screen.on_pre_enter()
+
+    calls = [c[0][0] for c in mock_controller.cmd.call_args_list]
+    assert not any('hmiSetp=0' in s for s in calls), \
+        f"Should NOT send hmiSetp=0 when already in setup, got: {calls}"
+
+
+def test_enter_fires_when_not_in_setup():
+    """SETP-07: on_pre_enter with dmc_state=STATE_IDLE sends hmiSetp=0."""
+    _setup_env()
+    from dmccodegui.screens.parameters import ParametersScreen
+    from dmccodegui.hmi.dmc_vars import STATE_IDLE
+
+    screen = ParametersScreen()
+    mock_controller = MagicMock()
+    mock_controller.is_connected.return_value = True
+    screen.controller = mock_controller
+    state = MagicMock()
+    state.dmc_state = STATE_IDLE  # not in setup
+    state.setup_unlocked = True
+    screen.state = state
+
+    with patch('dmccodegui.screens.parameters.submit'):
+        screen.on_pre_enter()
+
+    calls = [c[0][0] for c in mock_controller.cmd.call_args_list]
+    assert any('hmiSetp=0' in s for s in calls), \
+        f"Should send hmiSetp=0 when not in setup, got: {calls}"
+
+
+def test_exit_fires_to_non_setup_screen():
+    """SETP-08: on_leave when manager.current='run' sends hmiExSt=0."""
+    _setup_env()
+    from dmccodegui.screens.parameters import ParametersScreen
+
+    screen = ParametersScreen()
+    mock_controller = MagicMock()
+    mock_controller.is_connected.return_value = True
+    screen.controller = mock_controller
+
+    mock_manager = MagicMock()
+    mock_manager.current = "run"
+    screen.manager = mock_manager
+
+    screen.on_leave()
+
+    calls = [c[0][0] for c in mock_controller.cmd.call_args_list]
+    assert any('hmiExSt=0' in s for s in calls), \
+        f"Should send hmiExSt=0 when navigating to non-setup screen, got: {calls}"
+
+
+def test_exit_skips_to_sibling_setup_screen():
+    """SETP-08: on_leave when manager.current='axes_setup' does NOT send hmiExSt=0."""
+    _setup_env()
+    from dmccodegui.screens.parameters import ParametersScreen
+
+    screen = ParametersScreen()
+    mock_controller = MagicMock()
+    mock_controller.is_connected.return_value = True
+    screen.controller = mock_controller
+
+    mock_manager = MagicMock()
+    mock_manager.current = "axes_setup"
+    screen.manager = mock_manager
+
+    screen.on_leave()
+
+    calls = [c[0][0] for c in mock_controller.cmd.call_args_list]
+    assert not any('hmiExSt=0' in s for s in calls), \
+        f"Should NOT send hmiExSt=0 when navigating to sibling setup screen, got: {calls}"

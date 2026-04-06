@@ -52,7 +52,7 @@ Requirements for Flat Grind HMI-controller integration. Each maps to roadmap pha
 
 ### State-Driven UI
 
-- [ ] **UI-01**: Buttons enable/disable based on polled controller state (e.g., no Start Grind while already grinding)
+- [x] **UI-01**: Buttons enable/disable based on polled controller state (e.g., no Start Grind while already grinding)
 - [x] **UI-02**: Status label displays current controller state (IDLE, GRINDING, SETUP, HOMING, NEW SESSION)
 - [x] **UI-03**: Setup mode badge visible on all screens when controller is in setup state
 - [x] **UI-04**: Run tab disables when controller is in setup mode
@@ -138,7 +138,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SETP-06 | Phase 13 | Complete |
 | SETP-07 | Phase 13 | Complete |
 | SETP-08 | Phase 13 | Complete |
-| UI-01 | Phase 14 | Pending |
+| UI-01 | Phase 14 | Complete |
 | UI-02 | Phase 14 | Complete |
 | UI-03 | Phase 14 | Complete |
 | UI-04 | Phase 14 | Complete |

@@ -39,7 +39,7 @@ Full context: `.planning/phases/08-CONTEXT.md`
 - [x] **Phase 11: E-STOP Safety** — Validate priority stop path and motion-state gate before any motion commands are wired (completed 2026-04-06)
 - [x] **Phase 12: Run Page Wiring** — Wire all operator Run page buttons to real DMC subroutines (completed 2026-04-06)
 - [x] **Phase 13: Setup Loop** — Wire Setup page entry, homing, jog, teach points, parameters write, and exit (completed 2026-04-06)
-- [ ] **Phase 14: State-Driven UI** — Button enable/disable, status labels, setup badge, and live plot validation
+- [x] **Phase 14: State-Driven UI** — Button enable/disable, status labels, setup badge, and live plot validation (completed 2026-04-06)
 
 ---
 
@@ -139,7 +139,7 @@ Plans:
   3. Navigating to any screen while the controller is in setup mode shows the setup mode badge — it is not limited to the Axes Setup screen
   4. The Run tab is visually disabled and cannot be tapped when the controller reports it is in setup mode
   5. The connection status indicator is visible on every screen and reflects connected or disconnected without requiring any page navigation
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 14-01-PLAN.md — StatusBar state label, setup badge, and tab gating
 - [ ] 14-02-PLAN.md — Cross-screen button gating (Profiles import, Parameters apply)
@@ -163,7 +163,7 @@ Plans:
 | 11. E-STOP Safety | 2/2 | Complete   | 2026-04-06 | - |
 | 12. Run Page Wiring | 1/1 | Complete    | 2026-04-06 | - |
 | 13. Setup Loop | 3/3 | Complete   | 2026-04-06 | - |
-| 14. State-Driven UI | v2.0 | 0/2 | Not started | - |
+| 14. State-Driven UI | 2/2 | Complete   | 2026-04-06 | - |
 
 ---
 

@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Flat Grind Integration
 status: planning
+stopped_at: "Completed 14-02: Profiles and Parameters motion_active gating"
+last_updated: "2026-04-06T14:37:55.018Z"
+last_activity: 2026-04-06 — Roadmap created
+progress:
+  total_phases: 7
+  completed_phases: 6
+  total_plans: 14
+  completed_plans: 14
+  percent: 100
+---
+
+---
+gsd_state_version: 1.0
+milestone: v2.0
+milestone_name: Flat Grind Integration
+status: planning
 stopped_at: Phase 14 context gathered
 last_updated: "2026-04-06T11:43:26.849Z"
 last_activity: 2026-04-06 — Roadmap created
 progress:
-  total_phases: 7
+  [██████████] 100%
   completed_phases: 5
   total_plans: 12
   completed_plans: 12
@@ -73,6 +89,7 @@ Progress (v2.0): [░░░░░░░░░░] 0% (0/6 phases)
 | Phase 13-setup-loop P01 | 2 | 2 tasks | 3 files |
 | Phase 13-setup-loop P03 | 6 | 2 tasks | 2 files |
 | Phase 13-setup-loop P02 | 6 | 2 tasks | 2 files |
+| Phase 14-state-driven-ui P02 | 12 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -119,6 +136,8 @@ Decisions affecting current work (v2.0):
 - [Phase 13-setup-loop]: Smart enter skips hmiSetp=0 when dmc_state already STATE_SETUP — sibling-screen navigation stays in setup
 - [Phase 13-setup-loop]: _SETUP_SCREENS frozenset defines setup siblings (axes_setup + parameters) — on_leave only fires hmiExSt=0 outside this set
 - [Phase 13-setup-loop]: _BG in-progress gate inside do_jog() prevents overlapping jog commands
+- [Phase 14-state-driven-ui]: motion_active gate: not connected OR dmc_state in (GRINDING, HOMING) — disconnected=disabled per Phase 11 pattern
+- [Phase 14-state-driven-ui]: _update_apply_button uses _apply_btn attribute first, falls back to ids.get('apply_btn') — consistent with _apply_role_mode pattern
 
 ### Research Flags (require hardware validation)
 
@@ -137,7 +156,7 @@ Decisions affecting current work (v2.0):
 
 ## Session Continuity
 
-Last session: 2026-04-06T11:43:26.847Z
-Stopped at: Phase 14 context gathered
-Resume file: .planning/phases/14-state-driven-ui/14-CONTEXT.md
+Last session: 2026-04-06T14:37:55.016Z
+Stopped at: Completed 14-02: Profiles and Parameters motion_active gating
+Resume file: None
 Next action: `/gsd:plan-phase 9`

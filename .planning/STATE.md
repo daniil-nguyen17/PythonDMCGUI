@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Flat Grind Integration
 status: planning
-stopped_at: Completed 11-01-PLAN.md
-last_updated: "2026-04-06T06:18:22.842Z"
+stopped_at: "Checkpoint: Task 3 visual verification of 11-02-PLAN.md"
+last_updated: "2026-04-06T06:23:56.383Z"
 last_activity: 2026-04-06 — Roadmap created
 progress:
   total_phases: 7
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Project State
@@ -68,6 +68,7 @@ Progress (v2.0): [░░░░░░░░░░] 0% (0/6 phases)
 | Phase 10-state-poll P02 | 16 | 2 tasks | 5 files |
 | Phase 10-state-poll P03 | 8 | 2 tasks | 3 files |
 | Phase 11-e-stop-safety P01 | 3 | 2 tasks | 5 files |
+| Phase 11-e-stop-safety P02 | 4 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,9 @@ Decisions affecting current work (v2.0):
 - [Phase 10-state-poll]: test_plot_buffer_only_during_cycle updated to use _apply_state with MachineState API instead of deleted _apply_ui
 - [Phase 11-e-stop-safety]: _cancel_event cleared by worker after urgent job runs — avoids race with caller clearing before job executes
 - [Phase 11-e-stop-safety]: program_running defaults True on _XQ failure — conservative: RECOVER button stays disabled when controller state uncertain
+- [Phase 11-e-stop-safety]: XQ #AUTO in recover() is the single authorized XQ direct call - restarts DMC program, not a subroutine trigger
+- [Phase 11-e-stop-safety]: STOP button sends ST ABCD only (no HX) - softer halt that keeps DMC thread alive for RECOVER; e_stop sends both for full emergency stop
+- [Phase 11-e-stop-safety]: motion_active=True when disconnected ensures all motion buttons remain disabled until controller connection confirmed
 
 ### Research Flags (require hardware validation)
 
@@ -117,7 +121,7 @@ Decisions affecting current work (v2.0):
 
 ## Session Continuity
 
-Last session: 2026-04-06T06:18:22.840Z
-Stopped at: Completed 11-01-PLAN.md
+Last session: 2026-04-06T06:23:56.381Z
+Stopped at: Checkpoint: Task 3 visual verification of 11-02-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 9`

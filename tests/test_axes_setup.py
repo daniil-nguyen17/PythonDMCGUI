@@ -99,9 +99,10 @@ def test_jog_counts_calculation():
     submitted_fns[0]()
 
     calls = ctrl.cmd.call_args_list
-    assert len(calls) == 2
+    assert len(calls) == 3
     assert calls[0] == call("PRA=12000")
     assert calls[1] == call("BGA")
+    assert calls[2] == call("MG _TDA")  # readback position after jog
 
 
 def test_jog_counts_negative():
@@ -126,6 +127,7 @@ def test_jog_counts_negative():
     calls = ctrl.cmd.call_args_list
     assert calls[0] == call("PRA=-6000")
     assert calls[1] == call("BGA")
+    assert calls[2] == call("MG _TDA")  # readback position after jog
 
 
 def test_jog_no_controller():
@@ -182,6 +184,11 @@ def test_teach_rest_burns_nv():
         "  4000.0000  ",  # _TDD
         "",                # write cmd (semicolon-separated)
         "",                # BV
+        # Readback: restPt + _TD for each axis (A, B, C, D)
+        "  1000.0000  ", "  1000.0000  ",
+        "  2000.0000  ", "  2000.0000  ",
+        "  3000.0000  ", "  3000.0000  ",
+        "  4000.0000  ", "  4000.0000  ",
     ]
     screen.controller = ctrl
     screen.state = MagicMock()
@@ -228,6 +235,11 @@ def test_teach_start_burns_nv():
         "  800.0000  ",
         "",
         "",
+        # Readback: startPt + _TD for each axis (A, B, C, D)
+        "  500.0000  ", "  500.0000  ",
+        "  600.0000  ", "  600.0000  ",
+        "  700.0000  ", "  700.0000  ",
+        "  800.0000  ", "  800.0000  ",
     ]
     screen.controller = ctrl
     screen.state = MagicMock()
@@ -335,38 +347,10 @@ def test_quick_action_home_all():
     ctrl.cmd.assert_called_once_with("swHomeAll=1")
 
 
-# ── Polling ───────────────────────────────────────────────────────────────────
+# ── No-polling verification ───────────────────────────────────────────────────
 
 
-def test_poll_disconnected_noop():
-    """AXES-05: _poll_tick does nothing when controller is not connected."""
-    from unittest.mock import MagicMock, patch
+def test_no_poll_tick_method():
+    """AXES-05: AxesSetupScreen has no _poll_tick — polling was removed."""
     from dmccodegui.screens.axes_setup import AxesSetupScreen
-
-    screen = AxesSetupScreen()
-    ctrl = MagicMock()
-    ctrl.is_connected.return_value = False
-    screen.controller = ctrl
-
-    submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
-        mock_jobs.submit = lambda fn: submitted_fns.append(fn)
-        screen._poll_tick(0)
-
-    assert len(submitted_fns) == 0
-
-
-def test_poll_no_controller_noop():
-    """AXES-05: _poll_tick does nothing when controller is None."""
-    from unittest.mock import patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
-
-    screen = AxesSetupScreen()
-    screen.controller = None
-
-    submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
-        mock_jobs.submit = lambda fn: submitted_fns.append(fn)
-        screen._poll_tick(0)
-
-    assert len(submitted_fns) == 0
+    assert not hasattr(AxesSetupScreen, '_poll_tick')

@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Flat Grind Integration
 status: planning
-stopped_at: "Checkpoint: Task 3 visual verification of 11-02-PLAN.md"
+stopped_at: "Completed 11-02-PLAN.md — E-STOP Safety Wiring (all 3 tasks done, 229/229 tests pass)"
 last_updated: "2026-04-06T06:23:56.383Z"
 last_activity: 2026-04-06 — Roadmap created
 progress:
@@ -103,6 +103,9 @@ Decisions affecting current work (v2.0):
 - [Phase 11-e-stop-safety]: XQ #AUTO in recover() is the single authorized XQ direct call - restarts DMC program, not a subroutine trigger
 - [Phase 11-e-stop-safety]: STOP button sends ST ABCD only (no HX) - softer halt that keeps DMC thread alive for RECOVER; e_stop sends both for full emergency stop
 - [Phase 11-e-stop-safety]: motion_active=True when disconnected ensures all motion buttons remain disabled until controller connection confirmed
+- [Phase 11-e-stop-safety]: recover() captures exception into default arg (_m=msg) to avoid Python 3.13 NameError after except block clears exception variable
+- [Phase 11-e-stop-safety]: SH ABCD sent before XQ #AUTO in recover() — re-enables servos after HX so axes can move when program restarts
+- [Phase 11-e-stop-safety]: AxesSetup 3 Hz poll loop removed — positions read once on tab enter and after each jog/teach; no continuous scheduling in screen classes
 
 ### Research Flags (require hardware validation)
 
@@ -122,6 +125,6 @@ Decisions affecting current work (v2.0):
 ## Session Continuity
 
 Last session: 2026-04-06T06:23:56.381Z
-Stopped at: Checkpoint: Task 3 visual verification of 11-02-PLAN.md
+Stopped at: Completed 11-02-PLAN.md — E-STOP Safety Wiring (all 3 tasks done, 229/229 tests pass)
 Resume file: None
 Next action: `/gsd:plan-phase 9`

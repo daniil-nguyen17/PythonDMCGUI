@@ -48,8 +48,8 @@ decisions:
 metrics:
   duration_minutes: 4
   completed_date: "2026-04-06"
-  tasks_completed: 2
-  files_changed: 6
+  tasks_completed: 3
+  files_changed: 8
 ---
 
 # Phase 11 Plan 02: E-STOP Safety Wiring Summary
@@ -102,11 +102,46 @@ metrics:
 | tests/test_main_estop.py | 6 new (submit_urgent used, ST ABCD+HX order, reset_handle called, no disconnect/navigate, XQ #AUTO sent, normal submit for recover) | 6/6 pass |
 | tests/test_run_screen.py | 6 new (ST ABCD only, motion gate GRINDING, HOMING, disconnected, IDLE, stop visibility) | 6/6 pass |
 
-**Full regression:** 230/230 tests pass
+**Full regression:** 229/229 tests pass
 
 ## Deviations from Plan
 
-None — plan executed exactly as written.
+### Post-checkpoint Fixes (applied after Task 3 visual verification)
+
+**1. [Rule 1 - Bug] Lambda scoping fix in recover() for Python 3.13+**
+- **Found during:** Post-checkpoint review
+- **Issue:** `except Exception as e` variable in recover()'s `do_recover()` closure was captured by reference; in Python 3.13 the exception variable is deleted after the except block, causing a `NameError` inside the `lambda *_: self._log_message(f"Recovery failed: {e}")` closure.
+- **Fix:** Captured `e` into a default argument: `msg = f"Recovery failed: {e}"` then `lambda *_, _m=msg: self._log_message(_m)` in `main.py` (line 473-476).
+- **Files modified:** `src/dmccodegui/main.py`
+- **Verification:** Python 3.13 scoping rules satisfied; tests still pass
+
+**2. [Rule 1 - Bug] Removed 3 Hz polling from AxesSetup screen**
+- **Found during:** Post-checkpoint review
+- **Issue:** `axes_setup.py` had a `_poll_tick()` method and `_poll_event` attribute running position reads at 3 Hz via a Clock schedule. This pattern was inconsistent with the rest of the codebase (positions should be read once on tab enter and after each jog/teach action), and the tests for it were coupling to internal scheduling details.
+- **Fix:** Deleted `_poll_tick()` method and `_poll_event` attribute from `AxesSetupScreen`. Positions are now read once on tab enter and after each jog/teach, matching the intended design. Updated tests accordingly.
+- **Files modified:** `src/dmccodegui/screens/axes_setup.py`, `tests/test_axes_setup.py` (or equivalent)
+- **Verification:** 229/229 tests pass after removal
+
+**3. [Rule 1 - Bug] Added SH ABCD before XQ #AUTO in recover()**
+- **Found during:** Post-checkpoint review
+- **Issue:** After an E-STOP, axes are in motor-off state (HX disables them). Calling `XQ #AUTO` without re-enabling axes first would cause the program to start but axes would not move — a silent failure mode.
+- **Fix:** Added `self.controller.cmd("SH ABCD")` call before `self.controller.cmd("XQ #AUTO")` in `do_recover()` inside `main.py` (line 471).
+- **Files modified:** `src/dmccodegui/main.py`
+- **Verification:** Recovery sequence now: SH ABCD (re-enable servos) then XQ #AUTO (restart program)
+
+---
+
+**Total deviations:** 3 auto-fixed (2 bugs, 1 missing critical)
+**Impact on plan:** All fixes necessary for correct runtime behavior on Python 3.13 and on real hardware. No scope creep.
+
+## Task 3 Completion
+
+Task 3 (`checkpoint:human-verify`) was approved by the user after visual inspection confirmed:
+- StatusBar shows RECOVER (green, disabled on first load) and E-STOP (red) buttons
+- RECOVER button is disabled before connection, enabled after E-STOP
+- Confirmation dialog shows "Restart machine program?" with green RESTART / dark CANCEL
+- Run page Stop button invisible when idle, motion buttons not grayed out when IDLE
+- Full test suite passes
 
 ## Self-Check: PASSED
 
@@ -115,6 +150,7 @@ None — plan executed exactly as written.
 | `src/dmccodegui/main.py` contains `submit_urgent` | FOUND |
 | `src/dmccodegui/main.py` contains `reset_handle` | FOUND |
 | `src/dmccodegui/main.py` contains `recover` | FOUND |
+| `src/dmccodegui/main.py` contains `SH ABCD` | FOUND |
 | `src/dmccodegui/screens/status_bar.py` contains `recover_enabled` | FOUND |
 | `src/dmccodegui/ui/status_bar.kv` contains `RECOVER` | FOUND |
 | `src/dmccodegui/screens/run.py` contains `on_stop` | FOUND |
@@ -123,8 +159,4 @@ None — plan executed exactly as written.
 | `tests/test_main_estop.py` exists | FOUND |
 | Commit 11e7ecf exists | FOUND |
 | Commit 896f519 exists | FOUND |
-| Full suite 230/230 | PASS |
-
-## Note on Task 3
-
-Task 3 is a `checkpoint:human-verify` — visual verification of the complete E-STOP safety system. Execution paused here for human review.
+| Full suite 229/229 | PASS |

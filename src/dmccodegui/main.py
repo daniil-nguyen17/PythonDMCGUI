@@ -468,10 +468,12 @@ class DMCApp(App):
             modal.dismiss()
             def do_recover():
                 try:
-                    self.controller.cmd("XQ #AUTO")
+                    self.controller.cmd("SH ABCD") #ENABLE ALL AXIS -- in case of e-stop or other fault
+                    self.controller.cmd("XQ #AUTO") #restart program from the top then flow to main loop
                 except Exception as e:
+                    msg = f"Recovery failed: {e}"
                     Clock.schedule_once(
-                        lambda *_: self._log_message(f"Recovery failed: {e}")
+                        lambda *_, _m=msg: self._log_message(_m)
                     )
             jobs.submit(do_recover)  # Normal submit -- recovery is not urgent
 

@@ -36,11 +36,8 @@ QUICK ACTIONS (software variable commands — adjust variable names at integrati
   (These send single-variable commands; the controller program handles axis routing.)
 
 POLLING:
-  3 Hz position polling (Clock.schedule_interval at 1/3.0 Hz) reads MG _TD{axis}
-  for axes in mc.get_axis_list() only (skips D axis read on Serration to avoid
-  controller errors for undefined variables).
-  Also reads restPt and startPt for active axes.
-  Started on on_pre_enter, cancelled on_leave.
+  No automatic polling. Positions are read once on tab enter and refreshed
+  after each jog or teach operation (request-response only).
 
 JOG:
   Uses PR (position relative) + BG per axis.
@@ -134,9 +131,6 @@ class AxesSetupScreen(Screen):
     # CPM cache — populated from controller on enter, seeded with defaults
     _axis_cpm: dict[str, float]
 
-    # Kivy Clock event handle for 3 Hz position polling
-    _poll_event = None
-
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
     def __init__(self, **kwargs):
@@ -144,29 +138,18 @@ class AxesSetupScreen(Screen):
         self._axis_cpm = dict(AXIS_CPM_DEFAULTS)
 
     def on_pre_enter(self, *args):
-        """Start 3 Hz polling and read CPM + initial taught points.
+        """One-time read of all positions and CPM on tab entry.
 
         Also rebuilds the axis sidebar to match the active machine type —
         this enables hot-swap: changing machine type and re-entering the
         screen immediately shows the correct sidebar layout.
         """
-        # Rebuild sidebar for current machine type (must run before poll starts)
+        # Rebuild sidebar for current machine type
         self._rebuild_axis_sidebar()
 
-        # Start position polling at 3 Hz
-        if self._poll_event:
-            self._poll_event.cancel()
-        self._poll_event = Clock.schedule_interval(self._poll_tick, 1 / 3.0)
-
-        # Read CPM and initial taught point values from controller (background)
+        # One-time read of CPM, current positions, and taught points
         if self.controller and self.controller.is_connected():
             jobs.submit(self._read_initial_values)
-
-    def on_leave(self, *args):
-        """Cancel polling clock to save CPU and controller bandwidth."""
-        if self._poll_event:
-            self._poll_event.cancel()
-            self._poll_event = None
 
     # ── Axis sidebar ──────────────────────────────────────────────────────────
 
@@ -244,6 +227,16 @@ class AxesSetupScreen(Screen):
             try:
                 ctrl.cmd(f"PR{axis}={counts}")
                 ctrl.cmd(f"BG{axis}")
+                # Read back new position after move command
+                raw = ctrl.cmd(f"MG _TD{axis}").strip()
+
+                def update_pos(*_):
+                    try:
+                        self.pos_current[axis] = f"{float(raw):.1f}"
+                    except (ValueError, TypeError):
+                        pass
+
+                Clock.schedule_once(update_pos)
             except Exception as e:
                 print(f"[AxesSetup] Jog {axis} failed: {e}")
 
@@ -293,10 +286,26 @@ class AxesSetupScreen(Screen):
                 ctrl.cmd(write_cmd)
                 ctrl.cmd("BV")
 
-                # Update UI display for active axes
+                # Read back from controller to confirm values were stored
+                readback: dict[str, str] = {}
+                current: dict[str, str] = {}
+                for axis in axis_list:
+                    try:
+                        raw = ctrl.cmd(f"MG restPt{axis}").strip()
+                        readback[axis] = f"{float(raw):.1f}"
+                    except Exception:
+                        readback[axis] = str(vals[axis])
+                    try:
+                        raw = ctrl.cmd(f"MG _TD{axis}").strip()
+                        current[axis] = f"{float(raw):.1f}"
+                    except Exception:
+                        pass
+
                 def update_ui(*_):
-                    for axis, val in vals.items():
-                        self.pos_rest[axis] = str(val)
+                    for axis, val in readback.items():
+                        self.pos_rest[axis] = val
+                    for axis, val in current.items():
+                        self.pos_current[axis] = val
 
                 Clock.schedule_once(update_ui)
             except Exception as e:
@@ -346,9 +355,26 @@ class AxesSetupScreen(Screen):
                 ctrl.cmd(write_cmd)
                 ctrl.cmd("BV")
 
+                # Read back from controller to confirm values were stored
+                readback: dict[str, str] = {}
+                current: dict[str, str] = {}
+                for axis in axis_list:
+                    try:
+                        raw = ctrl.cmd(f"MG startPt{axis}").strip()
+                        readback[axis] = f"{float(raw):.1f}"
+                    except Exception:
+                        readback[axis] = str(vals[axis])
+                    try:
+                        raw = ctrl.cmd(f"MG _TD{axis}").strip()
+                        current[axis] = f"{float(raw):.1f}"
+                    except Exception:
+                        pass
+
                 def update_ui(*_):
-                    for axis, val in vals.items():
-                        self.pos_start[axis] = str(val)
+                    for axis, val in readback.items():
+                        self.pos_start[axis] = val
+                    for axis, val in current.items():
+                        self.pos_current[axis] = val
 
                 Clock.schedule_once(update_ui)
             except Exception as e:
@@ -385,46 +411,12 @@ class AxesSetupScreen(Screen):
 
         jobs.submit(do_send)
 
-    # ── Polling ───────────────────────────────────────────────────────────────
-
-    def _poll_tick(self, dt: float) -> None:
-        """3 Hz callback — triggers background position read if controller is connected."""
-        if not self.controller or not self.controller.is_connected():
-            return
-
-        ctrl = self.controller
-
-        # Determine active axes at poll time (avoids D-axis read errors on Serration)
-        try:
-            axis_list = mc.get_axis_list()
-        except ValueError:
-            axis_list = ["A", "B", "C", "D"]
-
-        def do_poll():
-            try:
-                raw_vals: dict[str, str] = {}
-                for axis in axis_list:
-                    raw_vals[axis] = ctrl.cmd(f"MG _TD{axis}").strip()
-
-                def update_positions(*_):
-                    for axis, raw in raw_vals.items():
-                        try:
-                            self.pos_current[axis] = f"{float(raw):.1f}"
-                        except (ValueError, TypeError):
-                            pass
-
-                Clock.schedule_once(update_positions)
-            except Exception as e:
-                print(f"[AxesSetup] Poll failed: {e}")
-
-        jobs.submit(do_poll)
-
     # ── Initial load ──────────────────────────────────────────────────────────
 
     def _read_initial_values(self) -> None:
         """
-        Background job: read CPM values and existing rest/start points from controller.
-        Called once on on_pre_enter.
+        Background job: one-time read of CPM, current positions, and taught
+        rest/start points from controller. Called once on on_pre_enter.
 
         Only reads for active axes (from mc.get_axis_list()) to avoid
         controller errors on undefined variables.
@@ -449,7 +441,16 @@ class AxesSetupScreen(Screen):
             except Exception:
                 pass  # Keep default
 
-        # Read existing rest points for active axes only
+        # Read current positions for active axes
+        current_updates: dict[str, str] = {}
+        for axis in axis_list:
+            try:
+                raw = ctrl.cmd(f"MG _TD{axis}").strip()
+                current_updates[axis] = f"{float(raw):.1f}"
+            except Exception:
+                pass
+
+        # Read existing rest/start points for active axes only
         rest_updates: dict[str, str] = {}
         start_updates: dict[str, str] = {}
         for axis in axis_list:
@@ -466,6 +467,8 @@ class AxesSetupScreen(Screen):
 
         def apply_updates(*_):
             self._axis_cpm.update(cpm_updates)
+            for axis, val in current_updates.items():
+                self.pos_current[axis] = val
             for axis, val in rest_updates.items():
                 self.pos_rest[axis] = val
             for axis, val in start_updates.items():

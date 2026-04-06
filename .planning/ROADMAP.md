@@ -83,7 +83,7 @@ Plans:
   2. Disconnecting the controller network cable causes a visible disconnected status on the HMI within 2 seconds — no crash, no freeze
   3. Reconnecting the cable (or restarting the controller) causes the HMI to resume polling without an app restart
   4. The knife count label on the Run page shows the same value as ctSesKni queried directly from the DMC terminal
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 Plans:
 - [ ] 10-01-PLAN.md — Extend dmc_vars.py, MachineState, and DMC program with knife count + Thread 2
 - [ ] 10-02-PLAN.md — Create ControllerPoller module and wire into app lifecycle
@@ -153,7 +153,7 @@ Plans:
 | 7. Admin and User Management | v1.0 | 2/2 | Complete | 2026-04-06 |
 | 8. Pi Kiosk and Deployment | v1.1 | 0/TBD | Deferred | - |
 | 9. DMC Foundation | v2.0 | 3/3 | Complete | 2026-04-06 |
-| 10. State Poll | v2.0 | 0/3 | Not started | - |
+| 10. State Poll | 1/3 | In Progress|  | - |
 | 11. E-STOP Safety | v2.0 | 0/TBD | Not started | - |
 | 12. Run Page Wiring | v2.0 | 0/TBD | Not started | - |
 | 13. Setup Loop | v2.0 | 0/TBD | Not started | - |

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Flat Grind Integration
 status: planning
-stopped_at: Phase 10 context gathered
-last_updated: "2026-04-06T04:26:57.655Z"
+stopped_at: Completed 10-01-PLAN.md
+last_updated: "2026-04-06T04:52:40.885Z"
 last_activity: 2026-04-06 — Roadmap created
 progress:
   total_phases: 7
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 6
+  completed_plans: 4
 ---
 
 # Project State
@@ -64,6 +64,7 @@ Progress (v2.0): [░░░░░░░░░░] 0% (0/6 phases)
 | Phase 09-dmc-foundation P01 | 22 | 2 tasks | 4 files |
 | Phase 09 P02 | 2 | 2 tasks | 1 files |
 | Phase 09-dmc-foundation P03 | 12 | 2 tasks | 6 files |
+| Phase 10-state-poll P01 | 18 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,9 @@ Decisions affecting current work (v2.0):
 - [Phase 09]: hmiState set in #HOME subroutine at entry (=4) and before EN (=1); SULOOP overrides after return to restore hmiState=3
 - [Phase 09]: Exit-setup button (@IN[32]) gets no HMI variable — deferred to Phase 13 SETP-08
 - [Phase 09-dmc-foundation]: Absolute imports used for dmc_vars in screen files to satisfy plan artifact check
+- [Phase 10-state-poll]: cycle_running is a @property on MachineState derived from dmc_state == STATE_GRINDING — never stored, controller is the single source of truth
+- [Phase 10-state-poll]: DMC knife counting inline at grind completion (#DONE block) rather than Thread 2 observer — simpler and avoids inter-thread race conditions
+- [Phase 10-state-poll]: Thread 2 (#THRD2) is a passive WT 100 observer placeholder — main thread subroutines retain ownership of all hmiState transitions
 
 ### Research Flags (require hardware validation)
 
@@ -105,7 +109,7 @@ Decisions affecting current work (v2.0):
 
 ## Session Continuity
 
-Last session: 2026-04-06T04:26:57.653Z
-Stopped at: Phase 10 context gathered
-Resume file: .planning/phases/10-state-poll/10-CONTEXT.md
+Last session: 2026-04-06T04:52:40.882Z
+Stopped at: Completed 10-01-PLAN.md
+Resume file: None
 Next action: `/gsd:plan-phase 9`

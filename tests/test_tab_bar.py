@@ -76,6 +76,68 @@ class TestProfilesTabRoleVisibility:
         )
 
 
+def _compute_gates(dmc_state: int, connected: bool) -> dict:
+    """Mirror of TabBar.update_state_gates gate logic for isolated testing.
+
+    Returns a dict of tab_name -> should_disable.
+    """
+    STATE_SETUP = 3
+    STATE_GRINDING = 2
+    STATE_HOMING = 4
+
+    if not connected:
+        return {}  # No gates when disconnected
+
+    motion_active = dmc_state in (STATE_GRINDING, STATE_HOMING)
+    return {
+        "run": dmc_state == STATE_SETUP,
+        "axes_setup": motion_active,
+        "parameters": motion_active,
+    }
+
+
+class TestUpdateStateGates:
+    """Tests for update_state_gates gate logic (pure Python, no Kivy)."""
+
+    def test_setup_state_disables_run(self):
+        """SETUP state: run disabled, axes_setup and parameters not disabled."""
+        gates = _compute_gates(dmc_state=3, connected=True)
+        assert gates.get("run") is True, "run should be disabled during SETUP"
+        assert gates.get("axes_setup") is not True, "axes_setup should be enabled during SETUP"
+        assert gates.get("parameters") is not True, "parameters should be enabled during SETUP"
+
+    def test_grinding_state_disables_setup_tabs(self):
+        """GRINDING state: run accessible, axes_setup and parameters disabled."""
+        gates = _compute_gates(dmc_state=2, connected=True)
+        assert gates.get("run") is not True, "run should be enabled during GRINDING"
+        assert gates.get("axes_setup") is True, "axes_setup should be disabled during GRINDING"
+        assert gates.get("parameters") is True, "parameters should be disabled during GRINDING"
+
+    def test_homing_state_disables_setup_tabs(self):
+        """HOMING state: same gate pattern as GRINDING."""
+        gates = _compute_gates(dmc_state=4, connected=True)
+        assert gates.get("run") is not True, "run should be enabled during HOMING"
+        assert gates.get("axes_setup") is True, "axes_setup should be disabled during HOMING"
+        assert gates.get("parameters") is True, "parameters should be disabled during HOMING"
+
+    def test_idle_state_no_gates(self):
+        """IDLE state: no tabs disabled."""
+        gates = _compute_gates(dmc_state=1, connected=True)
+        assert not any(gates.values()), f"No tabs should be gated during IDLE, got {gates}"
+
+    def test_disconnected_no_gates(self):
+        """Disconnected: nothing disabled regardless of dmc_state."""
+        gates = _compute_gates(dmc_state=3, connected=False)
+        assert gates == {}, f"Disconnected should have no gates, got {gates}"
+
+    def test_setup_disconnected_no_gates(self):
+        """SETUP + disconnected: nothing disabled (connected=False overrides state)."""
+        gates = _compute_gates(dmc_state=3, connected=False)
+        assert not any(gates.values()), (
+            f"Disconnected should override SETUP gate, got {gates}"
+        )
+
+
 class TestUsersTabRoleVisibility:
     """Verify that the Users tab is visible for Admin only."""
 

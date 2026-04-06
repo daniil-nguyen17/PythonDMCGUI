@@ -33,6 +33,7 @@ try:
     from .screens.pin_overlay import PINOverlay
     from .theme_manager import theme as app_theme
     from .hmi.poll import ControllerPoller
+    from .hmi.dmc_vars import STATE_SETUP
     import dmccodegui.machine_config as mc
 except Exception:  # Allows running as a script: python src/dmccodegui/main.py
     from dmccodegui.app_state import MachineState
@@ -43,6 +44,7 @@ except Exception:  # Allows running as a script: python src/dmccodegui/main.py
     from dmccodegui.screens.pin_overlay import PINOverlay
     from dmccodegui.theme_manager import theme as app_theme
     from dmccodegui.hmi.poll import ControllerPoller
+    from dmccodegui.hmi.dmc_vars import STATE_SETUP
     import dmccodegui.machine_config as mc
 
 
@@ -121,6 +123,27 @@ class DMCApp(App):
 
         # Subscribe StatusBar to state changes
         self.state.subscribe(lambda s: Clock.schedule_once(lambda *_: status_bar.update_from_state(s)))
+
+        # Setup badge wiring — yellow bar between StatusBar and TabBar during SETUP
+        setup_badge = root.ids.setup_badge
+
+        def _update_setup_badge(s):
+            from kivy.metrics import dp
+            in_setup = s.connected and s.dmc_state == STATE_SETUP
+            setup_badge.opacity = 1.0 if in_setup else 0.0
+            setup_badge.height = dp(24) if in_setup else 0
+
+        self.state.subscribe(
+            lambda s: Clock.schedule_once(lambda *_: _update_setup_badge(s))
+        )
+
+        # Tab state gates wiring — gate tabs based on controller state
+        def _update_tab_gates(s):
+            tab_bar.update_state_gates(s.dmc_state, s.connected)
+
+        self.state.subscribe(
+            lambda s: Clock.schedule_once(lambda *_: _update_tab_gates(s))
+        )
 
         # Wire user area in StatusBar to open switch-user overlay
         status_bar.bind_user_tap(lambda: self._show_pin_overlay("switch"))

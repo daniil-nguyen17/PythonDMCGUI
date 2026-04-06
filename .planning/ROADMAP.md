@@ -40,7 +40,7 @@ Full context: `.planning/phases/08-CONTEXT.md`
 - [x] **Phase 12: Run Page Wiring** — Wire all operator Run page buttons to real DMC subroutines (completed 2026-04-06)
 - [x] **Phase 13: Setup Loop** — Wire Setup page entry, homing, jog, teach points, parameters write, and exit (completed 2026-04-06)
 - [x] **Phase 14: State-Driven UI** — Button enable/disable, status labels, setup badge, and live plot validation
-- [ ] **Phase 15: Run Page Missing Controls** — Restructure Run page layout: Stone Compensation card with persistent startPtC readback (layout gap closure)
+- [x] **Phase 15: Run Page Missing Controls** — Restructure Run page layout: Stone Compensation card with persistent startPtC readback (layout gap closure) (completed 2026-04-06)
 - [ ] **Phase 16: ProfilesScreen Setup Loop Fix** — Fix smart-enter guard and exit-setup wiring in ProfilesScreen (gap closure)
 - [ ] **Phase 17: Poll Reset and Cold-Start Fix** — Reset _fail_count on reconnect and fix cold-start E-STOP label (gap closure)
  (completed 2026-04-06)
@@ -159,7 +159,7 @@ Plans:
   1. More Stone and Less Stone buttons appear in a Stone Compensation card in the right column, not in the bottom action bar
   2. A persistent startPtC label in the card shows the current stone position
   3. RUN-02, RUN-03, RUN-06 traceability updated to Phase 13 (complete)
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [x] 15-01-PLAN.md — Stone Compensation card layout and traceability re-mapping
 
@@ -199,7 +199,7 @@ Plans:
 | 12. Run Page Wiring | 1/1 | Complete    | 2026-04-06 | - |
 | 13. Setup Loop | 3/3 | Complete   | 2026-04-06 | - |
 | 14. State-Driven UI | 2/2 | Complete    | 2026-04-06 | - |
-| 15. Run Page Missing Controls | v2.0 | 0/1 | Pending | - |
+| 15. Run Page Missing Controls | 1/1 | Complete   | 2026-04-06 | - |
 | 16. ProfilesScreen Setup Loop Fix | v2.0 | 0/TBD | Pending | - |
 | 17. Poll Reset and Cold-Start Fix | v2.0 | 0/TBD | Pending | - |
 

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Flat Grind Integration
 status: planning
-stopped_at: Phase 15 context gathered
-last_updated: "2026-04-06T15:39:24.614Z"
+stopped_at: Completed 15-01-PLAN.md
+last_updated: "2026-04-06T15:59:21.523Z"
 last_activity: 2026-04-06 — Roadmap created
 progress:
   total_phases: 10
-  completed_phases: 6
-  total_plans: 14
-  completed_plans: 14
+  completed_phases: 7
+  total_plans: 15
+  completed_plans: 15
   percent: 100
 ---
 
@@ -90,6 +90,7 @@ Progress (v2.0): [░░░░░░░░░░] 0% (0/6 phases)
 | Phase 13-setup-loop P03 | 6 | 2 tasks | 2 files |
 | Phase 13-setup-loop P02 | 6 | 2 tasks | 2 files |
 | Phase 14-state-driven-ui P02 | 12 | 2 tasks | 4 files |
+| Phase 15-run-page-missing-controls P01 | 5 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -138,6 +139,8 @@ Decisions affecting current work (v2.0):
 - [Phase 13-setup-loop]: _BG in-progress gate inside do_jog() prevents overlapping jog commands
 - [Phase 14-state-driven-ui]: motion_active gate: not connected OR dmc_state in (GRINDING, HOMING) — disconnected=disabled per Phase 11 pattern
 - [Phase 14-state-driven-ui]: _update_apply_button uses _apply_btn attribute first, falls back to ids.get('apply_btn') — consistent with _apply_role_mode pattern
+- [Phase 15-run-page-missing-controls]: Stone Compensation card in right column with persistent startPtC readback — before-read removed, label replaces toast-style alert
+- [Phase 15-run-page-missing-controls]: RUN-02, RUN-03, RUN-06 re-mapped to Phase 13 — satisfied by existing AxesSetupScreen implementation
 
 ### Research Flags (require hardware validation)
 
@@ -156,7 +159,7 @@ Decisions affecting current work (v2.0):
 
 ## Session Continuity
 
-Last session: 2026-04-06T15:39:24.611Z
-Stopped at: Phase 15 context gathered
-Resume file: .planning/phases/15-run-page-missing-controls/15-CONTEXT.md
+Last session: 2026-04-06T15:59:21.521Z
+Stopped at: Completed 15-01-PLAN.md
+Resume file: None
 Next action: `/gsd:plan-phase 9`

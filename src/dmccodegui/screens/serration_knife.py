@@ -1,5 +1,39 @@
 from __future__ import annotations
 
+"""
+serration_knife.py — SerratedKnifeScreen and all supporting tab classes.
+
+This screen is a self-contained 5-tab interface for the serrated-knife grinding cycle
+driven by a Galil DMC 3-axis controller (A = knife length, B = grind width, C = angle/depth).
+
+TAB LAYOUT
+----------
+  OVERVIEW      — axis role cards + step-by-step grind flow diagram + fault boxes
+  PARAMETERS    — editable parameter table (geometry, feedrates, calibration, positions, safety)
+  B-COMP TABLE  — per-tooth B-axis compensation table with live bar chart
+  RUN CONTROL   — manual C jog, cycle summary, START/ESTOP, operation log
+  SUBROUTINES   — DMC subroutine reference cards (#PARAMS, #GRIND, #LOOP, #DONE, etc.)
+
+KEY DMC COMMANDS USED
+---------------------
+  SH AB                        — Servo Here (enable A and B motor servos)
+  XQ #PARAMS                   — Upload geometry/feedrate/calibration variables to controller
+  XQ #PROFILE                  — Upload bComp[] tooth compensation array to controller
+  XQ #GRIND                    — Start grind cycle (moves to startPt[], enters #LOOP)
+  XQ #HOME                     — Optional: home all axes, define position as 0,0,0
+  PA startPt[1]+swidth+bComp   — B plunge per tooth
+  PR spitch*mmA                — A relative step forward by one serration pitch
+  BG AB                        — Begin motion on A and B simultaneously
+  ST AB                        — Stop (E-STOP via #ESTOP subroutine)
+
+THREADING MODEL
+---------------
+  All Kivy widget construction happens on the main thread.
+  Any controller I/O must go through jobs.submit() → Clock.schedule_once() for UI updates.
+  (This screen currently uses simulated tick timers for run control — wire in real
+   controller calls when integrating with a physical machine.)
+"""
+
 from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
@@ -19,25 +53,28 @@ from ..controller import GalilController
 
 # =============================================================================
 #  THEME CONSTANTS
+#  Match the project-wide dark palette defined in theme.kv.
+#  If you change any color here, update the corresponding KV rule too.
 # =============================================================================
-BG_DARK    = (0.031, 0.047, 0.071, 1)
-BG_PANEL   = (0.051, 0.071, 0.102, 1)
-BG_ROW     = (0.071, 0.094, 0.133, 1)
-BORDER     = (0.118, 0.145, 0.188, 1)
-TEXT_MAIN  = (0.886, 0.910, 0.941, 1)
-TEXT_MID   = (0.580, 0.631, 0.710, 1)
-TEXT_DIM   = (0.282, 0.333, 0.420, 1)
-TEXT_FAINT = (0.200, 0.239, 0.314, 1)
+BG_DARK    = (0.031, 0.047, 0.071, 1)   # Deepest background (screen fill)
+BG_PANEL   = (0.051, 0.071, 0.102, 1)   # Card / panel background
+BG_ROW     = (0.071, 0.094, 0.133, 1)   # Table header rows
+BORDER     = (0.118, 0.145, 0.188, 1)   # Subtle divider / outline
+TEXT_MAIN  = (0.886, 0.910, 0.941, 1)   # Primary text (bright)
+TEXT_MID   = (0.580, 0.631, 0.710, 1)   # Secondary text (medium)
+TEXT_DIM   = (0.282, 0.333, 0.420, 1)   # Dimmed / hint text
+TEXT_FAINT = (0.200, 0.239, 0.314, 1)   # Barely visible (connectors, arrows)
 
-C_YELLOW = (0.980, 0.749, 0.043, 1)
-C_BLUE   = (0.369, 0.510, 0.965, 1)
-C_PURPLE = (0.659, 0.333, 0.965, 1)
-C_GREEN  = (0.133, 0.773, 0.369, 1)
-C_RED    = (0.937, 0.267, 0.267, 1)
-C_CYAN   = (0.024, 0.714, 0.831, 1)
-C_ORANGE = (0.980, 0.604, 0.098, 1)
-C_LIME   = (0.518, 0.796, 0.071, 1)
+C_YELLOW = (0.980, 0.749, 0.043, 1)  # Geometry group / A axis
+C_BLUE   = (0.369, 0.510, 0.965, 1)  # Feedrates group
+C_PURPLE = (0.659, 0.333, 0.965, 1)  # Calibration group / B axis / bComp
+C_GREEN  = (0.133, 0.773, 0.369, 1)  # Positions group / #GRIND flow
+C_RED    = (0.937, 0.267, 0.267, 1)  # Safety group / faults / E-STOP
+C_CYAN   = (0.024, 0.714, 0.831, 1)  # C axis / #HOME
+C_ORANGE = (0.980, 0.604, 0.098, 1)  # #RESUME / park steps
+C_LIME   = (0.518, 0.796, 0.071, 1)  # #DONE / normal completion
 
+# Maps parameter group names → accent color for filter buttons and row highlights.
 GROUP_COLORS = {
     'geometry':    C_YELLOW,
     'feedrates':   C_BLUE,
@@ -48,6 +85,17 @@ GROUP_COLORS = {
 
 # =============================================================================
 #  DATA
+#  DEFAULT_PARAMS — all editable grinding parameters with sane starting values.
+#  Edit DEFAULT_PARAMS to change factory defaults. Users can override per-session
+#  in the PARAMETERS tab. Values persist only for the app lifetime (no file save yet).
+#
+#  PARAM_META — rich metadata for each parameter:
+#    key → (display_label, unit, group, description_for_tooltip)
+#
+#  DEFAULT_BCOMP — per-tooth B compensation in mm (one entry per serration tooth).
+#    Extend or shorten this list to match the blade profile from AutoCAD export.
+#    bComp[n] is extra B travel added on top of swidth for tooth n.
+#    Index 0 = first tooth (nearest start position).
 # =============================================================================
 DEFAULT_PARAMS = {
     'grdthk': 3.0,   'spitch': 4.0,  'sdepth': 2.0,   'swidth': 5.0,
@@ -82,6 +130,11 @@ PARAM_META = {
 
 DEFAULT_BCOMP = [0.0, 0.1, 0.2, 0.3, 0.4, 0.4, 0.3, 0.2, 0.1, 0.0]
 
+# SUBROUTINES — metadata describing each DMC subroutine shown in the SUBROUTINES tab.
+# Each entry: (name, accent_color, badge_text, no_resume_flag, description, [variables_used])
+# badge_text is displayed as a warning chip (e.g. 'AUTO INTERRUPT').
+# no_resume_flag=True means the subroutine cannot auto-resume after being called.
+# To add a new subroutine card, append an entry here — no other code needs changing.
 SUBROUTINES = [
     ('#PARAMS',  C_YELLOW, 'AUTO INTERRUPT', False,
      'Loads all geometry, feed rate, calibration, position, and safety variables. Must be called first before any motion.',
@@ -115,6 +168,10 @@ SUBROUTINES = [
      ['scount', 'currA']),
 ]
 
+# FLOW_STEPS — ordered list of steps shown in the OVERVIEW flow diagram.
+# Each entry: (step_label, short_description, accent_color, flow_type_badge)
+# flow_type_badge must be one of: 'init', 'manual', 'optional', 'run', 'loop', 'done'
+# Steps with indices loop_start..loop_end (inclusive) get a green left-bracket indicator.
 FLOW_STEPS = [
     ('1. XQ #PARAMS',         'Load variables',               C_ORANGE, 'init'),
     ('2. XQ #PROFILE',        'Load bComp[]',                 C_PURPLE, 'init'),
@@ -128,7 +185,10 @@ FLOW_STEPS = [
     ('10. #DONE',             'Park B -> Park A -> wait',     C_LIME,   'done'),
 ]
 
-# Module-level shared state
+# Module-level shared state — persists for the entire app session.
+# _params: dict of current parameter values (written by ParamsTab, read by RunControlTab).
+# _bcomp:  list of per-tooth B compensation values (written by BCompTab, read by RunControlTab).
+# If you add persistent file save/load, read into these dicts on startup.
 _params = dict(DEFAULT_PARAMS)
 _bcomp  = list(DEFAULT_BCOMP)
 
@@ -141,9 +201,22 @@ _bcomp  = list(DEFAULT_BCOMP)
 
 def _add_rr_canvas(widget, fill_color, border_color, radius, line_width=1.2):
     """
-    Add a rounded-rectangle fill + Line border to widget.canvas.before.
-    Bind callbacks keep them in sync as the widget moves/resizes.
-    Direct object references are captured — no fragile index arithmetic.
+    Attach a rounded-rectangle fill + border outline to widget.canvas.before.
+
+    Both the fill (RoundedRectangle) and border (Line) are bound to the widget's
+    pos and size so they stay in sync during layout changes without needing to
+    clear and redraw the whole canvas.
+
+    Parameters
+    ----------
+    widget       : Kivy Widget — target widget that receives the canvas instructions
+    fill_color   : RGBA tuple — interior fill color (e.g. (*C_YELLOW[:3], 0.08))
+    border_color : RGBA tuple — outline color (e.g. (*C_YELLOW[:3], 0.3))
+    radius       : float (dp units) — corner radius for both fill and outline
+    line_width   : float — thickness of the border Line (default 1.2)
+
+    To change a card's color scheme: call _add_rr_canvas again on the same widget
+    (it appends another canvas instruction pair — clear canvas.before first if needed).
     """
     with widget.canvas.before:
         Color(*fill_color)
@@ -155,6 +228,7 @@ def _add_rr_canvas(widget, fill_color, border_color, radius, line_width=1.2):
         )
 
     def _upd(inst, _val):
+        # Keep the graphics in sync whenever the widget moves or resizes
         rr.pos  = inst.pos
         rr.size = inst.size
         ln.rounded_rectangle = [inst.x, inst.y, inst.width, inst.height, radius]
@@ -163,6 +237,21 @@ def _add_rr_canvas(widget, fill_color, border_color, radius, line_width=1.2):
 
 
 def _themed_label(text, color=None, size=None, bold=False, halign='left', **kw):
+    """
+    Create a Label styled to the dark theme.
+
+    Automatically binds text_size to the label's size so that halign/valign work
+    correctly inside layouts. Extra keyword args are forwarded to the Label constructor.
+
+    Parameters
+    ----------
+    text   : str    — label text (markup supported if markup=True is passed in kw)
+    color  : RGBA   — text color (defaults to TEXT_MID)
+    size   : int    — font size in sp (defaults to 13)
+    bold   : bool   — whether to bold the text
+    halign : str    — horizontal alignment ('left', 'center', 'right')
+    **kw           — forwarded to Label (e.g. size_hint_y=None, height=dp(20))
+    """
     lbl = Label(
         text=text,
         color=color or TEXT_MID,
@@ -178,6 +267,23 @@ def _themed_label(text, color=None, size=None, bold=False, halign='left', **kw):
 
 
 def _dark_button(text, color=None, height=dp(42), font_size=None, **kw):
+    """
+    Create a Button with the dark-theme rounded style (no Kivy default chrome).
+
+    The button background is a semi-transparent fill of the accent color with a
+    slightly opaque outline. Both redraw on pos/size change so they work in any layout.
+
+    Parameters
+    ----------
+    text      : str   — button label text
+    color     : RGBA  — accent color (defaults to C_GREEN)
+    height    : dp    — fixed height (size_hint_y is set to None automatically)
+    font_size : int   — font size in sp (defaults to 13)
+    **kw             — forwarded to Button constructor (e.g. size_hint_x=None, width=dp(100))
+
+    To change colors: pass a different color tuple. The fill uses 18% opacity,
+    the border uses 55% opacity of the same color.
+    """
     c = color or C_GREEN
     btn = Button(
         text=text,
@@ -192,6 +298,9 @@ def _dark_button(text, color=None, height=dp(42), font_size=None, **kw):
     )
 
     def _draw_bg(instance, _value):
+        # Redraws the entire canvas.before on each pos/size change.
+        # This is intentional — dark buttons use canvas.before.clear() to avoid
+        # accumulating draw calls during rapid resize events.
         instance.canvas.before.clear()
         with instance.canvas.before:
             Color(c[0], c[1], c[2], 0.18)
@@ -207,6 +316,13 @@ def _dark_button(text, color=None, height=dp(42), font_size=None, **kw):
 
 
 def _divider():
+    """
+    Create a 1dp-tall horizontal divider widget in the BORDER color.
+
+    Use between table rows or sections for visual separation.
+    The Rectangle is bound to the widget's pos/size so it stretches correctly
+    inside GridLayout or BoxLayout.
+    """
     w = Widget(size_hint_y=None, height=dp(1))
     with w.canvas:
         Color(*BORDER)
@@ -220,6 +336,9 @@ def _divider():
 
 # =============================================================================
 #  OVERVIEW TAB
+#  Read-only reference screen. No user input — just axis role cards and the
+#  step-by-step grind flow diagram with fault recovery boxes.
+#  To add a new flow step: append to FLOW_STEPS at the top of this file.
 # =============================================================================
 class OverviewTab(BoxLayout):
     def __init__(self, **kw):
@@ -227,7 +346,14 @@ class OverviewTab(BoxLayout):
         self._build()
 
     def _build(self):
-        # Axis cards row
+        """
+        Build the overview layout:
+          1. Axis cards row — one card per axis (A, B, C) showing role and direction
+          2. Flow diagram — scrollable ordered list of grind cycle steps
+             Steps in the LOOP range get a green left-bracket visual indicator.
+          3. Fault boxes — 2x2 grid describing limit, poserr, estop, and manual C behavior
+        """
+        # ── Axis cards row ──────────────────────────────────────────────────
         cards = BoxLayout(orientation='horizontal', spacing=dp(10),
                           size_hint_y=None, height=dp(110))
         axes = [
@@ -250,19 +376,20 @@ class OverviewTab(BoxLayout):
             cards.add_widget(card)
         self.add_widget(cards)
 
-        # Flow diagram in scroll
+        # ── Flow diagram ────────────────────────────────────────────────────
         scroll   = ScrollView()
         flow_box = BoxLayout(orientation='vertical', spacing=dp(2),
                              size_hint_y=None, padding=[dp(20), dp(8)])
         flow_box.bind(minimum_height=flow_box.setter('height'))
 
+        # Steps at these indices are inside the main grind loop — gets a green bracket
         loop_start, loop_end = 5, 8
 
         for i, (label, sub, col, ftype) in enumerate(FLOW_STEPS):
             row = BoxLayout(orientation='horizontal', size_hint_y=None,
                             height=dp(52), spacing=dp(10))
 
-            # Left bracket indicator for loop steps
+            # Green left-bracket for loop body steps
             bracket = Widget(size_hint_x=None, width=dp(6))
             if loop_start <= i <= loop_end:
                 with bracket.canvas:
@@ -288,18 +415,20 @@ class OverviewTab(BoxLayout):
             row.add_widget(step_card)
             flow_box.add_widget(row)
 
+            # Small arrow connector between steps (omit after last step)
             if i < len(FLOW_STEPS) - 1:
                 flow_box.add_widget(
                     _themed_label('v', color=TEXT_FAINT, size=14,
                                   halign='center', size_hint_y=None, height=dp(16))
                 )
 
+        # Loop-back annotation beneath the flow
         flow_box.add_widget(_themed_label(
             '[b]  ^ LOOP repeats while scount < numSerr[/b]',
             color=(*C_GREEN[:3], 0.55), size=11, markup=True,
             size_hint_y=None, height=dp(22)))
 
-        # Fault boxes
+        # ── Fault boxes ─────────────────────────────────────────────────────
         fault_grid = GridLayout(cols=2, spacing=dp(8),
                                 size_hint_y=None, height=dp(130))
         faults = [
@@ -326,16 +455,31 @@ class OverviewTab(BoxLayout):
 
 # =============================================================================
 #  PARAMETERS TAB
+#  Editable table of all grinding parameters grouped by category.
+#  Values are written into the module-level _params dict on each field change,
+#  so RunControlTab always sees the latest values without an explicit "apply" step.
+#
+#  To add a new parameter:
+#    1. Add default to DEFAULT_PARAMS
+#    2. Add metadata to PARAM_META (label, unit, group, description)
+#    The row will appear automatically in the correct group.
 # =============================================================================
 class ParamsTab(BoxLayout):
     def __init__(self, **kw):
         super().__init__(orientation='vertical', spacing=dp(8), padding=dp(14), **kw)
-        self._filter = 'all'
-        self._rows   = {}
+        self._filter = 'all'   # Currently active group filter
+        self._rows   = {}      # var_name → TextInput widget (for programmatic updates)
         self._build()
 
     def _build(self):
-        # Group filter buttons
+        """
+        Build the parameters tab layout:
+          1. Group filter button row (ALL / GEOMETRY / FEEDRATES / etc.)
+          2. Column header row (VARIABLE, GROUP, DESCRIPTION, VALUE)
+          3. Scrollable parameter rows (rebuilt on each filter change)
+          4. Warning bar reminding about units and calibration
+        """
+        # ── Group filter buttons ─────────────────────────────────────────────
         filter_row = BoxLayout(orientation='horizontal', spacing=dp(6),
                                size_hint_y=None, height=dp(36))
         groups = ['all', 'geometry', 'feedrates', 'calibration', 'positions', 'safety']
@@ -355,7 +499,7 @@ class ParamsTab(BoxLayout):
         filter_row.add_widget(Widget())
         self.add_widget(filter_row)
 
-        # Column headers
+        # ── Column headers ───────────────────────────────────────────────────
         hdr = GridLayout(cols=4, size_hint_y=None, height=dp(30), spacing=dp(2))
         with hdr.canvas.before:
             Color(*BG_ROW)
@@ -368,14 +512,14 @@ class ParamsTab(BoxLayout):
             hdr.add_widget(_themed_label(h, color=TEXT_DIM, size=11, bold=True))
         self.add_widget(hdr)
 
-        # Scrollable rows
+        # ── Scrollable rows ──────────────────────────────────────────────────
         self._scroll      = ScrollView()
         self._rows_layout = GridLayout(cols=1, spacing=dp(1), size_hint_y=None)
         self._rows_layout.bind(minimum_height=self._rows_layout.setter('height'))
         self._scroll.add_widget(self._rows_layout)
         self.add_widget(self._scroll)
 
-        # Warning bar
+        # ── Warning bar ──────────────────────────────────────────────────────
         warn = BoxLayout(orientation='horizontal', size_hint_y=None,
                          height=dp(44), padding=dp(10), spacing=dp(8))
         _add_rr_canvas(warn, (*C_YELLOW[:3], 0.07), (*C_YELLOW[:3], 0.25), dp(6), line_width=1.0)
@@ -393,9 +537,22 @@ class ParamsTab(BoxLayout):
         self._set_filter('all')
 
     def _rebuild_rows(self):
+        """
+        Clear and repopulate the scrollable row list based on the current filter.
+
+        Each row is a 4-column GridLayout:
+          [variable name] [group] [description] [TextInput for value]
+
+        Rows are rebuilt from scratch on every filter change (rather than
+        show/hide) to keep the layout height calculation simple.
+
+        The left edge of each row has a 3dp colored stripe matching the group color
+        for quick visual scanning.
+        """
         self._rows_layout.clear_widgets()
         self._rows = {}
         for var, (_label, unit, group, desc) in PARAM_META.items():
+            # Skip rows that don't match the active group filter
             if self._filter not in ('all', group):
                 continue
             col = GROUP_COLORS.get(group, TEXT_MID)
@@ -404,6 +561,7 @@ class ParamsTab(BoxLayout):
             with row.canvas.before:
                 Color(*BG_PANEL)
                 row_bg   = Rectangle(pos=row.pos, size=row.size)
+                # 3dp colored left-edge stripe indicating the parameter group
                 Color(*col[:3], 0.6)
                 row_side = Rectangle(pos=row.pos, size=(dp(3), row.height))
             row.bind(
@@ -420,6 +578,7 @@ class ParamsTab(BoxLayout):
             row.add_widget(_themed_label(group.upper(), color=col, size=10))
             row.add_widget(_themed_label(desc, color=TEXT_DIM, size=11))
 
+            # Value TextInput — updates _params on Enter key OR when focus is lost
             ti = TextInput(
                 text=str(_params.get(var, 0)),
                 multiline=False,
@@ -440,25 +599,70 @@ class ParamsTab(BoxLayout):
             self._rows_layout.add_widget(_divider())
 
     def _on_change(self, var, text):
+        """
+        Parse and store a parameter value change into the module-level _params dict.
+
+        Called on TextInput Enter or focus-lost. Silently ignores non-numeric input
+        (leaves the old value in _params). The TextInput keeps whatever the user typed —
+        it's not corrected visually (to allow mid-edit states like '-' or '3.').
+
+        Parameters
+        ----------
+        var  : str — parameter key matching a key in PARAM_META / DEFAULT_PARAMS
+        text : str — raw text from the TextInput
+        """
         try:
             _params[var] = float(text)
         except ValueError:
-            pass
+            pass  # Keep previous value if input is not a valid number
 
     def _set_filter(self, group):
+        """
+        Switch the visible parameter group and rebuild the row list.
+
+        Parameters
+        ----------
+        group : str — one of 'all', 'geometry', 'feedrates', 'calibration', 'positions', 'safety'
+        """
         self._filter = group
         self._rebuild_rows()
 
 
 # =============================================================================
 #  B-COMP TAB
+#  Interactive editor for the bComp[] per-tooth B compensation array.
+#  Left side: editable table (index, value, delete button per tooth).
+#  Right side: live bar chart that updates whenever any value changes.
+#
+#  The array is stored in the module-level _bcomp list.
+#  To pre-load from file: read into DEFAULT_BCOMP before app start, or
+#  add a load button that updates _bcomp and calls _rebuild_table().
 # =============================================================================
 class BCompChart(Widget):
+    """
+    Live bar chart widget visualising the _bcomp compensation array.
+
+    Draws:
+      - BG_PANEL background
+      - Horizontal grid lines at 0%, 25%, 50%, 75%, 100% of max value
+      - Vertical bars (C_PURPLE, 25% opacity) from baseline to each data point
+      - Connected line through data points (C_PURPLE, full opacity)
+      - Hollow dot at each data point
+
+    Call refresh() after any change to _bcomp to force a redraw.
+    The chart auto-redraws on widget resize/move via size/pos bindings.
+    """
     def __init__(self, **kw):
         super().__init__(**kw)
         self.bind(size=self._draw, pos=self._draw)
 
     def _draw(self, *_a):
+        """
+        Clear and redraw the entire chart from the current _bcomp data.
+
+        Layout: 20dp padding on all sides. X axis spans tooth indices (0..n-1).
+        Y axis spans 0 to max(bComp). If max==0, uses 1.0 to avoid division by zero.
+        """
         self.canvas.clear()
         data = _bcomp
         if not data:
@@ -470,29 +674,35 @@ class BCompChart(Widget):
         pad     = dp(20)
 
         with self.canvas:
+            # Background
             Color(*BG_PANEL)
             Rectangle(pos=self.pos, size=self.size)
 
+            # Horizontal grid lines at 0%, 25%, 50%, 75%, 100%
             for frac in (0.0, 0.25, 0.5, 0.75, 1.0):
                 Color(*BORDER)
                 y = py + pad + frac * (h - pad * 2)
                 Line(points=[px + pad, y, px + w - pad, y], width=1)
 
             if n > 1:
+                # Compute (cx, cy) pixel positions for each data point
                 pts = []
                 for i, v in enumerate(data):
                     cx = px + pad + i * (w - pad * 2) / max(n - 1, 1)
                     cy = py + pad + (v / mx) * (h - pad * 2)
                     pts.append((cx, cy))
 
+                # Vertical bars from baseline to each point (25% opacity)
                 Color(*C_PURPLE[:3], 0.25)
                 for cx, cy in pts:
                     Line(points=[cx, py + pad, cx, cy], width=2)
 
+                # Connected line through all points
                 Color(*C_PURPLE)
                 flat = [coord for pt in pts for coord in pt]
                 Line(points=flat, width=dp(1.5))
 
+                # Hollow dots at each point: filled circle then smaller BG_PANEL circle
                 for cx, cy in pts:
                     Color(*C_PURPLE)
                     Ellipse(pos=(cx - dp(4), cy - dp(4)), size=(dp(8), dp(8)))
@@ -500,6 +710,7 @@ class BCompChart(Widget):
                     Ellipse(pos=(cx - dp(2), cy - dp(2)), size=(dp(4), dp(4)))
 
     def refresh(self):
+        """Force a full redraw of the chart. Call after any _bcomp mutation."""
         self._draw()
 
 
@@ -509,9 +720,17 @@ class BCompTab(BoxLayout):
         self._build()
 
     def _build(self):
+        """
+        Build the B-comp tab layout:
+          Left  — scrollable table (index | TextInput | delete button) + ADD TOOTH button + info label
+          Right — BCompChart live chart
+
+        The table and chart share _bcomp as their source of truth.
+        Any edit to a TextInput immediately updates _bcomp[idx] and refreshes the chart.
+        """
         top = BoxLayout(orientation='horizontal', spacing=dp(14))
 
-        # Left: editable table
+        # ── Left: editable table ─────────────────────────────────────────────
         left = BoxLayout(orientation='vertical', spacing=dp(6))
 
         hdr = GridLayout(cols=3, size_hint_y=None, height=dp(28))
@@ -536,13 +755,14 @@ class BCompTab(BoxLayout):
         add_btn.bind(on_release=lambda *a: self._add_tooth())
         left.add_widget(add_btn)
 
+        # Info label showing tooth count and numComp value for DMC
         self._info_lbl = _themed_label(
             f'{len(_bcomp)} teeth  |  numComp = {len(_bcomp)}',
             color=C_PURPLE, size=12, size_hint_y=None, height=dp(22))
         left.add_widget(self._info_lbl)
         top.add_widget(left)
 
-        # Right: chart
+        # ── Right: live chart ────────────────────────────────────────────────
         right = BoxLayout(orientation='vertical', spacing=dp(6))
         right.add_widget(_themed_label('B COMPENSATION PROFILE',
                                        color=TEXT_DIM, size=11,
@@ -560,6 +780,12 @@ class BCompTab(BoxLayout):
         self._rebuild_table()
 
     def _rebuild_table(self):
+        """
+        Clear and repopulate the tooth table from _bcomp.
+
+        Each row has: index label | TextInput for value | 'x' delete button.
+        Also refreshes the info label (tooth count / numComp) and redraws the chart.
+        """
         self._table_layout.clear_widgets()
         for i, val in enumerate(_bcomp):
             self._table_layout.add_widget(
@@ -576,6 +802,7 @@ class BCompTab(BoxLayout):
                 size_hint_y=None, height=dp(36),
                 padding=[dp(6), dp(8)],
             )
+            # Update _bcomp on Enter or focus-lost
             ti.bind(on_text_validate=lambda inst, idx=i: self._update(idx, inst.text))
             ti.bind(focus=lambda inst, focused, idx=i: (
                 self._update(idx, inst.text) if not focused else None))
@@ -595,17 +822,30 @@ class BCompTab(BoxLayout):
         self._chart.refresh()
 
     def _update(self, idx, text):
+        """
+        Parse a tooth value edit and update _bcomp[idx], then refresh the chart.
+
+        Parameters
+        ----------
+        idx  : int — index into _bcomp
+        text : str — raw text from the TextInput
+        """
         try:
             _bcomp[idx] = float(text)
             self._chart.refresh()
         except (ValueError, IndexError):
-            pass
+            pass  # Ignore invalid input or out-of-range index
 
     def _add_tooth(self):
+        """Append a new tooth with 0.0 compensation and rebuild the table."""
         _bcomp.append(0.0)
         self._rebuild_table()
 
     def _remove(self, idx):
+        """
+        Remove tooth at the given index from _bcomp and rebuild the table.
+        Refuses if only one tooth remains (bComp[] must have at least one entry).
+        """
         if len(_bcomp) > 1:
             _bcomp.pop(idx)
             self._rebuild_table()
@@ -613,24 +853,47 @@ class BCompTab(BoxLayout):
 
 # =============================================================================
 #  RUN CONTROL TAB
+#  Operator interface for starting and monitoring a grind cycle.
+#
+#  LEFT  — C axis manual jog buttons + cycle summary panel + START / E-STOP buttons
+#  RIGHT — progress bar, tooth counter, and scrollable operation log
+#
+#  NOTE: The grind simulation here uses a Kivy Clock timer (_tick at 0.35s) to
+#  walk through teeth and log messages. In a real integration, replace _tick with
+#  polling the controller for scount and currA, and wire START/ESTOP to real
+#  XQ #GRIND and ST AB commands via self.controller (injected by main.py).
 # =============================================================================
 class RunControlTab(BoxLayout):
     def __init__(self, **kw):
         super().__init__(orientation='horizontal', spacing=dp(14), padding=dp(14), **kw)
-        self._timer   = None
-        self._scount  = 0
-        self._running = False
-        self._cpos    = 0.0
+        self._timer   = None   # Kivy ClockEvent for the simulation tick
+        self._scount  = 0      # Current serration count (simulated)
+        self._running = False  # True while a grind cycle is in progress
+        self._cpos    = 0.0    # Current C axis position in mm (operator-tracked)
         self._build()
 
     def _build(self):
-        # ---- Left column ----
+        """
+        Build the run control layout.
+
+        Left column (42% width):
+          - C axis manual jog (UP/DOWN buttons + position label)
+          - Cycle summary panel (knife length, pitch, width, bComp entries, numSerr)
+          - START GRIND button
+          - E-STOP button
+
+        Right column (58% width):
+          - Progress bar + tooth counter label
+          - Scrollable operation log
+        """
+        # ── Left column ──────────────────────────────────────────────────────
         left = BoxLayout(orientation='vertical', spacing=dp(10), size_hint_x=0.42)
 
         left.add_widget(_themed_label('C AXIS  —  MANUAL CONTROL',
                                       color=TEXT_DIM, size=11, bold=True,
                                       size_hint_y=None, height=dp(20)))
 
+        # C jog card
         c_box = BoxLayout(orientation='vertical', spacing=dp(6),
                           size_hint_y=None, height=dp(120), padding=dp(10))
         _add_rr_canvas(c_box, (*C_CYAN[:3], 0.07), (*C_CYAN[:3], 0.3), dp(8), line_width=1.2)
@@ -655,7 +918,7 @@ class RunControlTab(BoxLayout):
             color=TEXT_DIM, size=11, halign='center'))
         left.add_widget(c_box)
 
-        # Cycle summary
+        # Cycle summary panel
         left.add_widget(_themed_label('CYCLE SUMMARY', color=TEXT_DIM,
                                       size=11, bold=True,
                                       size_hint_y=None, height=dp(20)))
@@ -669,6 +932,7 @@ class RunControlTab(BoxLayout):
             size=lambda i, v: setattr(sum_rr, 'size', v),
         )
 
+        # Summary rows — keep references for live update in _refresh_summary()
         self._sum_rows = {}
         summary_keys = [
             ('Knife Length',      'knflen', 'mm'),
@@ -688,6 +952,7 @@ class RunControlTab(BoxLayout):
             sum_box.add_widget(r)
             sum_box.add_widget(_divider())
 
+        # numSerr = INT(knflen / spitch) — computed, not directly editable
         r2 = BoxLayout(orientation='horizontal', size_hint_y=None,
                        height=dp(30), padding=[dp(12), 0])
         r2.add_widget(_themed_label('Total Teeth (numSerr)', color=C_YELLOW, size=12))
@@ -696,7 +961,7 @@ class RunControlTab(BoxLayout):
         sum_box.add_widget(r2)
         left.add_widget(sum_box)
 
-        left.add_widget(Widget())
+        left.add_widget(Widget())  # Spacer pushes buttons to bottom
 
         self._start_btn = _dark_button('>  START GRIND', color=C_GREEN,
                                        height=dp(52), font_size=15)
@@ -709,12 +974,14 @@ class RunControlTab(BoxLayout):
 
         self.add_widget(left)
 
-        # ---- Right column ----
+        # ── Right column ─────────────────────────────────────────────────────
         right = BoxLayout(orientation='vertical', spacing=dp(10), size_hint_x=0.58)
 
         right.add_widget(_themed_label('PROGRESS', color=TEXT_DIM,
                                        size=11, bold=True,
                                        size_hint_y=None, height=dp(20)))
+
+        # Progress bar: BG_DARK track + C_GREEN fill widget (size_hint_x = pct)
         prog_row = BoxLayout(orientation='horizontal', spacing=dp(8),
                              size_hint_y=None, height=dp(20))
         self._prog_track = BoxLayout(size_hint_y=None, height=dp(14))
@@ -758,11 +1025,27 @@ class RunControlTab(BoxLayout):
         self._refresh_summary()
 
     def _jog_c(self, delta):
+        """
+        Increment/decrement the tracked C axis position by delta mm and log the move.
+
+        Parameters
+        ----------
+        delta : float — amount in mm (positive = UP, negative = DOWN)
+
+        To wire this to real hardware: send 'JG{delta*mmC}' or 'PR{delta*mmC}' via
+        the controller, and read back the actual position after the move completes.
+        """
         self._cpos = round(self._cpos + delta, 2)
         self._cpos_lbl.text = f'{self._cpos:.2f} mm'
         self._log_msg(f'C jog {"UP" if delta > 0 else "DOWN"} -> {self._cpos:.2f} mm')
 
     def _refresh_summary(self):
+        """
+        Pull the latest values from _params and _bcomp into the cycle summary labels.
+
+        Called at the start of every grind cycle to ensure the operator sees the
+        actual values being used. Also called during _build() for the initial display.
+        """
         keys = {'Knife Length': 'knflen', 'Serration Pitch': 'spitch',
                 'Base Grind Width': 'swidth', 'Grinder Thickness': 'grdthk'}
         for label, key in keys.items():
@@ -770,10 +1053,22 @@ class RunControlTab(BoxLayout):
                 self._sum_rows[label].text = f'{_params.get(key, 0)} mm'
         if 'bComp Entries' in self._sum_rows:
             self._sum_rows['bComp Entries'].text = str(len(_bcomp))
+        # numSerr = INT(knflen / spitch)
         ns = int(_params.get('knflen', 0) / max(_params.get('spitch', 1), 0.001))
         self._numserr_lbl.text = str(ns)
 
     def _log_msg(self, msg):
+        """
+        Append a timestamped message to the operation log.
+
+        Color coding:
+          C_RED    — 'ESTOP' or '***' (fault / emergency)
+          C_GREEN  — 'DONE' or 'complete' (normal completion)
+          C_PURPLE — 'Tooth' (per-tooth progress)
+          TEXT_DIM — everything else
+
+        The log auto-scrolls to the bottom after each new message.
+        """
         from datetime import datetime
         ts  = datetime.now().strftime('%H:%M:%S')
         txt = f'[{ts}] {msg}'
@@ -790,11 +1085,22 @@ class RunControlTab(BoxLayout):
         Clock.schedule_once(lambda *_: self._scroll_log())
 
     def _scroll_log(self):
+        """Scroll the log view to the bottom (scroll_y=0 in Kivy = bottom)."""
         self._log_scroll.scroll_y = 0
 
     def _start_grind(self):
+        """
+        Begin the grind cycle simulation.
+
+        Calculates numSerr = INT(knflen / spitch), resets scount to 0, then
+        schedules _tick() at 0.35s intervals to walk through each tooth.
+
+        REAL INTEGRATION: Replace Clock.schedule_interval(_tick, 0.35) with
+        a jobs.submit() call that sends 'XQ #GRIND' to the controller.
+        Poll the controller for the scount variable to update progress.
+        """
         if self._running:
-            return
+            return  # Ignore double-press
         self._refresh_summary()
         self._running  = True
         self._scount   = 0
@@ -809,7 +1115,19 @@ class RunControlTab(BoxLayout):
         self._timer = Clock.schedule_interval(self._tick, 0.35)
 
     def _tick(self, _dt):
+        """
+        Advance the simulation by one tooth per call.
+
+        Called by Kivy's Clock at ~0.35s intervals during a simulated grind cycle.
+        Logs the B plunge depth (including bComp) and A step for each tooth.
+        Cancels itself and logs completion when scount reaches numSerr.
+
+        Parameters
+        ----------
+        _dt : float — time delta since last tick (unused — provided by Clock)
+        """
         if self._scount >= self._num_serr:
+            # Cycle complete
             self._timer.cancel()
             self._running = False
             self._start_btn.text = '>  START GRIND'
@@ -818,6 +1136,7 @@ class RunControlTab(BoxLayout):
             self._log_msg('At rest. Reload knife then XQ #GRIND for next cycle.')
             self._update_progress()
             return
+        # cidx clamps to the last bComp entry if scount exceeds the table length
         cidx = min(self._scount, len(_bcomp) - 1)
         btot = round(_params['startPtB'] + _params['swidth'] + _bcomp[cidx], 3)
         ns   = self._num_serr
@@ -830,12 +1149,25 @@ class RunControlTab(BoxLayout):
         self._update_progress()
 
     def _update_progress(self):
+        """
+        Update the progress bar fill width and tooth counter label.
+
+        Progress fill uses size_hint_x = scount / numSerr, which Kivy translates
+        to a proportional width within the track BoxLayout.
+        """
         ns  = max(self._num_serr, 1)
         pct = self._scount / ns
         self._prog_fill.size_hint_x = pct
         self._prog_lbl.text = f'{self._scount} / {ns}'
 
     def _estop(self):
+        """
+        Emergency stop — cancel the simulation timer and log the abort.
+
+        REAL INTEGRATION: Send 'ST AB' or 'AB' to the controller via jobs.submit()
+        before cancelling the local timer. The controller's #ESTOP subroutine
+        handles the actual hardware stop; this method only handles the UI side.
+        """
         if self._timer:
             self._timer.cancel()
         self._running = False
@@ -845,6 +1177,14 @@ class RunControlTab(BoxLayout):
 
 # =============================================================================
 #  SUBROUTINES TAB
+#  Read-only reference cards, one per DMC subroutine defined in SUBROUTINES.
+#  Cards are arranged in a 2-column grid. Each card shows:
+#    - Subroutine name (colored accent)
+#    - Badge chip ('AUTO INTERRUPT', 'NO RESUME', or blank)
+#    - Description text
+#    - Variable chips (up to 8 key variables used by the subroutine)
+#
+#  To add a new subroutine card: append to SUBROUTINES list at the top.
 # =============================================================================
 class SubroutinesTab(ScrollView):
     def __init__(self, **kw):
@@ -869,10 +1209,10 @@ class SubroutinesTab(ScrollView):
             card.add_widget(top_row)
             card.add_widget(_themed_label(desc, color=TEXT_MID, size=11))
 
-            # Variable chips
+            # Variable chips — small pill-shaped labels showing DMC variable names
             chip_row = BoxLayout(orientation='horizontal', spacing=dp(4),
                                  size_hint_y=None, height=dp(26))
-            for v in variables[:8]:
+            for v in variables[:8]:  # Limit to 8 chips per card to avoid overflow
                 chip = Label(
                     text=v, font_size=sp(10),
                     color=TEXT_MID, size_hint_x=None,
@@ -894,7 +1234,8 @@ class SubroutinesTab(ScrollView):
 
                 chip.bind(pos=_upd_chip, size=_upd_chip)
                 chip_row.add_widget(chip)
-            chip_row.add_widget(Widget())
+
+            chip_row.add_widget(Widget())  # Trailing spacer
             card.add_widget(chip_row)
 
             grid.add_widget(card)
@@ -904,6 +1245,15 @@ class SubroutinesTab(ScrollView):
 
 # =============================================================================
 #  MAIN SCREEN
+#  SerratedKnifeScreen — the top-level Kivy Screen registered in screens/__init__.py
+#  and loaded by the ScreenManager in base.kv.
+#
+#  Layout: vertical BoxLayout with:
+#    - Dark-themed header bar (title, numSerr counter, BACK button)
+#    - TabbedPanel containing all 5 tabs
+#
+#  controller and state are injected by main.py after the ScreenManager is built.
+#  Access them as self.controller and self.state inside any method.
 # =============================================================================
 class SerratedKnifeScreen(Screen):
     controller: GalilController = ObjectProperty(None)  # type: ignore
@@ -914,8 +1264,27 @@ class SerratedKnifeScreen(Screen):
         self._build()
 
     def _build(self):
+        """
+        Construct the full screen layout in Python (no KV rule for this screen).
+
+        Structure:
+          root (BoxLayout vertical)
+            ├── hdr  (BoxLayout horizontal, 56dp) — header bar
+            │     ├── icon_box (accent square)
+            │     ├── title_box (two-line title)
+            │     ├── [spacer]
+            │     ├── back_btn
+            │     └── _ns_lbl (numSerr counter)
+            └── tp   (TabbedPanel)
+                  ├── OVERVIEW     → OverviewTab
+                  ├── PARAMETERS   → ParamsTab
+                  ├── B-COMP TABLE → BCompTab
+                  ├── RUN CONTROL  → RunControlTab
+                  └── SUBROUTINES  → SubroutinesTab
+        """
         root = BoxLayout(orientation='vertical')
 
+        # Dark background for the entire screen
         with root.canvas.before:
             Color(*BG_DARK)
             self._bg = Rectangle(pos=root.pos, size=root.size)
@@ -924,7 +1293,7 @@ class SerratedKnifeScreen(Screen):
             size=lambda i, v: setattr(self._bg, 'size', v),
         )
 
-        # ── Header ──────────────────────────────────────────────────────────
+        # ── Header bar ───────────────────────────────────────────────────────
         hdr = BoxLayout(orientation='horizontal', size_hint_y=None,
                         height=dp(56), padding=[dp(20), 0], spacing=dp(16))
         with hdr.canvas.before:
@@ -943,6 +1312,7 @@ class SerratedKnifeScreen(Screen):
             ),
         )
 
+        # Accent icon square (decorative — no interaction)
         icon_box = Widget(size_hint_x=None, width=dp(36))
         with icon_box.canvas:
             Color(*C_YELLOW[:3], 0.15)
@@ -957,20 +1327,21 @@ class SerratedKnifeScreen(Screen):
         title_box.add_widget(_themed_label('GALIL DMC  |  3-AXIS SERRATION SYSTEM',
                                            color=TEXT_DIM, size=11))
         hdr.add_widget(title_box)
-        hdr.add_widget(Widget())
+        hdr.add_widget(Widget())  # Push back button and counter to right
 
         back_btn = _dark_button('<  BACK', color=TEXT_DIM,
                                 height=dp(34), size_hint_x=None, width=dp(100))
         back_btn.bind(on_release=self._go_back)
         hdr.add_widget(back_btn)
 
+        # numSerr counter — updated on_enter whenever parameters change
         self._ns_lbl = _themed_label(
             f'numSerr = {int(_params["knflen"] / _params["spitch"])}',
             color=C_YELLOW, size=12, size_hint_x=None, width=dp(130), halign='right')
         hdr.add_widget(self._ns_lbl)
         root.add_widget(hdr)
 
-        # ── Tabbed Panel ────────────────────────────────────────────────────
+        # ── Tabbed panel ─────────────────────────────────────────────────────
         tp = TabbedPanel(do_default_tab=False, tab_width=dp(150),
                          tab_height=dp(38), background_color=BG_PANEL)
 
@@ -992,7 +1363,7 @@ class SerratedKnifeScreen(Screen):
             ti.add_widget(content)
             tp.add_widget(ti)
 
-        # tab_list is in reverse insertion order; [-1] is the first tab (OVERVIEW)
+        # TabbedPanel.tab_list is in reverse insertion order; [-1] = first tab (OVERVIEW)
         tp.default_tab = tp.tab_list[-1]
         tp.switch_to(tp.tab_list[-1])
 
@@ -1000,6 +1371,12 @@ class SerratedKnifeScreen(Screen):
         self.add_widget(root)
 
     def _go_back(self, *_a):
+        """
+        Navigate back to the previous screen in the ScreenManager.
+
+        Uses manager.previous() to get the screen name, then sets manager.current.
+        Slide direction is set to 'right' so it feels like going back.
+        """
         if self.manager:
             self.manager.transition.direction = 'right'
             prev = self.manager.previous()
@@ -1007,10 +1384,25 @@ class SerratedKnifeScreen(Screen):
                 self.manager.current = prev
 
     def on_enter(self, *_a):
+        """
+        Called by Kivy each time this screen becomes active.
+
+        Refreshes the numSerr counter in the header in case the operator changed
+        knflen or spitch in the PARAMETERS tab since last visiting this screen.
+        """
         ns = int(_params['knflen'] / max(_params['spitch'], 0.001))
         self._ns_lbl.text = f'numSerr = {ns}'
 
     def _alert(self, message: str) -> None:
+        """
+        Push a message to the app-wide banner ticker (top of screen).
+
+        Falls back to state.log() if the app object is unavailable (e.g. during tests).
+
+        Parameters
+        ----------
+        message : str — text to display
+        """
         try:
             from kivy.app import App
             app = App.get_running_app()

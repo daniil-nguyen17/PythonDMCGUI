@@ -1,0 +1,17 @@
+{
+  "last_user": "Admin",
+  "users": {
+    "Admin": {
+      "pin": "0000",
+      "role": "admin"
+    },
+    "Operator": {
+      "pin": "1234",
+      "role": "operator"
+    },
+    "Setup": {
+      "pin": "5678",
+      "role": "setup"
+    }
+  }
+}

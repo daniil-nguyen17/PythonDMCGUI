@@ -225,6 +225,9 @@ class ParametersScreen(Screen):
         if self.controller is None:
             return
 
+        if not mc.is_configured():
+            return
+
         # Snapshot current param defs for the background job
         param_defs_snapshot = mc.get_param_defs()
 

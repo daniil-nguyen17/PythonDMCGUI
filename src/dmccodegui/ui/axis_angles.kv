@@ -1,6 +1,12 @@
 # Axis & Angles screen (top-aligned, enlarged labels, wider image shifted right)
 <AxisAnglesScreen>:
     name: "axis_angles"
+    canvas.before:
+        Color:
+            rgba: 0.031, 0.047, 0.071, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
 
     FloatLayout:
         # --- Header bar ---
@@ -82,26 +88,26 @@
                             id: input_a1
                             size_hint_x: None
                             width: dp(140)
-                            cursor_color: 0, 0, 0, 1
-                            foreground_color: 0, 0, 0, 1
+                            cursor_color: 0.580, 0.631, 0.710, 1
+                            foreground_color: 0.886, 0.910, 0.941, 1
                         ParamInput:
                             id: input_a2
                             size_hint_x: None
                             width: dp(140)
-                            cursor_color: 0, 0, 0, 1
-                            foreground_color: 0, 0, 0, 1
+                            cursor_color: 0.580, 0.631, 0.710, 1
+                            foreground_color: 0.886, 0.910, 0.941, 1
                         ParamInput:
                             id: input_a3
                             size_hint_x: None
                             width: dp(140)
-                            cursor_color: 0, 0, 0, 1
-                            foreground_color: 0, 0, 0, 1
+                            cursor_color: 0.580, 0.631, 0.710, 1
+                            foreground_color: 0.886, 0.910, 0.941, 1
                         ParamInput:
                             id: input_a4
                             size_hint_x: None
                             width: dp(140)
-                            cursor_color: 0, 0, 0, 1
-                            foreground_color: 0, 0, 0, 1
+                            cursor_color: 0.580, 0.631, 0.710, 1
+                            foreground_color: 0.886, 0.910, 0.941, 1
 
             # --- Angle row ---
             AnchorLayout:
@@ -138,26 +144,26 @@
                             id: input_b1
                             size_hint_x: None
                             width: dp(140)
-                            cursor_color: 0, 0, 0, 1
-                            foreground_color: 0, 0, 0, 1
+                            cursor_color: 0.580, 0.631, 0.710, 1
+                            foreground_color: 0.886, 0.910, 0.941, 1
                         ParamInput:
                             id: input_b2
                             size_hint_x: None
                             width: dp(140)
-                            cursor_color: 0, 0, 0, 1
-                            foreground_color: 0, 0, 0, 1
+                            cursor_color: 0.580, 0.631, 0.710, 1
+                            foreground_color: 0.886, 0.910, 0.941, 1
                         ParamInput:
                             id: input_b3
                             size_hint_x: None
                             width: dp(140)
-                            cursor_color: 0, 0, 0, 1
-                            foreground_color: 0, 0, 0, 1
+                            cursor_color: 0.580, 0.631, 0.710, 1
+                            foreground_color: 0.886, 0.910, 0.941, 1
                         ParamInput:
                             id: input_b4
                             size_hint_x: None
                             width: dp(140)
-                            cursor_color: 0, 0, 0, 1
-                            foreground_color: 0, 0, 0, 1
+                            cursor_color: 0.580, 0.631, 0.710, 1
+                            foreground_color: 0.886, 0.910, 0.941, 1
 
         # --- Image below the grid (50% wider, shifted 20% right) ---
         AnchorLayout:
@@ -168,7 +174,7 @@
 
             Image:
                 id: knife_image
-                source: 'assets/images/knife_demo.png'
+                source: 'knife_demo.png'
                 size_hint: None, None
                 width: dp(1080)
                 height: dp(250)

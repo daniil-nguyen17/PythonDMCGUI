@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:www.galil.com)",
+      "WebFetch(domain:manualzz.com)",
+      "WebFetch(domain:infoneva.com)",
+      "WebFetch(domain:accserv.lepp.cornell.edu)"
+    ]
+  }
+}

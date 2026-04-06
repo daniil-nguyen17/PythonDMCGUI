@@ -1,0 +1,521 @@
+' ============================================================
+'  SERRATED KNIFE EDGE GRINDER - GALIL DMC PROGRAM (4-AXIS)
+'  Axes:
+'    A = Knife Length (along blade)
+'    B = Width (in/out toward stationary grinder stone)
+'        Decreases as D angle increases (less travel needed)
+'    C = Grinder height (up/down)
+'        Increases as D angle increases (stone contact rises)
+'    D = Knife tilt angle (convex bevel angle)
+'        Sweeps from lowang to highang per grind pass
+'
+'  Motion Pattern Per Grind Pass (convex bevel):
+'    1. D lifts to current angle step
+'    2. C compensates up to maintain grinder contact
+'    3. B adjusts for new angle (less B at higher angle)
+'    4. A sweeps along full blade length at this angle
+'    5. B retracts after A completes sweep
+'    6. Repeat for each angle step until highang reached
+' ============================================================
+'  AUTO SUB ROUTINE - RUN AS SOON AS MACHINE IS TURNED ON
+' ============================================================
+#AUTO
+CB 1,2,3,4,5,6,7,8
+JS #CONFIG
+JS #PARAMS
+JS #COMPED
+JS #HOME
+WT 500
+MG "AUTO INIT COMPLETE"
+
+' ============================================================
+'  MAIN: Wait loop ? poll buttons
+' ============================================================
+#MAIN
+WT 200
+MG "SYSTEM READY - WAITING FOR INPUT"
+
+#WtAtRt
+CB 1;                        
+WT 100
+
+IF (@IN[29] = 0);             ' GO GRIND button
+  SB 1;                     
+  JS #GRIND
+  JP #WtAtRt
+ENDIF
+
+IF (@IN[41] = 0);             ' SETUP button
+  JS #SETUP
+  JP #WtAtRt
+ENDIF
+
+IF (@IN[44] = 0);             ' NEW SESSION / new grind stone
+  JS #NEWSESS
+  JP #WtAtRt
+ENDIF
+
+IF (@IN[33] = 0);             ' MORE STONE (C compensation down)
+  MG "MORE STONE FROM B"
+  JS #MOREGRI
+  JP #WtAtRt
+ENDIF
+
+IF (@IN[36] = 0);             ' LESS STONE (C compensation up)
+  MG "LESS STONE FROM B"
+  JS #LESSGRI
+  JP #WtAtRt
+ENDIF
+
+WT 50
+JP #WtAtRt;                   ' nothing pressed - keep polling
+EN
+
+' ============================================================
+'  MAIN GRIND PROGRAM
+' ============================================================
+#GRIND
+SH ABCD
+feedADis=4
+MG "GRIND MODE ACTIVE"
+
+JS #GOSTR
+MG "           AT CONTOUR START"
+MG " A:", _TDA, " B:", _TDB, " C:", _TDC, " D:", _TDD
+
+' Step 1: move D to grind angle AND compensate C simultaneously
+SP ,, fdCup * cpmC, cpmD
+PRD=deltaD[0]
+BGD
+PRC= deltaC[0]
+BGC
+AM
+MG "         C:", _TDC, "  D:", _TDD
+
+' Step 3: back A up 2mm past tip into fresh air
+SPA= 5500
+PRA= -2*cpmA
+BGA; AMA
+MG " LEAD-IN START A:", _TDA
+
+' PHASE 2 - CONTOUR 
+LM ABCD
+VS 5000
+VA 100000
+VD 100000
+MG "VECTOR START - LEAD IN"
+MG "  PRE-LI  A:", _TDA, "  B:", _TDB
+' Feed remaining contour segments
+n = 1
+#RLOOP
+JP #WBUF, (_LM=0)
+LI deltaA[n],deltaB[n],deltaC[n],deltaD[n]
+n = n + 1
+JP #RLOOP, (n < 300)
+JP #FDONE
+#WBUF
+WT 2
+JP #RLOOP
+#FDONE
+MG "ALL SEGMENTS QUEUED"
+LE
+MG "  LE ISSUED - WAITING FOR VECTOR"
+BGS
+' wait for vector complete with progress
+#VECWT
+JP #VDONE, (_BGS=0)
+MG "  VEC RUNNING  A:", _TDA, "  B:", _TDB, "  LM:", _LM
+JP #VECWT
+#VDONE
+AM S
+MG "  HEEL REACHED  A:", _TDA, "  B:", _TDB, "  C:", _TDC, "  D:", _TDD
+
+' PHASE 3 - END
+' A overruns 2mm past heel, then C lifts, then GOREST
+
+SPA= 5500
+PRA= feedADis*cpmA
+BGA; AMA
+MG "A OVERRUN COMPLETE - 4MM PAST HEEL"
+' DONE: park all axes
+#DONE
+MG "GRIND COMPLETE"
+JS #GOREST
+ST ABCD
+ZS
+JP #MAIN
+EN
+' ============================================================
+'  SETUP MENU
+#SETUP
+MG "SETUP MENU ACTIVE"
+#SULOOP
+' --- BUTTON 23: HANDWHEEL JOG ---
+IF (@IN[23] = 0)
+  MG "ENTERING WHEEL JOG MODE"
+  JS #WheelJg
+  JS #W_REL
+  MG "RETURNED TO SETUP"
+ENDIF
+
+' --- BUTTON 25: RUN HOME ---
+IF (@IN[25] = 0)
+  MG "STARTING HOMING SEQUENCE"
+  JS #HOME
+  JS #W_REL
+ENDIF
+
+' --- BUTTON 26: CHANGE KNIFE / RECALCULATE ---
+IF (@IN[26] = 0)
+  MG " NEW KNIFE CALCULATIONS"
+  JS #VARCALC
+  JS #W_REL
+ENDIF
+
+' --- BUTTON 32: RETURN TO MAIN ---
+IF (@IN[32] = 0)
+  MG "RETURNING TO MAIN MENU"
+  JS #W_REL
+  EN;                      
+ENDIF
+
+WT 100
+JP #SULOOP
+
+' --- Wait for Button Release ---
+#W_REL
+#W_LP; JP #W_LP
+WT 100
+EN
+
+' ============================================================
+'  SAVE POINTS ROUTINES
+' ============================================================
+#SETREST
+restPt[0] = _TDA; WT 50; MG "SET REST A=", restPt[0]
+restPt[1] = _TDB; WT 50; MG "SET REST B=", restPt[1]
+restPt[2] = _TDC; WT 50; MG "SET REST C=", restPt[2]
+restPt[3] = _TDD; WT 50; MG "SET REST D=", restPt[3]
+BV; WT 200
+EN
+
+#SETSTR
+' 0=A, 1=BR 3=C 4=D
+startPt[0] = _TDA; WT 50; MG "SET START A=", startPt[0]
+startPt[1] = _TDB; WT 50; MG "SET START B=", startPt[1]
+startPt[2] = _TDC; WT 50; MG "SET START C=", startPt[2]
+startPt[3] = _TDD; WT 50; MG "SET START D=", startPt[3]
+BV; WT 200
+EN
+
+' ============================================================
+'  HOMING ROUTINE - all 4 axes
+' ============================================================
+#HOME
+SH ABCD
+SP 20000, 20000, 20000, 15000;  
+HV 5000, 5000, 5000, 5000;   
+
+HMC; BGC; AMC
+HMA; BGA; AMA
+HMB; BGB; AMB
+HMD; BGD; AMD
+
+WT 2000
+DP 0, 0, 0, 0;         
+MG "A B C D - ALL AXES HOMED"
+EN
+
+' ============================================================
+'  GO REST - safe 4-axis park sequence
+' ============================================================
+#GOREST
+MG "MOVING TO REST"
+' C to rest height
+SPC =fdCup * cpmC
+PAC=restPt[2]
+BGC; AMC
+' D to flat/rest angle SECOND
+SPD=fdD * cpmD
+PAD=restPt[3]
+BGD; AMD
+' A to rest position LAST
+SPA =fdA * cpmA
+PAA= restPt[0]
+BGA; AMA
+' B away from stone FIRST - always safest move
+SPB = fdB * cpmB
+PAB=restPt[1]
+BGB; AMB
+MG "AT REST POSITION"
+MG "restPt[0] / A: ", restPt[0] , " or ", _TDA;
+MG "restPt[1] / B: ", restPt[1] , " or ", _TDB;
+MG "restPt[2] / C: ", restPt[2] , " or ", _TDC;
+MG "restPt[3] / D: ", restPt[3] , " or ", _TDD;
+EN
+
+' ============================================================
+'  GO START RIGHT - safe 4-axis move to grind start position
+' ============================================================
+#GOSTR
+MG "MOVING TO START"
+SH ABCD
+
+'0=A, 1=B 3=C 4=D
+' B start position first
+SP , fdB * cpmB,,
+PA , startPt[1],,
+BGB; AMB
+' A to start position along blade
+SP fdA * cpmA,,,
+PA startPt[0],,,
+BGA; AMA
+' D to flat start angle
+SP ,,, fdD * cpmD
+PA ,,, startPt[3]
+BGD; AMD
+' C to start reference height
+SP ,, fdCdn * cpmC,
+PA ,, startPt[2],
+BGC; AMC
+
+MG "AT START POSITION RIGHT"
+MG "startPt[0] / A: ", startPt[0] , " or ",  _TDA;
+MG "startPt[1] / B: ", startPt[1] , " or ",  _TDB;
+MG "startPt[2] / C: ", startPt[2] , " or ",  _TDC;
+MG "startPt[3] / D: ", startPt[3] , " or ",  _TDD;
+EN
+
+' ============================================================
+'  MORE GRIND / LESS GRIND 
+' ============================================================
+#MOREGRI
+SB 3;              
+startPt[3] = startPt[3] + (cpmC * 0.001);   ' more grinding 0.001mm
+MG "MORE GRINDER ADDED"
+WT 200; BV
+EN
+
+#LESSGRI
+SB 3
+startPt[3] = startPt[3] - (cpmC * 0.001)
+MG "LESS GRINDER ADDED"
+WT 200; BV
+EN
+' ============================================================
+'  NEW SESSION - new grind stone
+' ============================================================
+#NEWSESS
+MG "NEW STONE CHANGING - knife count reset to 0"
+JS #HOME;             
+ctSesKni = 0;                    ' reset knife count for new stone session
+IF @IN[32] = 0
+  ST ABCD
+  MO ABCD
+  MG "BACK TO MAIN"
+  ZS
+  JP #MAIN
+ENDIF
+MG "GRINDER CHANGED - KNIFE COUNT FOR GRINDER RETURNED TO 0"
+EN
+' ============================================================
+'  HANDWHEEL JOG MODE - 4 axis
+#WheelJg
+CB 2; CB 3; WT 100
+MG "HANDWHEEL JOG MODE - 4 AXIS"
+SH ABCD
+JG 0, 0, 0, 0;               
+BG ABCD
+
+#JogLoop
+' --- exit if button 32 pressed ---
+IF @IN[32] = 0
+  ST ABCD
+  WT 100
+  MO ABCD
+  MG "JOG EXIT"
+  JP #JogExit
+ENDIF
+
+wheel    = _TVA
+WT 50
+whScaled = wheel / 10
+
+scale = 1
+IF @IN[21] = 0; scale = 100;  ENDIF
+IF @IN[19] = 0; scale = 1000; ENDIF
+jogVel = whScaled * scale
+
+' --- axis selection ---
+IF @IN[17] = 0; JG jogVel, 0, 0, 0;    ENDIF;  ' A axis
+IF @IN[18] = 0; JG 0, jogVel, 0, 0;    ENDIF;  ' B axis
+IF @IN[22] = 0; JG 0, 0, jogVel, 0;    ENDIF;  ' C axis
+IF @IN[20] = 0; JG 0, 0, 0, jogVel;    ENDIF;  ' D axis (tilt angle)
+
+' --- no axis selected - stop all ---
+IF (@IN[17]<>0) & (@IN[18]<>0) & (@IN[22]<>0) & (@IN[20]<>0)
+  JG 0, 0, 0, 0
+ENDIF
+
+' --- save point buttons ---
+IF @IN[35] = 0; JS #SETSTRT; ENDIF
+IF @IN[31] = 0; JS #SETREST; ENDIF
+
+WT 50
+JP #JogLoop
+
+' --- clean exit ---
+#JogExit
+ST ABCD
+WT 200
+SP 10000, 10000, 10000, 5000
+MO ABCD
+SB 3
+WT 100
+ZS
+JP #MAIN
+EN
+
+' ============================================================
+'  EMERGENCY STOP
+' ============================================================
+#ESTOP
+ST ABCD
+MG "*** EMERGENCY STOP - MANUAL ABORT ***"
+MG "Cycle must be restarted manually."
+EN
+
+' ============================================================
+'  UPDATE SPEED FROM MAIN KNOB
+' ============================================================
+#UPDSPD
+mainSp = mainSp + @AN[1] * 10000
+MG "Speed updated:", mainSp
+WT 100
+JP #UPDSPD
+EN
+
+' ============================================================
+'  SHOWPOS - track all 4 axis positions
+' ============================================================
+#SHOWPOS
+WT 50
+aPos = _TDA
+bPos = _TDB
+cPos = _TDC
+dPos = _TDD
+
+MG "A:", aPos, "mm  B:", bPos, "mm  C:", cPos, "mm  D:", dPos, "deg"
+
+' ring buffer write
+idx = idx + 1
+JP #IDXOK, idx < 300
+idx = 0
+#IDXOK
+aBuf[idx] = aPos
+bBuf[idx] = bPos
+cBuf[idx] = cPos
+dBuf[idx] = dPos
+
+' session counter
+JP #NODONE, cycDone = 0
+knfSess = knfSess + 1
+cycDone = 0
+#NODONE
+JP #SHOWPOS
+EN
+
+' ============================================================
+'  CONFIG - machine hardware setup
+' ============================================================
+#CONFIG
+' MT values: 2.5 = step/dir servo
+MT 2.5, 2.5, 2.5, 2.5;          ' A B C D = step/dir servo
+
+SP 10000, 10000, 10000, 5000;  
+AC 50000, 50000, 50000, 25000
+DC 50000, 50000, 50000, 25000
+
+CN 1, 1;                         ' limit inputs active low (NC switches)
+
+
+MG "CONFIG DONE - 4 AXIS"
+EN
+
+' ============================================================
+'  PARAMS - machine constants (never change day to day)
+' ============================================================
+#PARAMS
+' --- axis scaling: pitch and gear ratios ---
+pitchA = 5;  ratioA = 4;  ctsRevA = 1500;  ' A: leadscrew
+pitchB = 6;  ratioB = 4;  ctsRevB = 1500;  ' B: leadscrew
+pitchC = 12;  ratioC = 16;  ctsRevC = 750;  ' C: 
+' D axis: degrees per mechanism revolution
+pitchD = 1;  ratioD = 16;  ctsRevD = 22500;  ' D: angle- calibrate
+
+' --- runtime tracking ---
+scount   = 0
+currA    = 0
+fltflg   = 0
+cycDone  = 0
+ctSesKni = 0
+ctKniNow = 0
+mainSp   = 10000
+idx      = 0
+' --- position arrays - now 4 elements for A B C D ---
+DM startPt[4]; ' A B C D absolute start positions
+DM restPt[4];  ' A B C D rest/park positions
+
+' --- HMI buttons ---
+DM hmiBtn[40]
+
+MG "PARAMS DONE"
+EN
+
+' ============================================================
+'  COMPED - array declarations for compensation tables
+' ============================================================
+#COMPED
+DM aBuf[300];                   
+DM bBuf[300]
+DM cBuf[300]
+DM dBuf[300];                    
+' ----- arrays to store deltas of the knife's edge
+DM deltaA[300]
+DM deltaB[300]
+DM deltaC[300]
+DM deltaD[300]
+' ------ leading into/out the LI segments ----
+MG "COMPENSATION DONE"
+EN
+
+' ============================================================
+'  VARCALC - knife-specific values
+'  Saves to EEPROM via BV so survives power cycle
+' ============================================================
+#VARCALC
+' --- knife parameters - set these per knife type ---
+knfThk   = 1.3;                  ' knife thickness mm
+edgeThk  = 0.3;           
+backOff  = 2;                    ' limit switch back-off distance mm
+
+' --- feed rates mm/s ---
+fdA = 50
+fdB = 40
+fdCdn  = 15
+fdCup  = 25
+fdPark = 10
+fdD    = 5;               
+
+' --- calculate axis cpm values ---
+cpmA = (ctsRevA* ratioA) / pitchA;   ' = 1000counts/mm
+cpmB = (ctsRevB* ratioB) / pitchB;   ' = 1000 counts/mm
+cpmC = (ctsRevC * ratioC) / pitchC;   ' = 1000 counts/mm
+cpmD = (ctsRevD * ratioD) / pitchD;   ' counts per degree - calibrate
+
+' --- derived values (order matters - cpmB must be before thkCt) ---
+thkCt   = knfThk * cpmC;              ' knife thickness in C counts
+
+MG "VARCALC DONE"
+BV;                                   ' save all to EEPROM
+EN

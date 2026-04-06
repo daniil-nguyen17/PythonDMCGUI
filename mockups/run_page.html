@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280, initial-scale=1">
+<title>RUN Page - 4-Axes Flat Grind</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #080c12;
+    color: #e2e8f0;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    width: 1280px;
+    height: 800px;
+    overflow: hidden;
+  }
+
+  /* TOP BAR */
+  .topbar {
+    display: flex;
+    align-items: center;
+    height: 48px;
+    background: #0d1219;
+    border-bottom: 1px solid #1e2530;
+    padding: 0 16px;
+    gap: 16px;
+  }
+  .status-dot {
+    width: 10px; height: 10px;
+    background: #22c55e;
+    border-radius: 50%;
+    box-shadow: 0 0 6px #22c55e88;
+  }
+  .status-text { color: #22c55e; font-size: 13px; font-weight: 500; }
+  .machine-name { color: #94a3b8; font-size: 15px; font-weight: 600; letter-spacing: 0.5px; }
+  .spacer { flex: 1; }
+  .user-badge {
+    display: flex; align-items: center; gap: 8px;
+    background: #1a2233; border: 1px solid #2a3548;
+    border-radius: 8px; padding: 6px 14px;
+    font-size: 13px; color: #94a3b8;
+  }
+  .user-badge .role { color: #60a5fa; }
+  .lock-btn {
+    background: #1a2233; border: 1px solid #2a3548;
+    border-radius: 8px; padding: 6px 14px;
+    color: #94a3b8; font-size: 13px; cursor: pointer;
+  }
+
+  /* NAV TABS */
+  .nav-tabs {
+    display: flex;
+    height: 40px;
+    background: #0a0f17;
+    border-bottom: 1px solid #1e2530;
+    padding: 0 16px;
+    gap: 2px;
+  }
+  .nav-tab {
+    padding: 8px 20px;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .nav-tab.active {
+    color: #e2e8f0;
+    border-bottom-color: #3b82f6;
+    background: #0d1219;
+  }
+  .nav-tab:hover { color: #94a3b8; }
+
+  /* MAIN CONTENT */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    grid-template-rows: 1fr auto;
+    gap: 12px;
+    padding: 12px;
+    height: calc(800px - 48px - 40px);
+  }
+
+  /* CARDS */
+  .card {
+    background: #0d1219;
+    border: 1px solid #1e2530;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #64748b;
+    border-bottom: 1px solid #1e2530;
+  }
+
+  /* LEFT COLUMN */
+  .left-col {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* PLOT AREA */
+  .plot-card { flex: 1; }
+  .plot-area {
+    position: relative;
+    width: 100%;
+    height: calc(100% - 38px);
+    background: #080c12;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .plot-area canvas { width: 100%; height: 100%; }
+  .plot-label {
+    position: absolute;
+    font-size: 11px;
+    color: #475569;
+    font-weight: 500;
+  }
+  .plot-label.x-label { bottom: 8px; left: 50%; transform: translateX(-50%); }
+  .plot-label.y-label { left: 8px; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+
+  /* LOG */
+  .log-card { height: 160px; }
+  .log-entries {
+    padding: 8px 16px;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 12px;
+    line-height: 1.8;
+    color: #94a3b8;
+    overflow-y: auto;
+    height: calc(100% - 38px);
+  }
+  .log-time { color: #475569; margin-right: 8px; }
+  .log-ok { color: #22c55e; }
+  .log-warn { color: #f59e0b; }
+
+  /* RIGHT COLUMN */
+  .right-col {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* CYCLE STATUS */
+  .cycle-card { flex: 0 0 auto; }
+  .cycle-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+  .cycle-item {
+    display: flex;
+    flex-direction: column;
+    background: #111827;
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .cycle-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+  .cycle-value { font-size: 22px; font-weight: 700; color: #e2e8f0; margin-top: 2px; }
+  .cycle-value.highlight { color: #3b82f6; }
+  .cycle-sub { font-size: 11px; color: #475569; }
+
+  /* PROGRESS BAR */
+  .progress-bar-wrap {
+    padding: 0 16px 12px;
+  }
+  .progress-bar-bg {
+    height: 6px;
+    background: #1e2530;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    width: 43%;
+    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+    border-radius: 3px;
+    transition: width 0.5s;
+  }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #475569;
+    margin-top: 4px;
+  }
+
+  /* AXIS POSITIONS */
+  .axis-card { flex: 1; }
+  .axis-list { padding: 8px 12px; }
+  .axis-row {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+  }
+  .axis-row:hover { background: #111827; }
+  .axis-letter {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 14px;
+    margin-right: 12px;
+  }
+  .axis-letter.a { background: #422006; color: #fb923c; }
+  .axis-letter.b { background: #1e1b4b; color: #a78bfa; }
+  .axis-letter.c { background: #042f2e; color: #2dd4bf; }
+  .axis-letter.d { background: #1c1917; color: #fbbf24; }
+  .axis-info { flex: 1; }
+  .axis-pos { font-size: 18px; font-weight: 600; font-family: 'Cascadia Code', monospace; }
+  .axis-unit { font-size: 11px; color: #64748b; margin-left: 4px; }
+  .axis-dir { font-size: 16px; color: #475569; }
+
+  /* BOTTOM ACTIONS */
+  .bottom-bar {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0;
+  }
+  .action-btn {
+    height: 64px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+  }
+  .btn-start {
+    flex: 1;
+    background: linear-gradient(135deg, #166534, #15803d);
+    color: #bbf7d0;
+    border: 1px solid #22c55e44;
+  }
+  .btn-pause {
+    flex: 1;
+    background: linear-gradient(135deg, #78350f, #92400e);
+    color: #fde68a;
+    border: 1px solid #f59e0b44;
+  }
+  .btn-rest {
+    flex: 0.8;
+    background: linear-gradient(135deg, #1e3a5f, #1e40af);
+    color: #93c5fd;
+    border: 1px solid #3b82f644;
+  }
+  .btn-estop {
+    flex: 0.6;
+    height: 64px;
+    background: linear-gradient(135deg, #7f1d1d, #991b1b);
+    color: #fca5a5;
+    border: 2px solid #ef444488;
+    box-shadow: 0 0 20px #ef444433;
+  }
+  .btn-icon { font-size: 20px; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="status-dot"></div>
+  <span class="status-text">Connected</span>
+  <span class="machine-name">4-Axes Flat Grind</span>
+  <div class="spacer"></div>
+  <div class="user-badge">
+    <span class="role">Operator</span>
+    <span>Dan N.</span>
+  </div>
+  <button class="lock-btn">Switch User</button>
+</div>
+
+<!-- NAV TABS -->
+<div class="nav-tabs">
+  <div class="nav-tab active">Run</div>
+  <div class="nav-tab">Axes Setup</div>
+  <div class="nav-tab">Parameters</div>
+  <div class="nav-tab">Diagnostics</div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="left-col">
+    <!-- LIVE PLOT -->
+    <div class="card plot-card">
+      <div class="card-header">
+        <span>Live Position &mdash; A / B Axes</span>
+      </div>
+      <div class="plot-area">
+        <canvas id="plotCanvas"></canvas>
+        <div class="plot-label x-label">A Axis (counts)</div>
+        <div class="plot-label y-label">B Axis (counts)</div>
+      </div>
+    </div>
+
+    <!-- OPERATION LOG -->
+    <div class="card log-card">
+      <div class="card-header">Operation Log</div>
+      <div class="log-entries">
+        <div><span class="log-time">12:04:32</span> <span class="log-ok">Tooth 12 complete</span> &mdash; B comp applied +0.02mm</div>
+        <div><span class="log-time">12:04:15</span> Pass 3 of 5 started</div>
+        <div><span class="log-time">12:03:50</span> <span class="log-ok">Probing done</span> &mdash; depth 0.44mm measured</div>
+        <div><span class="log-time">12:03:22</span> Moving to next tooth position</div>
+        <div><span class="log-time">12:02:58</span> <span class="log-warn">B comp table updated</span> &mdash; tooth 11 offset 0.01mm</div>
+        <div><span class="log-time">12:02:30</span> <span class="log-ok">Tooth 11 complete</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN -->
+  <div class="right-col">
+    <!-- CYCLE STATUS -->
+    <div class="card cycle-card">
+      <div class="card-header">Cycle Status</div>
+      <div class="cycle-grid">
+        <div class="cycle-item">
+          <span class="cycle-label">Tooth</span>
+          <span class="cycle-value highlight">12 <span class="cycle-sub">/ 28</span></span>
+        </div>
+        <div class="cycle-item">
+          <span class="cycle-label">Pass</span>
+          <span class="cycle-value">3 <span class="cycle-sub">/ 5</span></span>
+        </div>
+        <div class="cycle-item">
+          <span class="cycle-label">Depth</span>
+          <span class="cycle-value">0.45<span class="cycle-sub"> mm</span></span>
+        </div>
+        <div class="cycle-item">
+          <span class="cycle-label">Speed</span>
+          <span class="cycle-value">120<span class="cycle-sub"> mm/m</span></span>
+        </div>
+        <div class="cycle-item">
+          <span class="cycle-label">Elapsed</span>
+          <span class="cycle-value">04:32</span>
+        </div>
+        <div class="cycle-item">
+          <span class="cycle-label">ETA</span>
+          <span class="cycle-value">06:10</span>
+        </div>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-bg"><div class="progress-bar-fill"></div></div>
+        <div class="progress-label"><span>43% complete</span><span>12 / 28 teeth</span></div>
+      </div>
+    </div>
+
+    <!-- AXIS POSITIONS -->
+    <div class="card axis-card">
+      <div class="card-header">Axis Positions</div>
+      <div class="axis-list">
+        <div class="axis-row">
+          <div class="axis-letter a">A</div>
+          <div class="axis-info">
+            <span class="axis-pos">12,450.0<span class="axis-unit">cts</span></span>
+          </div>
+          <span class="axis-dir">&rarr;</span>
+        </div>
+        <div class="axis-row">
+          <div class="axis-letter b">B</div>
+          <div class="axis-info">
+            <span class="axis-pos">8,320.5<span class="axis-unit">cts</span></span>
+          </div>
+          <span class="axis-dir">&uarr;</span>
+        </div>
+        <div class="axis-row">
+          <div class="axis-letter c">C</div>
+          <div class="axis-info">
+            <span class="axis-pos">4,200.0<span class="axis-unit">cts</span></span>
+          </div>
+          <span class="axis-dir">&uarr;</span>
+        </div>
+        <div class="axis-row">
+          <div class="axis-letter d">D</div>
+          <div class="axis-info">
+            <span class="axis-pos">135.0<span class="axis-unit">deg</span></span>
+          </div>
+          <span class="axis-dir">&#x21bb;</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM ACTIONS -->
+  <div class="bottom-bar">
+    <button class="action-btn btn-start"><span class="btn-icon">&#9654;</span> Start</button>
+    <button class="action-btn btn-pause"><span class="btn-icon">&#9208;</span> Pause</button>
+    <button class="action-btn btn-rest"><span class="btn-icon">&#8962;</span> Go to Rest</button>
+    <button class="action-btn btn-estop"><span class="btn-icon">&#9632;</span> E-STOP</button>
+  </div>
+</div>
+
+<script>
+// Simple fake plot
+const canvas = document.getElementById('plotCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = canvas.parentElement.offsetWidth;
+canvas.height = canvas.parentElement.offsetHeight;
+
+const w = canvas.width, h = canvas.height;
+const pad = 40;
+
+// Grid
+ctx.strokeStyle = '#1e2530';
+ctx.lineWidth = 1;
+for (let i = 0; i <= 8; i++) {
+  const x = pad + (w - pad * 2) * i / 8;
+  ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, h - pad); ctx.stroke();
+  const y = pad + (h - pad * 2) * i / 8;
+  ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(w - pad, y); ctx.stroke();
+}
+
+// Path trace (simulated grinding path)
+ctx.strokeStyle = '#3b82f6';
+ctx.lineWidth = 2;
+ctx.beginPath();
+const points = [];
+for (let t = 0; t < 200; t++) {
+  const tooth = Math.floor(t / 16);
+  const phase = (t % 16) / 16;
+  const x = pad + (tooth * 16 + phase * 14) / 200 * (w - pad * 2);
+  const yBase = h / 2;
+  let y;
+  if (phase < 0.3) y = yBase - 60 * phase / 0.3;
+  else if (phase < 0.7) y = yBase - 60 + Math.sin(phase * Math.PI * 4) * 15;
+  else y = yBase - 60 * (1 - phase) / 0.3;
+  points.push({x, y});
+}
+points.forEach((p, i) => {
+  if (i === 0) ctx.moveTo(p.x, p.y);
+  else ctx.lineTo(p.x, p.y);
+});
+ctx.stroke();
+
+// Current position dot
+const last = points[points.length - 1];
+ctx.beginPath();
+ctx.arc(last.x, last.y, 6, 0, Math.PI * 2);
+ctx.fillStyle = '#60a5fa';
+ctx.fill();
+ctx.beginPath();
+ctx.arc(last.x, last.y, 10, 0, Math.PI * 2);
+ctx.strokeStyle = '#60a5fa44';
+ctx.lineWidth = 2;
+ctx.stroke();
+
+// Completed path in dimmer color
+ctx.globalAlpha = 0.3;
+ctx.strokeStyle = '#22c55e';
+ctx.lineWidth = 2;
+ctx.beginPath();
+points.slice(0, 140).forEach((p, i) => {
+  if (i === 0) ctx.moveTo(p.x, p.y);
+  else ctx.lineTo(p.x, p.y);
+});
+ctx.stroke();
+ctx.globalAlpha = 1;
+</script>
+
+</body>
+</html>

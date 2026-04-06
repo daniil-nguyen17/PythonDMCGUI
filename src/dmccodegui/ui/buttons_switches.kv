@@ -7,80 +7,17 @@
     background_normal: ''
     background_down: ''
     background_color: 0, 0, 0, 0
-    color: 0.1, 0.1, 0.1, 1
+    color: 0.886, 0.910, 0.941, 1
     font_size: '16sp'
     canvas.before:
-        # Smooth vertical gradient approximated by many thin bands (increase contrast for visibility)
         Color:
-            rgba: (1.00, 1.00, 1.00, 1)
-        RoundedRectangle:
-            pos: self.x, self.y + self.height * 0.90
-            size: self.width, self.height * 0.10
-            radius: [8,]
-        Color:
-            rgba: (0.98, 0.98, 0.99, 1)
-        RoundedRectangle:
-            pos: self.x, self.y + self.height * 0.80
-            size: self.width, self.height * 0.10
-            radius: [8,]
-        Color:
-            rgba: (0.97, 0.97, 0.985, 1)
-        RoundedRectangle:
-            pos: self.x, self.y + self.height * 0.70
-            size: self.width, self.height * 0.10
-            radius: [8,]
-        Color:
-            rgba: (0.955, 0.955, 0.975, 1)
-        RoundedRectangle:
-            pos: self.x, self.y + self.height * 0.60
-            size: self.width, self.height * 0.10
-            radius: [8,]
-        Color:
-            rgba: (0.94, 0.94, 0.965, 1)
-        RoundedRectangle:
-            pos: self.x, self.y + self.height * 0.50
-            size: self.width, self.height * 0.10
-            radius: [8,]
-        Color:
-            rgba: (0.93, 0.93, 0.955, 1)
-        RoundedRectangle:
-            pos: self.x, self.y + self.height * 0.40
-            size: self.width, self.height * 0.10
-            radius: [8,]
-        Color:
-            rgba: (0.915, 0.915, 0.945, 1)
-        RoundedRectangle:
-            pos: self.x, self.y + self.height * 0.30
-            size: self.width, self.height * 0.10
-            radius: [8,]
-        Color:
-            rgba: (0.90, 0.90, 0.935, 1)
-        RoundedRectangle:
-            pos: self.x, self.y + self.height * 0.20
-            size: self.width, self.height * 0.10
-            radius: [8,]
-        Color:
-            rgba: (0.89, 0.89, 0.93, 1)
-        RoundedRectangle:
-            pos: self.x, self.y + self.height * 0.10
-            size: self.width, self.height * 0.10
-            radius: [8,]
-        Color:
-            rgba: (0.88, 0.88, 0.92, 1)
-        RoundedRectangle:
-            pos: self.x, self.y
-            size: self.width, self.height * 0.10
-            radius: [8,]
-        # Press darken overlay
-        Color:
-            rgba: (0, 0, 0, 0.50) if self.state=='down' else (0, 0, 0, 0)
+            rgba: (0.118, 0.145, 0.188, 1) if self.state == 'down' else (0.071, 0.094, 0.133, 1)
         RoundedRectangle:
             pos: self.x, self.y
             size: self.width, self.height
             radius: [8,]
-        # Border line
         Color:
-            rgba: (0.65, 0.65, 0.68, 1)
+            rgba: 0.118, 0.145, 0.188, 1
         Line:
             rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
             width: 2.0
@@ -93,21 +30,19 @@
     background_down: ''
     background_color: 0, 0, 0, 0
     font_size: '16sp'
-    color: 0.1, 0.1, 0.1, 1
-    # Flat fill states: OFF darker flat fill with red outline; ON lighter fill with bold blue outline
+    color: (0.133, 0.773, 0.369, 1) if self.state == 'down' else (0.886, 0.910, 0.941, 1)
     canvas.before:
         Color:
-            rgba: (0.92, 0.96, 1, 1) if self.state=='down' else (0.78, 0.78, 0.82, 1)
+            rgba: (0.071, 0.094, 0.133, 1) if self.state == 'down' else (0.051, 0.071, 0.102, 1)
         RoundedRectangle:
             pos: self.x, self.y
             size: self.width, self.height
             radius: [8,]
-        # No gradient overlay for switches
         Color:
-            rgba: (0.0, 0.55, 1.0, 1.0) if self.state=='down' else (1.0, 0.2, 0.2, 1)
+            rgba: (0.133, 0.773, 0.369, 1) if self.state == 'down' else (1.0, 0.2, 0.2, 1)
         Line:
             rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
-            width: 3.6 if self.state=='down' else 3.0
+            width: 3.6 if self.state == 'down' else 3.0
 
 
 <ButtonsSwitchesScreen>:
@@ -228,8 +163,8 @@
                             height: '24dp'
                             font_size: '12sp'
                             halign: 'center'
-                            background_color: (.15, .15, .15, 1)
-                            foreground_color: (.8, .8, .8, 1)
+                            background_color: (0.031, 0.047, 0.071, 1)
+                            foreground_color: (0.886, 0.910, 0.941, 1)
                     
                     BoxLayout:
                         size_hint_y: None
@@ -308,8 +243,8 @@
                             height: '24dp'
                             font_size: '12sp'
                             halign: 'center'
-                            background_color: (.15, .15, .15, 1)
-                            foreground_color: (.8, .8, .8, 1)
+                            background_color: (0.031, 0.047, 0.071, 1)
+                            foreground_color: (0.886, 0.910, 0.941, 1)
                     
                     BoxLayout:
                         size_hint_y: None
@@ -388,8 +323,8 @@
                             height: '24dp'
                             font_size: '12sp'
                             halign: 'center'
-                            background_color: (.15, .15, .15, 1)
-                            foreground_color: (.8, .8, .8, 1)
+                            background_color: (0.031, 0.047, 0.071, 1)
+                            foreground_color: (0.886, 0.910, 0.941, 1)
                     
                     BoxLayout:
                         size_hint_y: None
@@ -468,8 +403,8 @@
                             height: '24dp'
                             font_size: '12sp'
                             halign: 'center'
-                            background_color: (.15, .15, .15, 1)
-                            foreground_color: (.8, .8, .8, 1)
+                            background_color: (0.031, 0.047, 0.071, 1)
+                            foreground_color: (0.886, 0.910, 0.941, 1)
                     
                     BoxLayout:
                         size_hint_y: None

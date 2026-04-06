@@ -1,6 +1,12 @@
 # Class rules moved to theme.kv to avoid re-declaration warnings
 
 <RestScreen>:
+    canvas.before:
+        Color:
+            rgba: 0.031, 0.047, 0.071, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
     BoxLayout:
         orientation: 'vertical'
         padding: '2dp'
@@ -60,7 +66,7 @@
                     padding: '6dp'
                     canvas.before:
                         Color:
-                            rgba: .95, .95, .95, 0.18
+                            rgba: 0.980, 0.749, 0.043, 0.20
                         RoundedRectangle:
                             pos: self.pos
                             size: self.size
@@ -89,7 +95,7 @@
                         padding: '4dp'
                         canvas.before:
                             Color:
-                                rgba: .2, .2, .2, 1
+                                rgba: 0.051, 0.071, 0.102, 1
                             RoundedRectangle:
                                 pos: self.pos
                                 size: self.size
@@ -101,8 +107,8 @@
                             font_size: '18sp'
                             halign: 'center'
                             valign: 'middle'
-                            background_color: (.15, .15, .15, 1)
-                            foreground_color: (.8, .8, .8, 1)
+                            background_color: (0.031, 0.047, 0.071, 1)
+                            foreground_color: (0.886, 0.910, 0.941, 1)
                     Label:
                         size_hint_y: None
                         height: '20dp'
@@ -112,8 +118,8 @@
                         halign: 'center'
                     HControl:
                         id: a_ctrl
-                        left_src:  'dmccodegui/assets/images/arrow-left-red.png'
-                        right_src: 'dmccodegui/assets/images/arrow-right-green.png'
+                        left_src:  'arrow-left-red.png'
+                        right_src: 'arrow-right-green.png'
                         left_cb:  lambda: root.adjust_axis('A', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
                         right_cb: lambda: root.adjust_axis('A',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
                     Widget:
@@ -129,7 +135,7 @@
                     padding: '6dp'
                     canvas.before:
                         Color:
-                            rgba: .95, .95, .95, 0.18
+                            rgba: 0.659, 0.333, 0.965, 0.25
                         RoundedRectangle:
                             pos: self.pos
                             size: self.size
@@ -157,7 +163,7 @@
                         padding: '4dp'
                         canvas.before:
                             Color:
-                                rgba: .2, .2, .2, 1
+                                rgba: 0.051, 0.071, 0.102, 1
                             RoundedRectangle:
                                 pos: self.pos
                                 size: self.size
@@ -169,8 +175,8 @@
                             font_size: '18sp'
                             halign: 'center'
                             valign: 'middle'
-                            background_color: (.15, .15, .15, 1)
-                            foreground_color: (.8, .8, .8, 1)
+                            background_color: (0.031, 0.047, 0.071, 1)
+                            foreground_color: (0.886, 0.910, 0.941, 1)
                     Label:
                         size_hint_y: None
                         height: '20dp'
@@ -180,8 +186,8 @@
                         halign: 'center'
                     VControl:
                         id: b_ctrl
-                        up_src:   'dmccodegui/assets/images/arrow-up-green.png'
-                        down_src: 'dmccodegui/assets/images/arrow-down-red.png'
+                        up_src:   'arrow-up-green.png'
+                        down_src: 'arrow-down-red.png'
                         up_cb:   lambda: root.adjust_axis('B',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
                         down_cb: lambda: root.adjust_axis('B', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
                     Widget:
@@ -197,7 +203,7 @@
                     padding: '6dp'
                     canvas.before:
                         Color:
-                            rgba: .95, .95, .95, 0.18
+                            rgba: 0.024, 0.714, 0.831, 0.20
                         RoundedRectangle:
                             pos: self.pos
                             size: self.size
@@ -225,7 +231,7 @@
                         padding: '4dp'
                         canvas.before:
                             Color:
-                                rgba: .2, .2, .2, 1
+                                rgba: 0.051, 0.071, 0.102, 1
                             RoundedRectangle:
                                 pos: self.pos
                                 size: self.size
@@ -237,8 +243,8 @@
                             font_size: '18sp'
                             halign: 'center'
                             valign: 'middle'
-                            background_color: (.15, .15, .15, 1)
-                            foreground_color: (.8, .8, .8, 1)
+                            background_color: (0.031, 0.047, 0.071, 1)
+                            foreground_color: (0.886, 0.910, 0.941, 1)
                     Label:
                         size_hint_y: None
                         height: '20dp'
@@ -248,8 +254,8 @@
                         halign: 'center'
                     VControl:
                         id: c_ctrl
-                        up_src:   'dmccodegui/assets/images/arrow-up-green.png'
-                        down_src: 'dmccodegui/assets/images/arrow-down-red.png'
+                        up_src:   'arrow-up-green.png'
+                        down_src: 'arrow-down-red.png'
                         up_cb:   lambda: root.adjust_axis('C',  (step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
                         down_cb: lambda: root.adjust_axis('C', -(step1.state=='down' and 1 or step10.state=='down' and 10 or 100))
                     Widget:

@@ -9,20 +9,25 @@ from kivy.clock import Clock
 from ..app_state import MachineState
 from ..controller import GalilController
 from ..utils import jobs
+from dmccodegui.hmi.dmc_vars import RESTPT_BY_AXIS
 
 class ParametersSetupScreen(Screen):
     controller: GalilController = ObjectProperty(None)  # type: ignore
     state: MachineState = ObjectProperty(None)  # type: ignore
-    
+
     def on_pre_enter(self, *args):  # noqa: ANN001
         try:
             if not self.controller or not self.controller.is_connected():
                 raise RuntimeError("No controller connected")
-            vals = self.controller.upload_array("RestPnt", 0, 2)
-            self.rest_vals = (vals + [0,0,0])[:3]
+            # Read each rest point variable individually via MG query (A, B, C only)
+            vals = []
+            for axis in ["A", "B", "C"]:
+                raw = self.controller.cmd(f"MG {RESTPT_BY_AXIS[axis]}").strip()
+                vals.append(float(raw))
+            self.rest_vals = vals
             self._fill_inputs_from_vals(self.rest_vals)
         except Exception as e:
-            print("RestPnt read failed:", e)
+            print("rest point read failed:", e)
             self._load_from_state()
 
     def _get_axis_input(self, axis: str):
@@ -54,17 +59,17 @@ class ParametersSetupScreen(Screen):
                 if ti: ti.background_color = (1, 0.6, 0.6, 1)
                 return 0.0
 
-        # A, B, C, D in order → local array
+        # A, B, C in order — rest points for 3 axes
         new_vals = [
             get_axis_num("A"),
             get_axis_num("B"),
             get_axis_num("C"),
         ]
 
-        # 1) Save to your local array on the screen
+        # 1) Save to local array on the screen
         self.rest_vals = new_vals
 
-        # 2) (Optional) keep your app-wide state in sync
+        # 2) Keep app-wide state in sync
         self.state.taught_points["Rest"] = {
             "pos": {"A": new_vals[0], "B": new_vals[1], "C": new_vals[2]}
         }
@@ -72,23 +77,29 @@ class ParametersSetupScreen(Screen):
         try:
             if not self.controller or not self.controller.is_connected():
                 raise RuntimeError("No controller connected")
-            # Push the Rest values we just collected
-            self.controller.download_array("RestPnt", 0, self.rest_vals)
+            # Push the Rest values via individual variable assignments (semicolon-joined)
+            axes = ["A", "B", "C"]
+            parts = [f"{RESTPT_BY_AXIS[axes[i]]}={self.rest_vals[i]}" for i in range(len(axes))]
+            self.controller.cmd(";".join(parts))
+            self.controller.cmd("BV")  # Save variables to flash
         except Exception as e:
-            print("RestPnt send to controller failed:", e)
+            print("rest point send to controller failed:", e)
             return
-        #send command to controller to move axis to new position
+        # Send command to controller to move axis to new position
         self.dmcCommand("PA "+str(new_vals[0])+", " +str(new_vals[1])+", "+str(new_vals[2]))
         self.dmcCommand("BG")
 
     def loadArrayToPage(self, *args):
         try:
-            # Read Rest array from controller, not Start
-            vals = self.controller.upload_array("RestPnt", 0, 2)
+            # Read rest point variables from controller individually (A, B, C only)
+            vals = []
+            for axis in ["A", "B", "C"]:
+                raw = self.controller.cmd(f"MG {RESTPT_BY_AXIS[axis]}").strip()
+                vals.append(float(raw))
         except Exception as e:
-            print("RestPnt read failed:", e)
+            print("rest point read failed:", e)
             return
-        self.rest_vals = (vals + [0,0,0])[:3]
+        self.rest_vals = vals
         self._fill_inputs_from_vals(self.rest_vals)
 
     def _fill_inputs_from_vals(self, vals):
@@ -107,7 +118,7 @@ class ParametersSetupScreen(Screen):
         if not self.controller or not self.controller.is_connected():
             self._alert("No controller connected")
             return
-        
+
         def do_command():
             try:
                 self.controller.cmd(command)
@@ -115,7 +126,7 @@ class ParametersSetupScreen(Screen):
             except Exception as e:
                 print(f"[DMC] Command failed: {command} -> {e}")
                 Clock.schedule_once(lambda *_: self._alert(f"Command failed: {e}"))
-        
+
         jobs.submit(do_command)
 
     def _alert(self, message: str) -> None:
@@ -129,5 +140,3 @@ class ParametersSetupScreen(Screen):
             pass
         if self.state:
             self.state.log(message)
-
-

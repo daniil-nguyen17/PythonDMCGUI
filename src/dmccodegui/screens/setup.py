@@ -170,7 +170,7 @@ class SetupScreen(Screen):
 
         Parameters
         ----------
-        name : str — arbitrary label for the point (e.g. 'StartPnt', 'RestPnt')
+        name : str — arbitrary label for the point (e.g. 'Start', 'Rest')
 
         The taught position is available to other screens as:
             self.state.taught_points[name]["pos"]  →  {"A": x, "B": y, ...}

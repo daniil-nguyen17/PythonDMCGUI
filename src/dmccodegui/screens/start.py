@@ -7,11 +7,14 @@ This screen lets the operator view and adjust the Start Point for each axis.
 The Start Point is where the machine moves at the beginning of a grinding cycle
 (Tooth 0 on A, B cleared from grinder, C already manually positioned).
 
-DMC ARRAY: 'StartPnt' (indices 0–3)
-  [0] = A axis start position (counts)
-  [1] = B_left  start position (counts) — left B motor
-  [2] = B_right start position (counts) — right B motor
-  [3] = C axis  start position (counts)
+DMC VARIABLES: startPtA, startPtB, startPtC, startPtD (individual named variables)
+  startPtA = A axis start position     (counts)
+  startPtB = B_left  start position    (counts) — left B motor
+  startPtC = B_right start position    (counts) — right B motor
+  startPtD = C axis  start position    (counts)
+
+  Variable names imported from dmccodegui.hmi.dmc_vars (STARTPT_BY_AXIS).
+  Previously used the StartPnt DMC array (indices 0-3) — migrated to individual variables in plan 09-03.
 
 KV FILE: ui/start.kv
   Each axis has two widgets in the KV:
@@ -20,13 +23,14 @@ KV FILE: ui/start.kv
     ids.<axis>_display — read-only TextInput showing the value from the controller
 
 WORKFLOW:
-  1. On screen enter: auto-reads StartPnt[0..3] from controller and fills both
-     the editable input (ctrl_input) and the read-only display for each axis.
+  1. On screen enter: auto-reads startPtA/B/C/D from controller via individual MG queries
+     and fills both the editable input (ctrl_input) and the read-only display for each axis.
   2. Operator uses arrow buttons (via adjust_axis) or manually edits ctrl_input.
   3. 'Luu Diem Start' button calls save_values(), which:
-       a. Writes new values to controller via download_array('StartPnt', ...)
-       b. Sends PA (Position Absolute) command for all 4 axes
-       c. Sends BG (Begin) to start the move
+       a. Writes new values to controller via semicolon-joined assignment
+       b. Sends BV to save variables to flash
+       c. Sends PA (Position Absolute) command for all 4 axes
+       d. Sends BG (Begin) to start the move
 
 THREADING MODEL:
   controller I/O in on_pre_enter is done on the calling thread (Kivy main thread)
@@ -41,6 +45,7 @@ from kivy.clock import Clock
 from ..app_state import MachineState
 from ..controller import GalilController
 from ..utils import jobs
+from dmccodegui.hmi.dmc_vars import STARTPT_A, STARTPT_B, STARTPT_C, STARTPT_D, STARTPT_BY_AXIS
 
 
 class StartScreen(Screen):
@@ -48,7 +53,8 @@ class StartScreen(Screen):
     controller: GalilController = ObjectProperty(None)  # type: ignore
     state: MachineState = ObjectProperty(None)          # type: ignore
 
-    # Local copy of the StartPnt array (4 floats: A, B_left, B_right, C)
+    # Local copy of the start point values (4 floats: A, B_left, B_right, C)
+    # Maps to startPtA, startPtB, startPtC, startPtD on the controller.
     # Updated from the controller on enter, and written back on save.
     start_vals = ([0.0, 0.0, 0.0, 0.0])
 
@@ -56,26 +62,31 @@ class StartScreen(Screen):
         """
         Called by Kivy each time the operator navigates to this screen.
 
-        Reads the StartPnt array from the controller (indices 0-3) and fills
-        both the editable inputs and read-only display boxes for all 4 axes.
+        Reads startPtA, startPtB, startPtC, startPtD from the controller via individual
+        MG queries and fills both the editable inputs and read-only display boxes for all 4 axes.
+
+        Axis-to-variable mapping:
+          A widget       <- startPtA (index 0)
+          B_left widget  <- startPtB (index 1)
+          B_right widget <- startPtC (index 2)
+          C widget       <- startPtD (index 3)
 
         Falls back to self._load_from_state() if:
           - No controller is connected
           - The controller read throws an exception (e.g. timeout, disconnected)
-
-        To add a 5th axis: extend the mapping in _fill_inputs_from_vals() and
-        update the upload_array call to include index 4.
         """
         try:
             if not self.controller or not self.controller.is_connected():
                 raise RuntimeError("No controller connected")
-            # upload_array("ArrayName", start_index, end_index) returns list of floats
-            vals = self.controller.upload_array("StartPnt", 0, 3)
-            # Pad to 4 elements in case controller returns fewer, then truncate
-            self.start_vals = (vals + [0, 0, 0, 0])[:4]
+            # Read each start point variable individually via MG query
+            vals = []
+            for axis in ["A", "B", "C", "D"]:
+                raw = self.controller.cmd(f"MG {STARTPT_BY_AXIS[axis]}").strip()
+                vals.append(float(raw))
+            self.start_vals = vals
             self._fill_inputs_from_vals(self.start_vals)
         except Exception as e:
-            print("StartPnt read failed:", e)
+            print("start point read failed:", e)
             self._load_from_state()  # Fall back to last saved state values
 
     def _get_axis_input(self, axis: str):
@@ -108,7 +119,7 @@ class StartScreen(Screen):
         Retrieve the read-only display TextInput for an axis.
 
         The display box shows the value currently in the controller (set from
-        the last upload_array read). It is not directly editable by the operator.
+        the last individual variable read). It is not directly editable by the operator.
 
         Parameters
         ----------
@@ -126,11 +137,11 @@ class StartScreen(Screen):
         Populate both the editable ctrl_input and the read-only display TextInput
         for each axis from a list of values.
 
-        Axis-to-index mapping:
-          A       -> vals[0]
-          B_left  -> vals[1]
-          B_right -> vals[2]
-          C       -> vals[3]
+        Axis-to-index mapping (matches startPtA/B/C/D order):
+          A       -> vals[0]  (startPtA)
+          B_left  -> vals[1]  (startPtB)
+          B_right -> vals[2]  (startPtC)
+          C       -> vals[3]  (startPtD)
 
         If a widget is not found (e.g. screen not fully built yet), that axis is
         silently skipped. Handles lists shorter than 4 elements safely via index check.
@@ -162,9 +173,10 @@ class StartScreen(Screen):
              Non-numeric input is highlighted red and defaults to 0.0.
           2. Update self.start_vals with the new values.
           3. Update state.taught_points["Start"] for cross-screen access.
-          4. Download the array to the controller: download_array('StartPnt', 0, vals)
-          5. Send PA (Position Absolute) command with all 4 axis values.
-          6. Send BG (Begin) to start the move.
+          4. Write individual variables to controller: startPtA=v;startPtB=v;startPtC=v;startPtD=v
+          5. Send BV to save variables to flash.
+          6. Send PA (Position Absolute) command with all 4 axis values.
+          7. Send BG (Begin) to start the move.
 
         CAUTION: Sending BG immediately moves the motors. Ensure all limits and
         safety interlocks are active before pressing 'Luu Diem Start'.
@@ -184,7 +196,7 @@ class StartScreen(Screen):
                     ti.background_color = (1, 0.6, 0.6, 1)
                 return 0.0
 
-        # Collect values in StartPnt order: A, B_left, B_right, C
+        # Collect values in order: A, B_left, B_right, C
         new_vals = [
             get_axis_num("A"),
             get_axis_num("B_left"),
@@ -201,13 +213,17 @@ class StartScreen(Screen):
         }
         self.state.notify()
 
-        # 3) Push to controller array
+        # 3) Push to controller via individual variable assignments (semicolon-joined)
+        #    Mapping: A->startPtA, B_left->startPtB, B_right->startPtC, C->startPtD
         try:
             if not self.controller or not self.controller.is_connected():
                 raise RuntimeError("No controller connected")
-            self.controller.download_array("StartPnt", 0, self.start_vals)
+            axes = ["A", "B", "C", "D"]
+            parts = [f"{STARTPT_BY_AXIS[axes[i]]}={self.start_vals[i]}" for i in range(len(axes))]
+            self.controller.cmd(";".join(parts))
+            self.controller.cmd("BV")  # Save variables to flash
         except Exception as e:
-            print("StartPnt send to controller failed:", e)
+            print("start point send to controller failed:", e)
             return  # Abort move if write failed
 
         # 4) Move all axes to the new start position
@@ -297,22 +313,26 @@ class StartScreen(Screen):
 
     def loadArrayToPage(self, *args):
         """
-        Manually re-read the StartPnt array from the controller and refresh the UI.
+        Manually re-read start point variables from the controller and refresh the UI.
 
         Bound to the 'Lay Diem Start Ve Man Hinh' button in the KV:
             on_release: root.loadArrayToPage()
 
         Use this if the operator suspects the on-screen values are out of sync with
-        the controller (e.g. after a power cycle or external edit of the array).
+        the controller (e.g. after a power cycle or external edit of the variables).
 
         Does nothing (with a print) if the controller is disconnected or read fails.
         """
         try:
-            vals = self.controller.upload_array("StartPnt", 0, 3)
+            # Read each start point variable individually via MG query
+            vals = []
+            for axis in ["A", "B", "C", "D"]:
+                raw = self.controller.cmd(f"MG {STARTPT_BY_AXIS[axis]}").strip()
+                vals.append(float(raw))
         except Exception as e:
-            print("StartPnt read failed:", e)
+            print("start point read failed:", e)
             return
-        self.start_vals = (vals + [0, 0, 0, 0])[:4]
+        self.start_vals = vals
         self._fill_inputs_from_vals(self.start_vals)
 
     def _load_from_state(self) -> None:

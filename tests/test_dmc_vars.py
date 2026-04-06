@@ -212,7 +212,6 @@ class TestStartPointConstants:
 # No stale string literals in screen files (xfail until Plan 09-03)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Screen migration in plan 09-03 — screen files not yet migrated")
 def test_no_stale_position_strings_in_screen_files():
     """Assert no screen file uses raw 'StartPnt' or 'RestPnt' string literals.
 

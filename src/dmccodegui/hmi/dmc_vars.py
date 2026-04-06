@@ -26,10 +26,15 @@ HMI_HOME: str = "hmiHome"  # Trigger: home axes
 HMI_JOG: str = "hmiJog"   # Trigger: jog axis
 HMI_CALC: str = "hmiCalc"  # Trigger: recalculate variable positions
 
+HMI_GO_REST: str    = "hmiGoRs"   # Trigger: go to rest position (in setup)
+HMI_GO_START: str   = "hmiGoSt"   # Trigger: go to start position (in setup)
+HMI_EXIT_SETUP: str = "hmiExSt"   # Trigger: exit setup, return to #MAIN
+
 # Ordered list for batch operations (e.g., initializing all triggers to default)
 ALL_HMI_TRIGGERS: list[str] = [
     HMI_GRND, HMI_SETP, HMI_MORE, HMI_LESS,
     HMI_NEWS, HMI_HOME, HMI_JOG, HMI_CALC,
+    HMI_GO_REST, HMI_GO_START, HMI_EXIT_SETUP,
 ]
 
 # ---------------------------------------------------------------------------

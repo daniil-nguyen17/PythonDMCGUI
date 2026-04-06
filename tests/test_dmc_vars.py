@@ -58,7 +58,7 @@ class TestHmiTriggerConstants:
 
     def test_all_hmi_triggers_list_has_8_items(self):
         from dmccodegui.hmi.dmc_vars import ALL_HMI_TRIGGERS
-        assert len(ALL_HMI_TRIGGERS) == 8
+        assert len(ALL_HMI_TRIGGERS) == 11  # 8 original + 3 setup-loop triggers (Plan 13-01)
 
     def test_all_hmi_triggers_list_contains_all_vars(self):
         from dmccodegui.hmi.dmc_vars import (

@@ -20,7 +20,7 @@ Requirements for Flat Grind HMI-controller integration. Each maps to roadmap pha
 
 - [x] **POLL-01**: HMI polls hmiState from controller at 10 Hz and updates MachineState.dmc_state
 - [x] **POLL-02**: HMI polls axis positions (A, B, C, D) from controller and displays live values on Run page
-- [x] **POLL-03**: HMI detects controller connection loss and displays disconnected status
+- [ ] **POLL-03**: HMI detects controller connection loss and displays disconnected status
 - [x] **POLL-04**: HMI reads knife count (ctSesKni) from controller and displays on Run page
 
 ### Safety
@@ -41,19 +41,19 @@ Requirements for Flat Grind HMI-controller integration. Each maps to roadmap pha
 
 ### Setup Integration
 
-- [x] **SETP-01**: User can enter Setup mode on the controller from the HMI (sends hmiSetp=0)
-- [ ] **SETP-02**: User can trigger homing sequence from Axes Setup page (sends hmiHome=0, Setup/Admin role required)
-- [ ] **SETP-03**: User can jog axes from Axes Setup page with movement on real controller
-- [ ] **SETP-04**: User can teach Rest point — saves current axis positions to restPt[] array on controller
-- [ ] **SETP-05**: User can teach Start point — saves current axis positions to startPt[] array on controller
+- [ ] **SETP-01**: User can enter Setup mode on the controller from the HMI (sends hmiSetp=0)
+- [x] **SETP-02**: User can trigger homing sequence from Axes Setup page (sends hmiHome=0, Setup/Admin role required)
+- [x] **SETP-03**: User can jog axes from Axes Setup page with movement on real controller
+- [x] **SETP-04**: User can teach Rest point — saves current axis positions to restPt[] array on controller
+- [x] **SETP-05**: User can teach Start point — saves current axis positions to startPt[] array on controller
 - [x] **SETP-06**: User can write parameter values from Parameters page to controller variables
 - [x] **SETP-07**: User can trigger varcalc recalculation from Parameters page (sends hmiCalc=0)
-- [x] **SETP-08**: User can exit Setup mode back to main loop from HMI
+- [ ] **SETP-08**: User can exit Setup mode back to main loop from HMI
 
 ### State-Driven UI
 
 - [x] **UI-01**: Buttons enable/disable based on polled controller state (e.g., no Start Grind while already grinding)
-- [x] **UI-02**: Status label displays current controller state (IDLE, GRINDING, SETUP, HOMING, NEW SESSION)
+- [ ] **UI-02**: Status label displays current controller state (IDLE, GRINDING, SETUP, HOMING, NEW SESSION)
 - [x] **UI-03**: Setup mode badge visible on all screens when controller is in setup state
 - [x] **UI-04**: Run tab disables when controller is in setup mode
 - [x] **UI-05**: Connection status indicator visible at all times
@@ -118,28 +118,28 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DMC-06 | Phase 9 | Complete |
 | POLL-01 | Phase 10 | Complete |
 | POLL-02 | Phase 10 | Complete |
-| POLL-03 | Phase 10 | Complete |
+| POLL-03 | Phase 17 | Pending |
 | POLL-04 | Phase 10 | Complete |
 | SAFE-01 | Phase 11 | Complete |
 | SAFE-02 | Phase 11 | Complete |
 | SAFE-03 | Phase 11 | Complete |
 | RUN-01 | Phase 12 | Complete |
-| RUN-02 | Phase 12 | Pending |
-| RUN-03 | Phase 12 | Pending |
+| RUN-02 | Phase 15 | Pending |
+| RUN-03 | Phase 15 | Pending |
 | RUN-04 | Phase 12 | Complete |
 | RUN-05 | Phase 12 | Complete |
-| RUN-06 | Phase 12 | Pending |
+| RUN-06 | Phase 15 | Pending |
 | RUN-07 | Phase 12 | Complete |
-| SETP-01 | Phase 13 | Complete |
-| SETP-02 | Phase 13 | Pending |
-| SETP-03 | Phase 13 | Pending |
-| SETP-04 | Phase 13 | Pending |
-| SETP-05 | Phase 13 | Pending |
+| SETP-01 | Phase 16 | Pending |
+| SETP-02 | Phase 13 | Complete |
+| SETP-03 | Phase 13 | Complete |
+| SETP-04 | Phase 13 | Complete |
+| SETP-05 | Phase 13 | Complete |
 | SETP-06 | Phase 13 | Complete |
 | SETP-07 | Phase 13 | Complete |
-| SETP-08 | Phase 13 | Complete |
+| SETP-08 | Phase 16 | Pending |
 | UI-01 | Phase 14 | Complete |
-| UI-02 | Phase 14 | Complete |
+| UI-02 | Phase 17 | Pending |
 | UI-03 | Phase 14 | Complete |
 | UI-04 | Phase 14 | Complete |
 | UI-05 | Phase 14 | Complete |

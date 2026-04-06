@@ -32,14 +32,18 @@ Full context: `.planning/phases/08-CONTEXT.md`
 
 </details>
 
-### 🚧 v2.0 Flat Grind Integration (Phases 9-14)
+### 🚧 v2.0 Flat Grind Integration (Phases 9-17)
 
 - [x] **Phase 9: DMC Foundation** — Modify DMC program and add Python HMI constants/state fields — hard prerequisite for all wiring (completed 2026-04-06)
 - [x] **Phase 10: State Poll** — Wire 10 Hz poll to read hmiState and axis positions from real controller (completed 2026-04-06)
 - [x] **Phase 11: E-STOP Safety** — Validate priority stop path and motion-state gate before any motion commands are wired (completed 2026-04-06)
 - [x] **Phase 12: Run Page Wiring** — Wire all operator Run page buttons to real DMC subroutines (completed 2026-04-06)
 - [x] **Phase 13: Setup Loop** — Wire Setup page entry, homing, jog, teach points, parameters write, and exit (completed 2026-04-06)
-- [x] **Phase 14: State-Driven UI** — Button enable/disable, status labels, setup badge, and live plot validation (completed 2026-04-06)
+- [x] **Phase 14: State-Driven UI** — Button enable/disable, status labels, setup badge, and live plot validation
+- [ ] **Phase 15: Run Page Missing Controls** — Add Go To Rest, Go To Start, and New Session buttons to RunScreen (gap closure)
+- [ ] **Phase 16: ProfilesScreen Setup Loop Fix** — Fix smart-enter guard and exit-setup wiring in ProfilesScreen (gap closure)
+- [ ] **Phase 17: Poll Reset and Cold-Start Fix** — Reset _fail_count on reconnect and fix cold-start E-STOP label (gap closure)
+ (completed 2026-04-06)
 
 ---
 
@@ -146,6 +150,34 @@ Plans:
 
 ---
 
+### Phase 15: Run Page Missing Controls
+**Goal**: The Run page has Go To Rest, Go To Start, and New Session buttons wired to real DMC subroutines via the HMI one-shot variable pattern.
+**Depends on**: Phase 12
+**Requirements**: RUN-02, RUN-03, RUN-06
+**Gap Closure**: Closes gaps from v2.0 audit
+**Success Criteria** (what must be TRUE):
+  1. Pressing Go To Rest sends hmiGoRs=0 and the machine moves to the taught rest position
+  2. Pressing Go To Start sends hmiGoSt=0 and the machine moves to the taught start position
+  3. Pressing New Session requires a two-step confirmation, is blocked for Operator role, and triggers the DMC #NEWSESS routine on confirmation
+
+### Phase 16: ProfilesScreen Setup Loop Fix
+**Goal**: ProfilesScreen correctly enters and exits controller setup mode using the same smart-enter/exit pattern as AxesSetupScreen and ParametersScreen.
+**Depends on**: Phase 13
+**Requirements**: SETP-01, SETP-08
+**Gap Closure**: Closes gaps from v2.0 audit
+**Success Criteria** (what must be TRUE):
+  1. Navigating to ProfilesScreen while already in STATE_SETUP does not re-send hmiSetp=0
+  2. Leaving ProfilesScreen sends hmiExSt=0 (not hmiSetp=1) to correctly exit setup mode
+
+### Phase 17: Poll Reset and Cold-Start Fix
+**Goal**: Controller poller resets cleanly between disconnect/reconnect cycles and the status bar shows OFFLINE (not E-STOP) before the first successful connection.
+**Depends on**: Phase 10, Phase 14
+**Requirements**: POLL-03, UI-02
+**Gap Closure**: Closes gaps from v2.0 audit
+**Success Criteria** (what must be TRUE):
+  1. After disconnect_and_refresh(), _fail_count is reset to 0 so reconnection starts with a clean slate
+  2. Before the first successful poll, the status bar shows OFFLINE instead of E-STOP
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -164,6 +196,9 @@ Plans:
 | 12. Run Page Wiring | 1/1 | Complete    | 2026-04-06 | - |
 | 13. Setup Loop | 3/3 | Complete   | 2026-04-06 | - |
 | 14. State-Driven UI | 2/2 | Complete    | 2026-04-06 | - |
+| 15. Run Page Missing Controls | v2.0 | 0/TBD | Pending | - |
+| 16. ProfilesScreen Setup Loop Fix | v2.0 | 0/TBD | Pending | - |
+| 17. Poll Reset and Cold-Start Fix | v2.0 | 0/TBD | Pending | - |
 
 ---
 

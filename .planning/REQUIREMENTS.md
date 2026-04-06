@@ -15,8 +15,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **AUTH-04**: Operator can only access RUN page and view (not edit) parameters
 - [x] **AUTH-05**: Setup user can unlock via PIN overlay to access axes setup, parameters, and machine config, then re-lock when done
 - [x] **AUTH-06**: Setup session auto-locks after configurable inactivity timeout, returning to Operator view
-- [ ] **AUTH-07**: Admin can create, delete, and modify users (assign PINs and roles)
-- [ ] **AUTH-08**: Admin user management is accessible from a dedicated screen behind Admin PIN
+- [x] **AUTH-07**: Admin can create, delete, and modify users (assign PINs and roles)
+- [x] **AUTH-08**: Admin user management is accessible from a dedicated screen behind Admin PIN
 
 ### Navigation
 
@@ -128,8 +128,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-04 | Phase 1 | Complete |
 | AUTH-05 | Phase 1 | Complete |
 | AUTH-06 | Phase 1 | Complete |
-| AUTH-07 | Phase 7 | Pending |
-| AUTH-08 | Phase 7 | Pending |
+| AUTH-07 | Phase 7 | Complete |
+| AUTH-08 | Phase 7 | Complete |
 | NAV-01 | Phase 1 | Pending |
 | NAV-02 | Phase 1 | Pending |
 | NAV-03 | Phase 1 | Pending |

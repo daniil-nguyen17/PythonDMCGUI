@@ -153,7 +153,7 @@ Plans:
 | 7. Admin and User Management | v1.0 | 2/2 | Complete | 2026-04-06 |
 | 8. Pi Kiosk and Deployment | v1.1 | 0/TBD | Deferred | - |
 | 9. DMC Foundation | v2.0 | 3/3 | Complete | 2026-04-06 |
-| 10. State Poll | 3/3 | Complete   | 2026-04-06 | - |
+| 10. State Poll | 3/3 | Complete    | 2026-04-06 | - |
 | 11. E-STOP Safety | v2.0 | 0/TBD | Not started | - |
 | 12. Run Page Wiring | v2.0 | 0/TBD | Not started | - |
 | 13. Setup Loop | v2.0 | 0/TBD | Not started | - |

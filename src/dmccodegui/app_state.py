@@ -35,6 +35,9 @@ class MachineState:
     cycle_elapsed_s: float = 0.0
     cycle_completion_pct: float = 0.0
 
+    # DMC controller state field (Phase 9)
+    dmc_state: int = 0  # hmiState from controller; 0=uninitialized, 1=IDLE, 2=GRINDING, 3=SETUP, 4=HOMING
+
     _listeners: List[ChangeListener] = field(default_factory=list, repr=False)
 
     def subscribe(self, fn: ChangeListener) -> Callable[[], None]:

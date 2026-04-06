@@ -1,0 +1,237 @@
+#:import theme dmccodegui.theme_manager.theme
+
+# -----------------------------------------------------------------------
+# UsersScreen — card-based user management screen (Admin only)
+# -----------------------------------------------------------------------
+
+<UsersScreen>:
+    canvas.before:
+        Color:
+            rgba: theme.bg_dark
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    BoxLayout:
+        orientation: 'vertical'
+        spacing: '0dp'
+
+        # --- Header row ---
+        BoxLayout:
+            orientation: 'horizontal'
+            size_hint_y: None
+            height: '64dp'
+            padding: '16dp', '8dp'
+            spacing: '12dp'
+
+            canvas.before:
+                Color:
+                    rgba: theme.bg_panel
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+
+            Label:
+                text: 'User Management'
+                font_size: '26sp'
+                bold: True
+                color: theme.text_main
+                halign: 'left'
+                valign: 'middle'
+                text_size: self.size
+
+            Button:
+                text: '+ Add User'
+                font_size: '18sp'
+                size_hint_x: None
+                width: '160dp'
+                background_normal: ''
+                background_color: 0.133, 0.773, 0.369, 1
+                color: 1, 1, 1, 1
+                on_release: root.on_add_press()
+
+        # --- Scrollable card list ---
+        ScrollView:
+            do_scroll_x: False
+
+            BoxLayout:
+                id: cards_container
+                orientation: 'vertical'
+                size_hint_y: None
+                height: self.minimum_height
+                spacing: '4dp'
+                padding: '8dp'
+
+
+# -----------------------------------------------------------------------
+# UserEditOverlay — modal overlay for adding or editing a user
+# -----------------------------------------------------------------------
+
+<UserEditOverlay>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: '24dp'
+        spacing: '14dp'
+
+        canvas.before:
+            Color:
+                rgba: theme.bg_panel
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        # Header
+        Label:
+            text: 'Edit User' if root.target_name else 'Add User'
+            font_size: '22sp'
+            bold: True
+            color: theme.text_main
+            size_hint_y: None
+            height: '40dp'
+            halign: 'center'
+            valign: 'middle'
+            text_size: self.size
+
+        # Name field
+        BoxLayout:
+            orientation: 'vertical'
+            size_hint_y: None
+            height: '80dp'
+            spacing: '4dp'
+
+            Label:
+                text: 'Name'
+                font_size: '15sp'
+                color: theme.text_mid
+                size_hint_y: None
+                height: '24dp'
+                halign: 'left'
+                valign: 'middle'
+                text_size: self.size
+
+            TextInput:
+                id: name_input
+                multiline: False
+                font_size: '20sp'
+                size_hint_y: None
+                height: '48dp'
+                background_color: theme.input_bg
+                foreground_color: theme.input_fg
+                cursor_color: theme.input_cursor
+                hint_text: 'Enter username'
+                hint_text_color: theme.input_hint
+
+        # PIN field
+        BoxLayout:
+            orientation: 'vertical'
+            size_hint_y: None
+            height: '80dp'
+            spacing: '4dp'
+
+            Label:
+                text: 'PIN (4-6 digits)' if not root.target_name else 'New PIN (leave blank to keep)'
+                font_size: '15sp'
+                color: theme.text_mid
+                size_hint_y: None
+                height: '24dp'
+                halign: 'left'
+                valign: 'middle'
+                text_size: self.size
+
+            TextInput:
+                id: pin_input
+                multiline: False
+                font_size: '20sp'
+                size_hint_y: None
+                height: '48dp'
+                input_filter: 'int'
+                password: True
+                background_color: theme.input_bg
+                foreground_color: theme.input_fg
+                cursor_color: theme.input_cursor
+                hint_text: '****'
+                hint_text_color: theme.input_hint
+
+        # Role selector
+        BoxLayout:
+            orientation: 'vertical'
+            size_hint_y: None
+            height: '88dp'
+            spacing: '4dp'
+
+            Label:
+                text: 'Role'
+                font_size: '15sp'
+                color: theme.text_mid
+                size_hint_y: None
+                height: '24dp'
+                halign: 'left'
+                valign: 'middle'
+                text_size: self.size
+
+            BoxLayout:
+                orientation: 'horizontal'
+                size_hint_y: None
+                height: '52dp'
+                spacing: '8dp'
+
+                Button:
+                    id: role_btn_operator
+                    text: 'Operator'
+                    font_size: '16sp'
+                    background_normal: ''
+                    background_color: 0.071, 0.094, 0.133, 1
+                    color: 1, 1, 1, 1
+                    on_release: root._select_role('operator')
+
+                Button:
+                    id: role_btn_setup
+                    text: 'Setup'
+                    font_size: '16sp'
+                    background_normal: ''
+                    background_color: 0.071, 0.094, 0.133, 1
+                    color: 1, 1, 1, 1
+                    on_release: root._select_role('setup')
+
+                Button:
+                    id: role_btn_admin
+                    text: 'Admin'
+                    font_size: '16sp'
+                    background_normal: ''
+                    background_color: 0.071, 0.094, 0.133, 1
+                    color: 1, 1, 1, 1
+                    on_release: root._select_role('admin')
+
+        # Error message
+        Label:
+            text: root.error_msg
+            font_size: '15sp'
+            color: 0.9, 0.3, 0.3, 1
+            size_hint_y: None
+            height: '28dp'
+            halign: 'center'
+            valign: 'middle'
+            text_size: self.size
+
+        # Save / Cancel buttons
+        BoxLayout:
+            orientation: 'horizontal'
+            size_hint_y: None
+            height: '54dp'
+            spacing: '12dp'
+
+            Button:
+                text: 'Cancel'
+                font_size: '18sp'
+                background_normal: ''
+                background_color: 0.3, 0.3, 0.3, 1
+                color: 1, 1, 1, 1
+                on_release: root.press_cancel()
+
+            Button:
+                text: 'Save'
+                font_size: '18sp'
+                background_normal: ''
+                background_color: 0.133, 0.773, 0.369, 1
+                color: 1, 1, 1, 1
+                on_release: root.press_save()

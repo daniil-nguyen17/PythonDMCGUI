@@ -39,29 +39,38 @@ MG "SYSTEM READY - WAITING FOR INPUT"
 CB 1;                        
 WT 100
 
-IF (@IN[29] = 0);             ' GO GRIND button
-  SB 1;                     
+IF (@IN[29] = 0) | (hmiGrnd = 0);   ' GO GRIND button OR HMI trigger
+  hmiGrnd = 1;                        ' reset HMI var first
+  hmiState = 2;                        ' GRINDING
+  SB 1;
   JS #GRIND
+  hmiState = 1;                        ' back to IDLE
   JP #WtAtRt
 ENDIF
 
-IF (@IN[41] = 0);             ' SETUP button
+IF (@IN[41] = 0) | (hmiSetp = 0);   ' SETUP button OR HMI trigger
+  hmiSetp = 1;                        ' reset HMI var first
+  hmiState = 3;                        ' SETUP
   JS #SETUP
+  hmiState = 1;                        ' back to IDLE
   JP #WtAtRt
 ENDIF
 
-IF (@IN[44] = 0);             ' NEW SESSION / new grind stone
+IF (@IN[44] = 0) | (hmiNewS = 0);   ' NEW SESSION / new grind stone OR HMI trigger
+  hmiNewS = 1;                        ' reset HMI var first
   JS #NEWSESS
   JP #WtAtRt
 ENDIF
 
-IF (@IN[33] = 0);             ' MORE STONE (C compensation down)
+IF (@IN[33] = 0) | (hmiMore = 0);   ' MORE STONE (C compensation down) OR HMI trigger
+  hmiMore = 1;                        ' reset HMI var first
   MG "MORE STONE FROM B"
   JS #MOREGRI
   JP #WtAtRt
 ENDIF
 
-IF (@IN[36] = 0);             ' LESS STONE (C compensation up)
+IF (@IN[36] = 0) | (hmiLess = 0);   ' LESS STONE (C compensation up) OR HMI trigger
+  hmiLess = 1;                        ' reset HMI var first
   MG "LESS STONE FROM B"
   JS #LESSGRI
   JP #WtAtRt
@@ -151,7 +160,8 @@ EN
 MG "SETUP MENU ACTIVE"
 #SULOOP
 ' --- BUTTON 23: HANDWHEEL JOG ---
-IF (@IN[23] = 0)
+IF (@IN[23] = 0) | (hmiJog = 0)
+  hmiJog = 1;                          ' reset HMI var first
   MG "ENTERING WHEEL JOG MODE"
   JS #WheelJg
   JS #W_REL
@@ -159,14 +169,18 @@ IF (@IN[23] = 0)
 ENDIF
 
 ' --- BUTTON 25: RUN HOME ---
-IF (@IN[25] = 0)
+IF (@IN[25] = 0) | (hmiHome = 0)
+  hmiHome = 1;                         ' reset HMI var first
+  hmiState = 4;                         ' HOMING
   MG "STARTING HOMING SEQUENCE"
   JS #HOME
+  hmiState = 3;                         ' back to SETUP (inside SULOOP)
   JS #W_REL
 ENDIF
 
 ' --- BUTTON 26: CHANGE KNIFE / RECALCULATE ---
-IF (@IN[26] = 0)
+IF (@IN[26] = 0) | (hmiCalc = 0)
+  hmiCalc = 1;                          ' reset HMI var first
   MG " NEW KNIFE CALCULATIONS"
   JS #VARCALC
   JS #W_REL
@@ -192,19 +206,19 @@ EN
 '  SAVE POINTS ROUTINES
 ' ============================================================
 #SETREST
-restPt[0] = _TDA; WT 50; MG "SET REST A=", restPt[0]
-restPt[1] = _TDB; WT 50; MG "SET REST B=", restPt[1]
-restPt[2] = _TDC; WT 50; MG "SET REST C=", restPt[2]
-restPt[3] = _TDD; WT 50; MG "SET REST D=", restPt[3]
+restPtA = _TDA; WT 50; MG "SET REST A=", restPtA
+restPtB = _TDB; WT 50; MG "SET REST B=", restPtB
+restPtC = _TDC; WT 50; MG "SET REST C=", restPtC
+restPtD = _TDD; WT 50; MG "SET REST D=", restPtD
 BV; WT 200
 EN
 
 #SETSTR
 ' 0=A, 1=BR 3=C 4=D
-startPt[0] = _TDA; WT 50; MG "SET START A=", startPt[0]
-startPt[1] = _TDB; WT 50; MG "SET START B=", startPt[1]
-startPt[2] = _TDC; WT 50; MG "SET START C=", startPt[2]
-startPt[3] = _TDD; WT 50; MG "SET START D=", startPt[3]
+startPtA = _TDA; WT 50; MG "SET START A=", startPtA
+startPtB = _TDB; WT 50; MG "SET START B=", startPtB
+startPtC = _TDC; WT 50; MG "SET START C=", startPtC
+startPtD = _TDD; WT 50; MG "SET START D=", startPtD
 BV; WT 200
 EN
 
@@ -212,9 +226,10 @@ EN
 '  HOMING ROUTINE - all 4 axes
 ' ============================================================
 #HOME
+hmiState = 4;                    ' HOMING — set at entry before any motion
 SH ABCD
-SP 20000, 20000, 20000, 15000;  
-HV 5000, 5000, 5000, 5000;   
+SP 20000, 20000, 20000, 15000;
+HV 5000, 5000, 5000, 5000;
 
 HMC; BGC; AMC
 HMA; BGA; AMA
@@ -222,8 +237,9 @@ HMB; BGB; AMB
 HMD; BGD; AMD
 
 WT 2000
-DP 0, 0, 0, 0;         
+DP 0, 0, 0, 0;
 MG "A B C D - ALL AXES HOMED"
+hmiState = 1;                    ' back to IDLE (caller sets 3 if inside SULOOP)
 EN
 
 ' ============================================================
@@ -233,25 +249,25 @@ EN
 MG "MOVING TO REST"
 ' C to rest height
 SPC =fdCup * cpmC
-PAC=restPt[2]
+PAC=restPtC
 BGC; AMC
 ' D to flat/rest angle SECOND
 SPD=fdD * cpmD
-PAD=restPt[3]
+PAD=restPtD
 BGD; AMD
 ' A to rest position LAST
 SPA =fdA * cpmA
-PAA= restPt[0]
+PAA= restPtA
 BGA; AMA
 ' B away from stone FIRST - always safest move
 SPB = fdB * cpmB
-PAB=restPt[1]
+PAB=restPtB
 BGB; AMB
 MG "AT REST POSITION"
-MG "restPt[0] / A: ", restPt[0] , " or ", _TDA;
-MG "restPt[1] / B: ", restPt[1] , " or ", _TDB;
-MG "restPt[2] / C: ", restPt[2] , " or ", _TDC;
-MG "restPt[3] / D: ", restPt[3] , " or ", _TDD;
+MG "restPtA / A: ", restPtA , " or ", _TDA;
+MG "restPtB / B: ", restPtB , " or ", _TDB;
+MG "restPtC / C: ", restPtC , " or ", _TDC;
+MG "restPtD / D: ", restPtD , " or ", _TDD;
 EN
 
 ' ============================================================
@@ -264,41 +280,41 @@ SH ABCD
 '0=A, 1=B 3=C 4=D
 ' B start position first
 SP , fdB * cpmB,,
-PA , startPt[1],,
+PA , startPtB,,
 BGB; AMB
 ' A to start position along blade
 SP fdA * cpmA,,,
-PA startPt[0],,,
+PA startPtA,,,
 BGA; AMA
 ' D to flat start angle
 SP ,,, fdD * cpmD
-PA ,,, startPt[3]
+PA ,,, startPtD
 BGD; AMD
 ' C to start reference height
 SP ,, fdCdn * cpmC,
-PA ,, startPt[2],
+PA ,, startPtC,
 BGC; AMC
 
 MG "AT START POSITION RIGHT"
-MG "startPt[0] / A: ", startPt[0] , " or ",  _TDA;
-MG "startPt[1] / B: ", startPt[1] , " or ",  _TDB;
-MG "startPt[2] / C: ", startPt[2] , " or ",  _TDC;
-MG "startPt[3] / D: ", startPt[3] , " or ",  _TDD;
+MG "startPtA / A: ", startPtA , " or ",  _TDA;
+MG "startPtB / B: ", startPtB , " or ",  _TDB;
+MG "startPtC / C: ", startPtC , " or ",  _TDC;
+MG "startPtD / D: ", startPtD , " or ",  _TDD;
 EN
 
 ' ============================================================
 '  MORE GRIND / LESS GRIND 
 ' ============================================================
 #MOREGRI
-SB 3;              
-startPt[3] = startPt[3] + (cpmC * 0.001);   ' more grinding 0.001mm
+SB 3;
+startPtD = startPtD + (cpmC * 0.001);       ' more grinding 0.001mm
 MG "MORE GRINDER ADDED"
 WT 200; BV
 EN
 
 #LESSGRI
 SB 3
-startPt[3] = startPt[3] - (cpmC * 0.001)
+startPtD = startPtD - (cpmC * 0.001)
 MG "LESS GRINDER ADDED"
 WT 200; BV
 EN

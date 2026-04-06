@@ -18,12 +18,25 @@ class StatusBar(BoxLayout):
     machine_type_text = StringProperty("No Machine Type")
     recover_enabled = BooleanProperty(False)
 
+    # State label: shows IDLE / GRINDING / SETUP / HOMING / OFFLINE / E-STOP
+    state_text = StringProperty("OFFLINE")
+    state_color = ListProperty([0.55, 0.55, 0.55, 1])  # default gray
+
+    # Map dmc_state int -> (label, color) for connected states
+    _STATE_MAP: dict = {
+        1: ("IDLE",     [1.0,  0.6,  0.0,  1]),  # orange
+        2: ("GRINDING", [0.13, 0.77, 0.37, 1]),  # green
+        3: ("SETUP",    [0.9,  0.2,  0.2,  1]),  # red
+        4: ("HOMING",   [1.0,  0.6,  0.0,  1]),  # orange
+    }
+
     # Cache previous values to skip redundant UI updates
     _prev_connected: bool = False
     _prev_address: str = ""
     _prev_user: str = ""
     _prev_role: str = ""
     _prev_machine_type: str = ""
+    _prev_dmc_state: int = -1
 
     # Callback for user area tap (set by main.py)
     _user_tap_cb: Optional[Callable[[], None]] = None
@@ -65,10 +78,15 @@ class StatusBar(BoxLayout):
         role = getattr(state, "current_role", "")
         machine_type = getattr(state, "machine_type", "")
         program_running = getattr(state, "program_running", False)
+        dmc_state = getattr(state, "dmc_state", 0)
+
+        # Capture connected-changed flag BEFORE _prev_connected is updated below
+        connected_changed = connected != self._prev_connected
+
         # RECOVER enabled when connected AND program is NOT running
         self.recover_enabled = connected and not program_running
 
-        if connected != self._prev_connected or address != self._prev_address:
+        if connected_changed or address != self._prev_address:
             self._prev_connected = connected
             self._prev_address = address
             if connected:
@@ -87,3 +105,18 @@ class StatusBar(BoxLayout):
         if machine_type != self._prev_machine_type:
             self._prev_machine_type = machine_type
             self.machine_type_text = machine_type if machine_type else "No Machine Type"
+
+        # State label: update only when dmc_state or connection changes
+        if dmc_state != self._prev_dmc_state or connected_changed:
+            self._prev_dmc_state = dmc_state
+            if not connected:
+                if not program_running:
+                    label, color = "E-STOP", [0.9, 0.2, 0.2, 1]
+                else:
+                    label, color = "OFFLINE", [0.55, 0.55, 0.55, 1]
+            else:
+                label, color = self._STATE_MAP.get(
+                    dmc_state, ("OFFLINE", [0.55, 0.55, 0.55, 1])
+                )
+            self.state_text = label
+            self.state_color = color

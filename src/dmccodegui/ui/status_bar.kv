@@ -77,6 +77,19 @@
         valign: 'middle'
         text_size: self.size
 
+    # State label: shows IDLE / GRINDING / SETUP / HOMING / OFFLINE / E-STOP
+    Label:
+        id: state_label
+        text: root.state_text
+        color: root.state_color
+        size_hint_x: None
+        width: '120dp'
+        font_size: '20sp'
+        bold: True
+        halign: 'center'
+        valign: 'middle'
+        text_size: self.size
+
     # Theme toggle
     Button:
         text: 'LIGHT' if theme.mode == 'dark' else 'DARK'

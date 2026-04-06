@@ -48,7 +48,7 @@ Requirements for Flat Grind HMI-controller integration. Each maps to roadmap pha
 - [ ] **SETP-05**: User can teach Start point — saves current axis positions to startPt[] array on controller
 - [ ] **SETP-06**: User can write parameter values from Parameters page to controller variables
 - [ ] **SETP-07**: User can trigger varcalc recalculation from Parameters page (sends hmiCalc=0)
-- [ ] **SETP-08**: User can exit Setup mode back to main loop from HMI
+- [x] **SETP-08**: User can exit Setup mode back to main loop from HMI
 
 ### State-Driven UI
 
@@ -137,7 +137,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SETP-05 | Phase 13 | Pending |
 | SETP-06 | Phase 13 | Pending |
 | SETP-07 | Phase 13 | Pending |
-| SETP-08 | Phase 13 | Pending |
+| SETP-08 | Phase 13 | Complete |
 | UI-01 | Phase 14 | Pending |
 | UI-02 | Phase 14 | Pending |
 | UI-03 | Phase 14 | Pending |

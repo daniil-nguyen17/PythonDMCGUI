@@ -352,18 +352,22 @@ class TestProfilesImportButtonGating:
         return btn
 
     def _make_screen(self, state, btn):
-        """Create a minimal ProfilesScreen-like object with patched ids."""
-        from unittest.mock import MagicMock
+        """Create a minimal ProfilesScreen with a mock button in ids.
+
+        Kivy's ids is an ObservableDict that can be updated with dict entries.
+        We use ids.update() to inject the mock button without replacing ids itself.
+        """
+        import os
+        os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+        os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
         from dmccodegui.screens.profiles import ProfilesScreen
         screen = ProfilesScreen.__new__(ProfilesScreen)
         screen._unsubscribe = None
         screen._pending_parsed = None
         screen.state = state
         screen.controller = None
-        # Patch ids to return the mock button
-        mock_ids = MagicMock()
-        mock_ids.import_btn = btn
-        screen.ids = mock_ids
+        # Inject mock button into Kivy's ObservableDict via update()
+        screen.ids.update({'import_btn': btn})
         return screen
 
     def test_import_disabled_when_grinding(self):

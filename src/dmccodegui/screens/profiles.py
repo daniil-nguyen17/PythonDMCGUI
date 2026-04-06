@@ -479,16 +479,21 @@ try:
         # ------------------------------------------------------------------
 
         def _update_import_button(self) -> None:
-            """Disable import button while a cycle is running."""
+            """Disable import button when motion is active or disconnected."""
             try:
                 btn = self.ids.import_btn
             except Exception:
                 return
-            cycle_running = (
-                self.state is not None and self.state.cycle_running
-            )
-            btn.disabled = cycle_running
-            btn.opacity = 0.4 if cycle_running else 1.0
+            if self.state is None:
+                motion_active = False
+            else:
+                from dmccodegui.hmi.dmc_vars import STATE_GRINDING, STATE_HOMING
+                motion_active = (
+                    not self.state.connected
+                    or self.state.dmc_state in (STATE_GRINDING, STATE_HOMING)
+                )
+            btn.disabled = motion_active
+            btn.opacity = 0.4 if motion_active else 1.0
 
         # ------------------------------------------------------------------
         # Export flow

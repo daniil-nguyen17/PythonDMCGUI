@@ -357,7 +357,11 @@ def test_setup_not_readonly():
 # ---------------------------------------------------------------------------
 
 def _make_apply_screen():
-    """Helper: create ParametersScreen with one dirty param, mock controller."""
+    """Helper: create ParametersScreen with one dirty param, mock controller.
+
+    Does NOT configure machine_config globally — callers must patch
+    'dmccodegui.screens.parameters.mc.get_param_defs' if the job will call it.
+    """
     _setup_env()
     from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
 
@@ -375,8 +379,13 @@ def _make_apply_screen():
     return screen, mock_controller
 
 
-def _run_apply_job(screen):
-    """Submit apply_to_controller capturing the job, run it synchronously."""
+def _run_apply_job_with_mc_patch(screen):
+    """Submit apply_to_controller capturing the job, run it synchronously.
+
+    Patches mc.get_param_defs to return PARAM_DEFS so the job doesn't require
+    machine_config to be globally initialized.
+    """
+    from dmccodegui.screens.parameters import PARAM_DEFS
     job_fn = None
 
     def capture_job(fn, *args, **kwargs):
@@ -384,7 +393,8 @@ def _run_apply_job(screen):
         job_fn = fn
 
     with patch('dmccodegui.screens.parameters.submit', side_effect=capture_job):
-        screen.apply_to_controller()
+        with patch('dmccodegui.screens.parameters.mc.get_param_defs', return_value=PARAM_DEFS):
+            screen.apply_to_controller()
 
     assert job_fn is not None, "apply_to_controller should submit a background job"
     job_fn()
@@ -396,7 +406,7 @@ def test_apply_fires_hmi_calc():
     _setup_env()
     screen, mock_controller = _make_apply_screen()
 
-    _run_apply_job(screen)
+    _run_apply_job_with_mc_patch(screen)
 
     calls = [c[0][0] for c in mock_controller.cmd.call_args_list]
     assert any('hmiCalc=0' in s for s in calls), \
@@ -406,12 +416,14 @@ def test_apply_fires_hmi_calc():
 def test_apply_readback_after_delay():
     """SETP-06: apply_to_controller calls time.sleep(0.5) then reads back all params."""
     _setup_env()
+    from dmccodegui.screens.parameters import PARAM_DEFS
     screen, mock_controller = _make_apply_screen()
 
     sleep_calls = []
-    with patch('dmccodegui.screens.parameters.submit', side_effect=lambda fn, *a, **k: fn()):
-        with patch('time.sleep', side_effect=lambda s: sleep_calls.append(s)):
-            screen.apply_to_controller()
+    with patch('dmccodegui.screens.parameters.mc.get_param_defs', return_value=PARAM_DEFS):
+        with patch('dmccodegui.screens.parameters.submit', side_effect=lambda fn, *a, **k: fn()):
+            with patch('time.sleep', side_effect=lambda s: sleep_calls.append(s)):
+                screen.apply_to_controller()
 
     assert any(abs(s - 0.5) < 1e-9 for s in sleep_calls), \
         f"Expected time.sleep(0.5), got sleep calls: {sleep_calls}"
@@ -429,11 +441,13 @@ def test_apply_readback_after_delay():
 def test_apply_bv_after_readback():
     """SETP-06: BV is sent after readback (not before varcalc)."""
     _setup_env()
+    from dmccodegui.screens.parameters import PARAM_DEFS
     screen, mock_controller = _make_apply_screen()
 
-    with patch('dmccodegui.screens.parameters.submit', side_effect=lambda fn, *a, **k: fn()):
-        with patch('time.sleep'):
-            screen.apply_to_controller()
+    with patch('dmccodegui.screens.parameters.mc.get_param_defs', return_value=PARAM_DEFS):
+        with patch('dmccodegui.screens.parameters.submit', side_effect=lambda fn, *a, **k: fn()):
+            with patch('time.sleep'):
+                screen.apply_to_controller()
 
     calls = [c[0][0] for c in mock_controller.cmd.call_args_list]
     calc_idx = next((i for i, c in enumerate(calls) if 'hmiCalc' in c), None)

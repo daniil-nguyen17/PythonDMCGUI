@@ -14,8 +14,17 @@ from typing import Dict, Optional
 from kivy.properties import BooleanProperty, NumericProperty, ObjectProperty
 from kivy.uix.screenmanager import Screen
 
+import time
+
 from dmccodegui.utils.jobs import submit
-from dmccodegui.hmi.dmc_vars import HMI_SETP, HMI_TRIGGER_FIRE, HMI_TRIGGER_DEFAULT
+from dmccodegui.hmi.dmc_vars import (
+    HMI_SETP,
+    HMI_CALC,
+    HMI_EXIT_SETUP,
+    HMI_TRIGGER_FIRE,
+    HMI_TRIGGER_DEFAULT,
+    STATE_SETUP,
+)
 import dmccodegui.machine_config as mc
 
 # ---------------------------------------------------------------------------
@@ -31,6 +40,9 @@ from dmccodegui.machine_config import _FLAT_PARAM_DEFS as PARAM_DEFS  # noqa: F4
 # ---------------------------------------------------------------------------
 # Validation constants
 # ---------------------------------------------------------------------------
+
+# Setup-loop sibling screens — navigating between these does NOT trigger exit-setup
+_SETUP_SCREENS: frozenset = frozenset({"axes_setup", "parameters"})
 
 # Groups that reject zero values (calibration params)
 _ZERO_REJECT_GROUPS = {"Calibration"}
@@ -187,6 +199,15 @@ class ParametersScreen(Screen):
                 except Exception:
                     pass
 
+            # Fire varcalc trigger — DMC recalculates derived positions
+            try:
+                ctrl.cmd(f"{HMI_CALC}={HMI_TRIGGER_FIRE}")
+            except Exception:
+                pass
+
+            # Wait for #VARCALC to complete on controller
+            time.sleep(0.5)
+
             # Read back all params for active machine type
             new_vals: Dict[str, float] = {}
             for p in param_defs_snapshot:
@@ -342,22 +363,35 @@ class ParametersScreen(Screen):
             setup_unlocked = self.state.setup_unlocked
         self._apply_role_mode(setup_unlocked)
 
-        # Fire hmiSetp to tell controller we're in setup mode
-        if self.controller is not None:
-            try:
-                self.controller.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}")
-            except Exception:
-                pass
+        # Fire hmiSetp only if not already in setup — avoids spurious re-enter
+        # when switching between sibling setup screens (axes_setup <-> parameters)
+        already_in_setup = (
+            self.state is not None and self.state.dmc_state == STATE_SETUP
+        )
+        if self.controller is not None and self.controller.is_connected():
+            if not already_in_setup:
+                try:
+                    self.controller.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}")
+                except Exception:
+                    pass
 
         self.read_from_controller()
 
     def on_leave(self, *args):
-        """Reset hmiSetp=1 to exit setup mode."""
-        if self.controller is not None:
-            try:
-                self.controller.cmd(f"{HMI_SETP}={HMI_TRIGGER_DEFAULT}")
-            except Exception:
-                pass
+        """Fire hmiExSt=0 only when leaving to a non-setup screen.
+
+        Tab switches between axes_setup and parameters (sibling setup screens)
+        do NOT fire exit-setup — this avoids spurious setup exit/re-enter cycles.
+        """
+        next_screen = ""
+        if self.manager:
+            next_screen = self.manager.current
+        if next_screen not in _SETUP_SCREENS:
+            if self.controller is not None and self.controller.is_connected():
+                try:
+                    self.controller.cmd(f"{HMI_EXIT_SETUP}={HMI_TRIGGER_FIRE}")
+                except Exception:
+                    pass
 
     def on_kv_post(self, base_widget):
         """Build parameter cards after KV post (initial load only)."""

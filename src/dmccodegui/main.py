@@ -22,6 +22,19 @@ from kivy.core.window import Window
 
 Window.size = (1920, 1080)                   # pick a window size you want
 
+# Register Noto Sans as the default font (Vietnamese + full Latin support)
+from kivy.core.text import LabelBase
+
+_FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         'assets', 'fonts', 'Noto_Sans', 'static')
+LabelBase.register(
+    name='Roboto',
+    fn_regular=os.path.join(_FONT_DIR, 'NotoSans-Regular.ttf'),
+    fn_bold=os.path.join(_FONT_DIR, 'NotoSans-Bold.ttf'),
+    fn_italic=os.path.join(_FONT_DIR, 'NotoSans-Italic.ttf'),
+    fn_bolditalic=os.path.join(_FONT_DIR, 'NotoSans-BoldItalic.ttf'),
+)
+
 IDLE_TIMEOUT = 30 * 60  # 30 minutes in seconds
 
 try:

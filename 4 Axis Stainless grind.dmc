@@ -34,7 +34,7 @@ MG "AUTO INIT COMPLETE"
 ' ============================================================
 #MAIN
 hmiState = 1;                        ' IDLE ? set immediately so HMI stays in sync
-WT 200
+WT 100
 MG "SYSTEM READY - WAITING FOR INPUT"
 
 #WtAtRt
@@ -55,12 +55,6 @@ IF (@IN[41] = 0) | (hmiSetp = 0);   ' SETUP button OR HMI trigger
   hmiState = 3;                        ' SETUP
   JS #SETUP
   hmiState = 1;                        ' back to IDLE
-  JP #WtAtRt
-ENDIF
-
-IF (@IN[44] = 0) | (hmiNewS = 0);   ' NEW SESSION / new grind stone OR HMI trigger
-  hmiNewS = 1;                        ' reset HMI var first
-  JS #NEWSESS
   JP #WtAtRt
 ENDIF
 
@@ -174,6 +168,12 @@ IF (@IN[23] = 0) | (hmiJog = 0)
   JP #SULOOP
 ENDIF
 
+'---- BUTTON 44 NEW STONE -----
+IF (@IN[44] = 0) | (hmiNewS = 0);   ' new grind stone OR HMI trigger
+  hmiNewS = 1;                        ' reset HMI var first
+  JS #NEWSESS
+  JP #WtAtRt
+ENDIF
 ' --- BUTTON 25: RUN HOME ---
 IF (@IN[25] = 0) | (hmiHome = 0)
   hmiHome = 1;                       
@@ -450,12 +450,11 @@ EN
 ' MT values: 2.5 = step/dir servo
 MT 2.5, 2.5, 2.5, 2.5;          ' A B C D = step/dir servo
 
-SP 10000, 10000, 10000, 5000;  
+SP 20000, 20000, 20000, 10000;  
 AC 50000, 50000, 50000, 25000
 DC 50000, 50000, 50000, 25000
 
-CN 1, 1;                         ' limit inputs active low (NC switches)
-
+CN 1, 1
 
 MG "CONFIG DONE - 4 AXIS"
 EN
@@ -471,10 +470,20 @@ pitchC = 12;  ratioC = 16;  ctsRevC = 750;  ' C:
 ' D axis: degrees per mechanism revolution
 pitchD = 1;  ratioD = 16;  ctsRevD = 22500;  ' D: angle- calibrate
 
+' --- knife parameters - set these per knife type ---
+knfThk   = 1.3;                  ' knife thickness mm
+edgeThk  = 0.3;           
+backOff  = 2;                    ' limit switch back-off distance mm
+
+' --- feed rates mm/s ---
+fdA = 50
+fdB = 40
+fdCdn  = 15
+fdCup  = 25
+fdPark = 10
+fdD    = 5
+
 ' --- runtime tracking ---
-scount   = 0
-currA    = 0
-fltflg   = 0
 ctSesKni = 0
 ctStnKni = 0
 lastSt   = 0
@@ -499,7 +508,7 @@ EN
 ' ============================================================
 '  COMPED - array declarations for compensation tables
 ' ============================================================
-#COMPED
+#INIT1
 aPos=0
 bPos=0
 cPos=0
@@ -513,28 +522,13 @@ DM deltaA[300]
 DM deltaB[300]
 DM deltaC[300]
 DM deltaD[300]
-' ------ leading into/out the LI segments ----
-MG "COMPENSATION DONE"
+MG "One time Init DONE"
 EN
 
 ' ============================================================
-'  VARCALC - knife-specific values
-'  Saves to EEPROM via BV so survives power cycle
+'  VARCALC - calculate variables and burn
 ' ============================================================
 #VARCALC
-' --- knife parameters - set these per knife type ---
-knfThk   = 1.3;                  ' knife thickness mm
-edgeThk  = 0.3;           
-backOff  = 2;                    ' limit switch back-off distance mm
-
-' --- feed rates mm/s ---
-fdA = 50
-fdB = 40
-fdCdn  = 15
-fdCup  = 25
-fdPark = 10
-fdD    = 5;               
-
 ' --- calculate axis cpm values ---
 cpmA = (ctsRevA* ratioA) / pitchA;   ' = 1000counts/mm
 cpmB = (ctsRevB* ratioB) / pitchB;   ' = 1000 counts/mm

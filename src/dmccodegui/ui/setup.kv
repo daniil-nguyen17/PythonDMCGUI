@@ -37,7 +37,7 @@
                 id: address
                 text: root.address
                 on_text: root.address = self.text
-                hint_text: 'Controller address (e.g. 192.168.0.50)'
+                hint_text: 'ĐỊA CHỈ IP CỦA MÁY (e.g. 192.168.0.50)'
             Button:
                 text: 'Connect'
                 disabled: root.state.connected if root.state else False

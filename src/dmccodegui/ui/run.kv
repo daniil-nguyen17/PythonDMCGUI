@@ -108,7 +108,7 @@
                         height: '28dp'
 
                         Label:
-                            text: 'KNIFE GRIND ADJUSTMENT'
+                            text: 'CHỈNH ĐỘ MÀI TRÊN DAO'
                             font_size: '11sp'
                             color: theme.text_mid
                             bold: True
@@ -122,7 +122,7 @@
                             spacing: '4dp'
 
                             Label:
-                                text: 'Sections:'
+                                text: 'CHIA PHẦN TRÊN DAO:'
                                 font_size: '11sp'
                                 color: theme.text_mid
                                 size_hint_x: None
@@ -176,7 +176,7 @@
 
                         # Selected section display
                         Label:
-                            text: 'Selected: ' + root.selected_section_value + ' cts'
+                            text: 'ĐÃ CHỌN: ' + root.selected_section_value + ' cts'
                             font_size: '12sp'
                             color: theme.text_main
                             halign: 'left'
@@ -208,7 +208,7 @@
 
                         # Apply button
                         Button:
-                            text: 'APPLY'
+                            text: 'LƯU LẠI'
                             font_size: '13sp'
                             bold: True
                             background_normal: ''
@@ -249,7 +249,7 @@
                         height: '28dp'
 
                         Label:
-                            text: 'SERRATION COMPENSATION (bComp)'
+                            text: 'BỔ SUNG MÀI CHO RĂNG CƯA'
                             font_size: '11sp'
                             color: theme.text_mid
                             bold: True
@@ -272,7 +272,7 @@
 
                         # Selected serration display
                         Label:
-                            text: 'Selected: ' + root.selected_bcomp_value + ' cts'
+                            text: 'ĐÃ CHỌN: ' + root.selected_bcomp_value + ' cts'
                             font_size: '12sp'
                             color: theme.text_main
                             halign: 'left'
@@ -304,7 +304,7 @@
 
                         # Apply button
                         Button:
-                            text: 'APPLY'
+                            text: 'LƯU LẠI'
                             font_size: '13sp'
                             bold: True
                             background_normal: ''
@@ -343,7 +343,7 @@
 
                     # Section header
                     Label:
-                        text: 'CYCLE STATUS'
+                        text: 'QUÁ TRÌNH MÀI DAO'
                         font_size: '11sp'
                         bold: True
                         color: theme.text_mid
@@ -368,7 +368,7 @@
                             size_hint_y: None
                             height: '44dp'
                             Label:
-                                text: 'TOOTH'
+                                text: 'RĂNG CƯA'
                                 font_size: '10sp'
                                 color: 0.396, 0.455, 0.545, 1
                                 halign: 'left'
@@ -414,7 +414,7 @@
                             size_hint_y: None
                             height: '44dp'
                             Label:
-                                text: 'DEPTH'
+                                text: 'ĐỘ SÂU'
                                 font_size: '10sp'
                                 color: 0.396, 0.455, 0.545, 1
                                 halign: 'left'
@@ -446,7 +446,7 @@
                         BoxLayout:
                             orientation: 'vertical'
                             Label:
-                                text: 'ELAPSED'
+                                text: 'THỜI GIAN ĐÃ CHẠY'
                                 font_size: '10sp'
                                 color: 0.396, 0.455, 0.545, 1
                                 halign: 'left'
@@ -466,7 +466,7 @@
                         BoxLayout:
                             orientation: 'vertical'
                             Label:
-                                text: 'ETA'
+                                text: 'THỜI GIAN CÒN LẠI'
                                 font_size: '10sp'
                                 color: 0.396, 0.455, 0.545, 1
                                 halign: 'left'
@@ -499,7 +499,7 @@
                             height: '10dp'
 
                         Label:
-                            text: '{0}% complete'.format(int(root.cycle_completion_pct))
+                            text: '{0}% XONG'.format(int(root.cycle_completion_pct))
                             font_size: '10sp'
                             color: 0.278, 0.333, 0.412, 1
                             halign: 'left'
@@ -521,7 +521,7 @@
                             size_hint_y: None
                             height: '44dp'
                             Label:
-                                text: 'SESSION KNIVES'
+                                text: 'DAO ĐÃ MÀI TRONG CA'
                                 font_size: '10sp'
                                 color: 0.396, 0.455, 0.545, 1
                                 halign: 'left'
@@ -543,7 +543,7 @@
                             size_hint_y: None
                             height: '44dp'
                             Label:
-                                text: 'STONE KNIVES'
+                                text: 'DAO ĐÃ MÀI VỚI ĐÁ'
                                 font_size: '10sp'
                                 color: 0.396, 0.455, 0.545, 1
                                 halign: 'left'
@@ -580,7 +580,7 @@
                     spacing: '2dp'
 
                     Label:
-                        text: 'AXIS POSITIONS'
+                        text: 'VỊ TRÍ 4 TRỤC'
                         font_size: '11sp'
                         bold: True
                         color: theme.text_mid
@@ -825,7 +825,7 @@
                 spacing: '12dp'
 
                 Label:
-                    text: 'STONE COMPENSATION'
+                    text: 'BÙ / BỚT ĐÁ'
                     font_size: '14sp'
                     bold: True
                     color: theme.text_mid
@@ -848,7 +848,7 @@
             # Bottom: LESS on top, MORE on bottom — stacked vertically
             Button:
                 id: less_stone_btn
-                text: 'LESS STONE'
+                text: 'BỚT ĐÁ'
                 font_size: '16sp'
                 bold: True
                 size_hint_y: None
@@ -861,7 +861,7 @@
 
             Button:
                 id: more_stone_btn
-                text: 'MORE STONE'
+                text: 'THÊM ĐÁ'
                 font_size: '16sp'
                 bold: True
                 size_hint_y: None
@@ -891,7 +891,7 @@
 
             Button:
                 id: start_grind_btn
-                text: 'START GRIND'
+                text: 'BẮT ĐẦU MÀI'
                 font_size: '16sp'
                 bold: True
                 size_hint_x: 1

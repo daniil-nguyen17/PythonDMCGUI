@@ -41,7 +41,7 @@
 
             # Username display / selector label
             Label:
-                text: root.username if root.username else 'Select User'
+                text: root.username if root.username else 'CHỌN NGƯỜI DÙNG MÁY'
                 font_size: '36sp'
                 color: theme.text_main
                 size_hint_y: None
@@ -240,7 +240,7 @@
                 spacing: '4dp'
 
                 Button:
-                    text: 'Switch User'
+                    text: 'THAY NGƯỜI DÙNG'
                     font_size: '25sp'
                     background_normal: ''
                     background_down: ''
@@ -249,7 +249,7 @@
                     on_release: root.show_user_list()
 
                 Button:
-                    text: 'Cancel'
+                    text: 'HỦY'
                     font_size: '25sp'
                     background_normal: ''
                     background_down: ''

@@ -429,3 +429,90 @@ class TestProfilesImportButtonGating:
 
         assert btn.disabled is False, "Button should be enabled when SETUP and connected"
         assert btn.opacity == pytest.approx(1.0), "Opacity should be 1.0 when SETUP"
+
+
+# ---------------------------------------------------------------------------
+# Smart enter/exit tests (Plan 16-01)
+# ---------------------------------------------------------------------------
+
+def _make_profiles_screen(connected: bool, dmc_state: int):
+    """Create a headless ProfilesScreen with mock controller and state.
+
+    Uses __new__ to skip Kivy widget initialisation.
+    """
+    import os
+    os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
+    os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
+    from unittest.mock import MagicMock
+    from dmccodegui.screens.profiles import ProfilesScreen
+    screen = ProfilesScreen.__new__(ProfilesScreen)
+    screen._unsubscribe = None
+    screen._pending_parsed = None
+    ctrl = MagicMock()
+    ctrl.is_connected.return_value = connected
+    ctrl.cmd.return_value = ""
+    screen.controller = ctrl
+    state = MagicMock()
+    state.dmc_state = dmc_state
+    screen.state = state
+    return screen, ctrl
+
+
+def test_enter_skips_fire_when_already_setup():
+    """SETP-01: on_pre_enter with dmc_state=STATE_SETUP does NOT send hmiSetp=0."""
+    from unittest.mock import patch
+    from dmccodegui.hmi.dmc_vars import STATE_SETUP
+
+    screen, ctrl = _make_profiles_screen(connected=True, dmc_state=STATE_SETUP)
+
+    with patch('dmccodegui.screens.profiles.Clock'):
+        screen.on_pre_enter()
+
+    calls = [c[0][0] for c in ctrl.cmd.call_args_list]
+    assert not any('hmiSetp=0' in s for s in calls), \
+        f"Should NOT send hmiSetp=0 when already in STATE_SETUP, got: {calls}"
+
+
+def test_enter_fires_when_not_in_setup():
+    """SETP-01: on_pre_enter with dmc_state=STATE_IDLE sends hmiSetp=0."""
+    from unittest.mock import patch
+    from dmccodegui.hmi.dmc_vars import STATE_IDLE
+
+    screen, ctrl = _make_profiles_screen(connected=True, dmc_state=STATE_IDLE)
+
+    with patch('dmccodegui.screens.profiles.Clock'):
+        screen.on_pre_enter()
+
+    calls = [c[0][0] for c in ctrl.cmd.call_args_list]
+    assert any('hmiSetp=0' in s for s in calls), \
+        f"Should send hmiSetp=0 when not in STATE_SETUP, got: {calls}"
+
+
+def test_exit_fires_hmi_exit_setup():
+    """SETP-08: on_leave sends hmiExSt=0 to exit setup mode."""
+    from unittest.mock import patch
+    from dmccodegui.hmi.dmc_vars import STATE_IDLE
+
+    screen, ctrl = _make_profiles_screen(connected=True, dmc_state=STATE_IDLE)
+
+    with patch('dmccodegui.screens.profiles.Clock'):
+        screen.on_leave()
+
+    calls = [c[0][0] for c in ctrl.cmd.call_args_list]
+    assert any('hmiExSt=0' in s for s in calls), \
+        f"Should send hmiExSt=0 on leave, got: {calls}"
+
+
+def test_exit_does_not_send_hmiSetp():
+    """SETP-08: on_leave does NOT send hmiSetp=1 (old bug eliminated)."""
+    from unittest.mock import patch
+    from dmccodegui.hmi.dmc_vars import STATE_IDLE
+
+    screen, ctrl = _make_profiles_screen(connected=True, dmc_state=STATE_IDLE)
+
+    with patch('dmccodegui.screens.profiles.Clock'):
+        screen.on_leave()
+
+    calls = [c[0][0] for c in ctrl.cmd.call_args_list]
+    assert not any('hmiSetp=1' in s for s in calls), \
+        f"Should NOT send hmiSetp=1 on leave (old bug), got: {calls}"

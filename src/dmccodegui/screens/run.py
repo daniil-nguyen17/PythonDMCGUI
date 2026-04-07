@@ -25,6 +25,7 @@ from ..controller import GalilController
 from ..hmi.dmc_vars import (
     STATE_GRINDING, STATE_HOMING,
     HMI_GRND, HMI_MORE, HMI_LESS, HMI_TRIGGER_FIRE, STARTPT_C,
+    POS_BUF_IDX, POS_BUF_A, POS_BUF_B, POS_BUF_SIZE,
 )
 from ..utils import jobs
 import dmccodegui.machine_config as mc
@@ -128,7 +129,7 @@ class _BaseBarChart(Widget):
                     raw_h = abs(offset) / self.max_offset * half_h
                 else:
                     raw_h = 0.0
-                bar_h = max(2.0, raw_h)
+                bar_h = max(10.0, raw_h)
 
                 # Colour: orange if selected, blue otherwise
                 if i == int(self.selected_index):
@@ -361,6 +362,9 @@ class RunScreen(Screen):
         # Read startPtC from controller so the Stone Compensation label is populated on entry
         self._read_start_pt_c()
 
+        # Read CPM values from controller for axis position annotations
+        self._read_cpm_values()
+
     def on_leave(self, *args) -> None:
         """Called by Kivy when operator navigates away.
 
@@ -469,8 +473,11 @@ class RunScreen(Screen):
                     self._tick_disconnect_banner, 1.0
                 )
 
-        # Feed raw A/B to plot buffer during active cycle
-        if s.cycle_running and s.connected:
+        # Feed raw A/B to plot buffer while connected.
+        # Positions come from the #SHOWPOS controller thread (aPos/bPos/cPos/dPos)
+        # which updates every 50ms regardless of grinding state.
+        # Buffer is cleared on START GRIND so each cycle gets a fresh trail.
+        if s.connected:
             raw_a = s.pos.get("A")
             raw_b = s.pos.get("B")
             if raw_a is not None and raw_b is not None:
@@ -511,8 +518,6 @@ class RunScreen(Screen):
 
     def _tick_plot(self, dt: float) -> None:
         """5 Hz Kivy clock: redraw the A/B position trail. Main thread only."""
-        if not self.cycle_running:
-            return  # No update when idle — saves Pi CPU
         if self._plot_line is None:
             return
         xs = list(self._plot_buf_x)
@@ -545,9 +550,15 @@ class RunScreen(Screen):
 
         Clears the A/B position plot trail so each cycle gets a fresh view.
         Uses the HMI one-shot trigger pattern — never XQ direct calls.
+        Guards: cannot start grind while in SETUP mode or during active motion.
         """
         if not self.controller or not self.controller.is_connected():
             return
+        # Guard: don't fire hmiGrnd if controller is in setup or already in motion
+        if self.state is not None:
+            from ..hmi.dmc_vars import STATE_SETUP, STATE_HOMING
+            if self.state.dmc_state in (STATE_SETUP, STATE_GRINDING, STATE_HOMING):
+                return
 
         # Clear plot trail for fresh cycle view (main thread — safe)
         self._plot_buf_x.clear()
@@ -580,6 +591,14 @@ class RunScreen(Screen):
         def _fire():
             import time as _time
             try:
+                before_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
+                before = int(float(before_raw))
+                print(f"[RunScreen] More stone — startPtC BEFORE: {before}")
+            except Exception as e:
+                print(f"[RunScreen] More stone — failed to read startPtC before: {e}")
+                before = None
+
+            try:
                 ctrl.cmd(f"{HMI_MORE}={HMI_TRIGGER_FIRE}")
             except Exception as e:
                 Clock.schedule_once(lambda *_: self._alert(f"More stone failed: {e}"))
@@ -590,11 +609,12 @@ class RunScreen(Screen):
             try:
                 after_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
                 after = int(float(after_raw))
+                print(f"[RunScreen] More stone — startPtC AFTER: {after}")
                 Clock.schedule_once(
                     lambda *_, v=after: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
                 )
-            except Exception:
-                pass  # Label retains last known value
+            except Exception as e:
+                print(f"[RunScreen] More stone — failed to read startPtC after: {e}")
 
         jobs.submit(_fire)
 
@@ -613,6 +633,14 @@ class RunScreen(Screen):
         def _fire():
             import time as _time
             try:
+                before_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
+                before = int(float(before_raw))
+                print(f"[RunScreen] Less stone — startPtC BEFORE: {before}")
+            except Exception as e:
+                print(f"[RunScreen] Less stone — failed to read startPtC before: {e}")
+                before = None
+
+            try:
                 ctrl.cmd(f"{HMI_LESS}={HMI_TRIGGER_FIRE}")
             except Exception as e:
                 Clock.schedule_once(lambda *_: self._alert(f"Less stone failed: {e}"))
@@ -623,11 +651,12 @@ class RunScreen(Screen):
             try:
                 after_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
                 after = int(float(after_raw))
+                print(f"[RunScreen] Less stone — startPtC AFTER: {after}")
                 Clock.schedule_once(
                     lambda *_, v=after: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
                 )
-            except Exception:
-                pass  # Label retains last known value
+            except Exception as e:
+                print(f"[RunScreen] Less stone — failed to read startPtC after: {e}")
 
         jobs.submit(_fire)
 
@@ -825,6 +854,33 @@ class RunScreen(Screen):
                 Clock.schedule_once(lambda *_, v=val: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}"))
             except Exception:
                 Clock.schedule_once(lambda *_: setattr(self, 'start_pt_c', '---'))
+        jobs.submit(_do)
+
+    def _read_cpm_values(self) -> None:
+        """Background: read cpmA/B/C/D from controller and populate CPM annotation labels."""
+        if not self.controller or not self.controller.is_connected():
+            return
+        ctrl = self.controller
+        # Default CPM values if controller read fails
+        _CPM_DEFAULTS = {"A": 1200.0, "B": 1200.0, "C": 800.0, "D": 360000.0}
+
+        def _do():
+            results: dict[str, str] = {}
+            for axis in ("A", "B", "C", "D"):
+                try:
+                    raw = ctrl.cmd(f"MG cpm{axis}").strip()
+                    cpm = float(raw)
+                except Exception:
+                    cpm = _CPM_DEFAULTS.get(axis, 0.0)
+                if cpm > 0:
+                    unit = "1 deg" if axis == "D" else "1mm"
+                    results[axis] = f"{int(cpm):,} counts = {unit}"
+
+            def _apply(*_):
+                for axis, text in results.items():
+                    setattr(self, f"cpm_{axis.lower()}", text)
+            Clock.schedule_once(_apply)
+
         jobs.submit(_do)
 
     def on_apply_bcomp(self) -> None:

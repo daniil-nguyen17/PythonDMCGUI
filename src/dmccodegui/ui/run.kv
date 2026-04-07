@@ -573,9 +573,10 @@
                         Line:
                             rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
                             width: 1.2
-                    size_hint_y: 1
+                    size_hint_y: None
+                    height: '300dp'
                     orientation: 'vertical'
-                    padding: ['12dp', '8dp']
+                    padding: ['12dp', '4dp']
                     spacing: '2dp'
 
                     Label:
@@ -587,20 +588,20 @@
                         valign: 'middle'
                         text_size: self.size
                         size_hint_y: None
-                        height: '24dp'
+                        height: '20dp'
 
                     # Axis A row
                     BoxLayout:
                         orientation: 'horizontal'
                         size_hint_y: None
-                        height: '52dp'
+                        height: '64dp'
                         padding: ['4dp', '2dp']
                         spacing: '8dp'
 
                         # Letter badge — A (orange)
                         BoxLayout:
                             size_hint_x: None
-                            width: '32dp'
+                            width: '40dp'
                             canvas.before:
                                 Color:
                                     rgba: 0.196, 0.118, 0.039, 1
@@ -610,7 +611,7 @@
                                     radius: [6,]
                             Label:
                                 text: 'A'
-                                font_size: '14sp'
+                                font_size: '18sp'
                                 bold: True
                                 color: 0.984, 0.573, 0.235, 1
                                 halign: 'center'
@@ -625,7 +626,7 @@
                             Label:
                                 id: pos_a
                                 text: root.pos_a
-                                font_size: '18sp'
+                                font_size: '28sp'
                                 bold: True
                                 color: theme.text_main
                                 halign: 'left'
@@ -635,7 +636,7 @@
                             Label:
                                 id: cpm_a
                                 text: root.cpm_a
-                                font_size: '10sp'
+                                font_size: '12sp'
                                 color: 0.396, 0.455, 0.545, 1
                                 halign: 'left'
                                 valign: 'top'
@@ -645,14 +646,14 @@
                     BoxLayout:
                         orientation: 'horizontal'
                         size_hint_y: None
-                        height: '52dp'
+                        height: '64dp'
                         padding: ['4dp', '2dp']
                         spacing: '8dp'
 
                         # Letter badge — B (purple)
                         BoxLayout:
                             size_hint_x: None
-                            width: '32dp'
+                            width: '40dp'
                             canvas.before:
                                 Color:
                                     rgba: 0.161, 0.118, 0.235, 1
@@ -662,7 +663,7 @@
                                     radius: [6,]
                             Label:
                                 text: 'B'
-                                font_size: '14sp'
+                                font_size: '18sp'
                                 bold: True
                                 color: 0.655, 0.545, 0.984, 1
                                 halign: 'center'
@@ -676,7 +677,7 @@
                             Label:
                                 id: pos_b
                                 text: root.pos_b
-                                font_size: '18sp'
+                                font_size: '28sp'
                                 bold: True
                                 color: theme.text_main
                                 halign: 'left'
@@ -686,7 +687,7 @@
                             Label:
                                 id: cpm_b
                                 text: root.cpm_b
-                                font_size: '10sp'
+                                font_size: '12sp'
                                 color: 0.396, 0.455, 0.545, 1
                                 halign: 'left'
                                 valign: 'top'
@@ -696,14 +697,14 @@
                     BoxLayout:
                         orientation: 'horizontal'
                         size_hint_y: None
-                        height: '52dp'
+                        height: '64dp'
                         padding: ['4dp', '2dp']
                         spacing: '8dp'
 
                         # Letter badge — C (cyan)
                         BoxLayout:
                             size_hint_x: None
-                            width: '32dp'
+                            width: '40dp'
                             canvas.before:
                                 Color:
                                     rgba: 0.039, 0.176, 0.157, 1
@@ -713,7 +714,7 @@
                                     radius: [6,]
                             Label:
                                 text: 'C'
-                                font_size: '14sp'
+                                font_size: '18sp'
                                 bold: True
                                 color: 0.176, 0.831, 0.749, 1
                                 halign: 'center'
@@ -727,7 +728,7 @@
                             Label:
                                 id: pos_c
                                 text: root.pos_c
-                                font_size: '18sp'
+                                font_size: '28sp'
                                 bold: True
                                 color: theme.text_main
                                 halign: 'left'
@@ -737,7 +738,7 @@
                             Label:
                                 id: cpm_c
                                 text: root.cpm_c
-                                font_size: '10sp'
+                                font_size: '12sp'
                                 color: 0.396, 0.455, 0.545, 1
                                 halign: 'left'
                                 valign: 'top'
@@ -748,14 +749,14 @@
                         id: pos_d_row
                         orientation: 'horizontal'
                         size_hint_y: None
-                        height: '52dp'
+                        height: '64dp'
                         padding: ['4dp', '2dp']
                         spacing: '8dp'
 
                         # Letter badge — D (yellow)
                         BoxLayout:
                             size_hint_x: None
-                            width: '32dp'
+                            width: '40dp'
                             canvas.before:
                                 Color:
                                     rgba: 0.196, 0.157, 0.039, 1
@@ -765,7 +766,7 @@
                                     radius: [6,]
                             Label:
                                 text: 'D'
-                                font_size: '14sp'
+                                font_size: '18sp'
                                 bold: True
                                 color: 0.984, 0.749, 0.145, 1
                                 halign: 'center'
@@ -779,7 +780,7 @@
                             Label:
                                 id: pos_d
                                 text: root.pos_d
-                                font_size: '18sp'
+                                font_size: '28sp'
                                 bold: True
                                 color: theme.text_main
                                 halign: 'left'
@@ -789,79 +790,87 @@
                             Label:
                                 id: cpm_d
                                 text: root.cpm_d
-                                font_size: '10sp'
+                                font_size: '12sp'
                                 color: 0.396, 0.455, 0.545, 1
                                 halign: 'left'
                                 valign: 'top'
                                 text_size: self.size
 
-                # Stone Compensation card
-                BoxLayout:
-                    canvas.before:
-                        Color:
-                            rgba: theme.bg_panel
-                        RoundedRectangle:
-                            pos: self.pos
-                            size: self.size
-                            radius: [8,]
-                        Color:
-                            rgba: theme.border
-                        Line:
-                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
-                            width: 1.2
-                    size_hint_y: None
-                    height: '160dp'
-                    orientation: 'vertical'
-                    padding: ['12dp', '8dp']
-                    spacing: '6dp'
+                # Spacer — pushes cycle status + axis positions to the top
+                Widget:
+                    size_hint_y: 1
 
-                    Label:
-                        text: 'STONE COMPENSATION'
-                        font_size: '11sp'
-                        bold: True
-                        color: theme.text_mid
-                        halign: 'left'
-                        valign: 'middle'
-                        text_size: self.size
-                        size_hint_y: None
-                        height: '24dp'
+        # -----------------------------------------------------------------------
+        # STONE COMPENSATION BAR (above START GRIND)
+        # -----------------------------------------------------------------------
+        BoxLayout:
+            orientation: 'vertical'
+            size_hint_y: None
+            height: '150dp'
+            padding: ['12dp', '4dp', '12dp', '2dp']
+            spacing: '4dp'
 
-                    Label:
-                        id: start_pt_c_label
-                        text: root.start_pt_c
-                        font_size: '12sp'
-                        color: theme.text_mid
-                        halign: 'left'
-                        valign: 'middle'
-                        text_size: self.size
-                        size_hint_y: None
-                        height: '20dp'
+            canvas.before:
+                Color:
+                    rgba: theme.bg_panel
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
 
-                    Button:
-                        id: more_stone_btn
-                        text: 'MORE STONE'
-                        font_size: '14sp'
-                        bold: True
-                        size_hint_y: None
-                        height: '44dp'
-                        background_normal: ''
-                        background_color: 0.02, 0.12, 0.06, 1
-                        color: 0.133, 0.773, 0.369, 1
-                        disabled: root.motion_active
-                        on_release: root.on_more_stone()
+            # Top row: STONE COMPENSATION label + Stone Pos value
+            BoxLayout:
+                orientation: 'horizontal'
+                size_hint_y: None
+                height: '40dp'
+                spacing: '12dp'
 
-                    Button:
-                        id: less_stone_btn
-                        text: 'LESS STONE'
-                        font_size: '14sp'
-                        bold: True
-                        size_hint_y: None
-                        height: '44dp'
-                        background_normal: ''
-                        background_color: 0.15, 0.08, 0.02, 1
-                        color: 0.984, 0.573, 0.235, 1
-                        disabled: root.motion_active
-                        on_release: root.on_less_stone()
+                Label:
+                    text: 'STONE COMPENSATION'
+                    font_size: '14sp'
+                    bold: True
+                    color: theme.text_mid
+                    halign: 'left'
+                    valign: 'middle'
+                    text_size: self.size
+                    size_hint_x: 0.5
+
+                Label:
+                    id: start_pt_c_label
+                    text: root.start_pt_c
+                    font_size: '24sp'
+                    bold: True
+                    color: theme.text_main
+                    halign: 'right'
+                    valign: 'middle'
+                    text_size: self.size
+                    size_hint_x: 0.5
+
+            # Bottom: LESS on top, MORE on bottom — stacked vertically
+            Button:
+                id: less_stone_btn
+                text: 'LESS STONE'
+                font_size: '16sp'
+                bold: True
+                size_hint_y: None
+                height: '48dp'
+                background_normal: ''
+                background_color: 0.15, 0.08, 0.02, 1
+                color: 0.984, 0.573, 0.235, 1
+                disabled: root.motion_active
+                on_release: root.on_less_stone()
+
+            Button:
+                id: more_stone_btn
+                text: 'MORE STONE'
+                font_size: '16sp'
+                bold: True
+                size_hint_y: None
+                height: '48dp'
+                background_normal: ''
+                background_color: 0.02, 0.12, 0.06, 1
+                color: 0.133, 0.773, 0.369, 1
+                disabled: root.motion_active
+                on_release: root.on_more_stone()
 
         # -----------------------------------------------------------------------
         # BOTTOM ACTION BAR

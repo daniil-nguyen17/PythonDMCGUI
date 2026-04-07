@@ -36,7 +36,6 @@ class StatusBar(BoxLayout):
     _prev_user: str = ""
     _prev_role: str = ""
     _prev_machine_type: str = ""
-    _prev_dmc_state: int = -1
 
     # Callback for user area tap (set by main.py)
     _user_tap_cb: Optional[Callable[[], None]] = None
@@ -106,17 +105,16 @@ class StatusBar(BoxLayout):
             self._prev_machine_type = machine_type
             self.machine_type_text = machine_type if machine_type else "No Machine Type"
 
-        # State label: update only when dmc_state or connection changes
-        if dmc_state != self._prev_dmc_state or connected_changed:
-            self._prev_dmc_state = dmc_state
-            if not connected:
-                if not program_running:
-                    label, color = "E-STOP", [0.9, 0.2, 0.2, 1]
-                else:
-                    label, color = "OFFLINE", [0.55, 0.55, 0.55, 1]
+        # State label: always recompute (Kivy properties handle their own
+        # change detection, so redundant assignments are essentially no-ops).
+        if not connected:
+            if not program_running:
+                label, color = "E-STOP", [0.9, 0.2, 0.2, 1]
             else:
-                label, color = self._STATE_MAP.get(
-                    dmc_state, ("OFFLINE", [0.55, 0.55, 0.55, 1])
-                )
-            self.state_text = label
-            self.state_color = color
+                label, color = "OFFLINE", [0.55, 0.55, 0.55, 1]
+        else:
+            label, color = self._STATE_MAP.get(
+                dmc_state, ("OFFLINE", [0.55, 0.55, 0.55, 1])
+            )
+        self.state_text = label
+        self.state_color = color

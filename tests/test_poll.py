@@ -77,11 +77,11 @@ class TestPollerWritesDmcState(unittest.TestCase):
     def test_poller_writes_dmc_state(self):
         """After one _do_read, state.dmc_state == 2 when controller returns '2.0000'."""
         responses = [
+            " 0.0000\r\n",   # MG aPos
+            " 0.0000\r\n",   # MG bPos
+            " 0.0000\r\n",   # MG cPos
+            " 0.0000\r\n",   # MG dPos
             " 2.0000\r\n",   # MG hmiState
-            " 0.0000\r\n",   # MG _TPA
-            " 0.0000\r\n",   # MG _TPB
-            " 0.0000\r\n",   # MG _TPC
-            " 0.0000\r\n",   # MG _TPD
             " 0.0000\r\n",   # MG ctSesKni
             " 0.0000\r\n",   # MG ctStnKni
         ]
@@ -100,11 +100,11 @@ class TestPollerWritesPositions(unittest.TestCase):
     def test_poller_writes_positions(self):
         """After _do_read, state.pos matches the 4 axis values returned by controller."""
         responses = [
+            " 100.0000\r\n",   # MG aPos
+            " 200.0000\r\n",   # MG bPos
+            " 300.0000\r\n",   # MG cPos
+            " 400.0000\r\n",   # MG dPos
             " 2.0000\r\n",     # MG hmiState
-            " 100.0000\r\n",   # MG _TPA
-            " 200.0000\r\n",   # MG _TPB
-            " 300.0000\r\n",   # MG _TPC
-            " 400.0000\r\n",   # MG _TPD
             " 0.0000\r\n",     # MG ctSesKni
             " 0.0000\r\n",     # MG ctStnKni
         ]
@@ -126,11 +126,11 @@ class TestPollerWritesKnifeCounts(unittest.TestCase):
     def test_poller_writes_knife_counts(self):
         """After _do_read, session and stone knife counts are set correctly."""
         responses = [
+            " 0.0000\r\n",   # MG aPos
+            " 0.0000\r\n",   # MG bPos
+            " 0.0000\r\n",   # MG cPos
+            " 0.0000\r\n",   # MG dPos
             " 1.0000\r\n",   # MG hmiState
-            " 0.0000\r\n",   # MG _TPA
-            " 0.0000\r\n",   # MG _TPB
-            " 0.0000\r\n",   # MG _TPC
-            " 0.0000\r\n",   # MG _TPD
             " 42.0000\r\n",  # MG ctSesKni
             " 77.0000\r\n",  # MG ctStnKni
         ]
@@ -166,13 +166,13 @@ class TestSingleFailureNoDisconnect(unittest.TestCase):
         """One failure followed by success keeps state.connected == True."""
         # First call raises; subsequent calls succeed
         good_responses = [
-            " 1.0000\r\n",
-            " 0.0000\r\n",
-            " 0.0000\r\n",
-            " 0.0000\r\n",
-            " 0.0000\r\n",
-            " 0.0000\r\n",
-            " 0.0000\r\n",
+            " 0.0000\r\n",   # MG aPos
+            " 0.0000\r\n",   # MG bPos
+            " 0.0000\r\n",   # MG cPos
+            " 0.0000\r\n",   # MG dPos
+            " 1.0000\r\n",   # MG hmiState
+            " 0.0000\r\n",   # MG ctSesKni
+            " 0.0000\r\n",   # MG ctStnKni
         ]
         call_count = [0]
 
@@ -204,13 +204,13 @@ class TestReconnectClearsDisconnect(unittest.TestCase):
         call_count = [0]
 
         good_responses = [
-            " 1.0000\r\n",
-            " 0.0000\r\n",
-            " 0.0000\r\n",
-            " 0.0000\r\n",
-            " 0.0000\r\n",
-            " 0.0000\r\n",
-            " 0.0000\r\n",
+            " 0.0000\r\n",   # MG aPos
+            " 0.0000\r\n",   # MG bPos
+            " 0.0000\r\n",   # MG cPos
+            " 0.0000\r\n",   # MG dPos
+            " 1.0000\r\n",   # MG hmiState
+            " 0.0000\r\n",   # MG ctSesKni
+            " 0.0000\r\n",   # MG ctStnKni
         ]
 
         def side_effect(cmd):
@@ -414,13 +414,13 @@ class TestXQReadFailureDefaultsTrue(unittest.TestCase):
     def test_xq_failure_does_not_increment_fail_count(self):
         """_XQ read failure must NOT increment _fail_count (isolated try/except)."""
         good_responses = [
-            " 1.0000\r\n",
-            " 0.0000\r\n",
-            " 0.0000\r\n",
-            " 0.0000\r\n",
-            " 0.0000\r\n",
-            " 0.0000\r\n",
-            " 0.0000\r\n",
+            " 0.0000\r\n",   # MG aPos
+            " 0.0000\r\n",   # MG bPos
+            " 0.0000\r\n",   # MG cPos
+            " 0.0000\r\n",   # MG dPos
+            " 1.0000\r\n",   # MG hmiState
+            " 0.0000\r\n",   # MG ctSesKni
+            " 0.0000\r\n",   # MG ctStnKni
         ]
 
         call_count = [0]

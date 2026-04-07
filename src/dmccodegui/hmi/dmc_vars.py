@@ -116,3 +116,30 @@ STARTPT_BY_AXIS: dict[str, str] = {
 
 CT_SES_KNI: str = "ctSesKni"  # Session knife count (resets each new stone session)
 CT_STN_KNI: str = "ctStnKni"  # Stone knife count (cumulative per grindstone)
+
+# ---------------------------------------------------------------------------
+# #SHOWPOS label variables — live position from controller thread
+# The DMC #SHOWPOS label runs on its own thread, reads _TDA/_TDB/_TDC/_TDD
+# every 50ms, and writes decimal positions into these variables plus a ring
+# buffer. Reading these does NOT disturb the controller during grinding.
+# ---------------------------------------------------------------------------
+
+APOS: str = "aPos"   # Live A-axis position (decimal, set by #SHOWPOS)
+BPOS: str = "bPos"   # Live B-axis position (decimal, set by #SHOWPOS)
+CPOS: str = "cPos"   # Live C-axis position (decimal, set by #SHOWPOS)
+DPOS: str = "dPos"   # Live D-axis position (decimal, set by #SHOWPOS)
+
+POS_BY_AXIS: dict[str, str] = {
+    "A": APOS,
+    "B": BPOS,
+    "C": CPOS,
+    "D": DPOS,
+}
+
+# Ring buffer index and arrays (written by #SHOWPOS, 300 elements each)
+POS_BUF_IDX: str = "idx"       # Current write index in ring buffer (0-299)
+POS_BUF_A: str = "aBuf"        # Ring buffer array for A-axis positions
+POS_BUF_B: str = "bBuf"        # Ring buffer array for B-axis positions
+POS_BUF_C: str = "cBuf"        # Ring buffer array for C-axis positions
+POS_BUF_D: str = "dBuf"        # Ring buffer array for D-axis positions
+POS_BUF_SIZE: int = 300         # Ring buffer capacity

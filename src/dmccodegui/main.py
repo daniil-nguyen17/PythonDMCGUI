@@ -322,13 +322,26 @@ class DMCApp(App):
             self._pin_overlay.open_for_switch(self.auth_manager, self._on_login_success)
 
     def _on_login_success(self, username: str, role: str) -> None:
-        """Callback on successful PIN entry (login or switch)."""
+        """Callback on successful PIN entry (login or switch).
+
+        Routes to the screen that matches the controller's current state:
+          - SETUP + setup/admin role → axes_setup (resume setup session)
+          - GRINDING / HOMING → run (monitor active motion)
+          - IDLE / uninitialized → run (default)
+        """
         self.state.set_auth(username, role)
         try:
             tab_bar = self.root.ids.tab_bar
             sm = self.root.ids.sm
-            tab_bar.set_role(role, "run")
-            sm.current = "run"
+
+            # Pick the target screen based on controller state
+            target = "run"
+            if (self.state.dmc_state == STATE_SETUP
+                    and role in ("setup", "admin")):
+                target = "axes_setup"
+
+            tab_bar.set_role(role, target)
+            sm.current = target
         except Exception:
             pass
 

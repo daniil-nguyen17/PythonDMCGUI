@@ -40,6 +40,7 @@ class SetupScreen(Screen):
     _autoconnect: bool = False                 # True on first launch — triggers auto-connect once
     connection_status: str = StringProperty("Not connected")  # Shown in KV Label
     _unsubscribe = None                        # Callable returned by state.subscribe() — call to unsubscribe
+    _on_connect_cb = None                      # Callback invoked after successful connection
 
     def on_kv_post(self, *_):
         """
@@ -135,6 +136,8 @@ class SetupScreen(Screen):
                 if ok:
                     self.state.connected_address = addr
                     self._alert("Connection established")
+                    if self._on_connect_cb:
+                        self._on_connect_cb()
                 else:
                     self._alert("Connect failed")
                 self._sync_connection_status()
@@ -289,6 +292,10 @@ class SetupScreen(Screen):
                 self.connection_status = "Not connected"
         except Exception:
             self.connection_status = "Not connected"
+
+    def set_on_connect_callback(self, cb) -> None:
+        """Register a callback invoked after a successful connection."""
+        self._on_connect_cb = cb
 
     def select_address(self, addr: str) -> None:
         """

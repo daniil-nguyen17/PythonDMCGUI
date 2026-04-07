@@ -25,6 +25,8 @@ from dmccodegui.hmi.dmc_vars import (
     HMI_TRIGGER_FIRE,
     HMI_TRIGGER_DEFAULT,
     STATE_SETUP,
+    STATE_GRINDING,
+    STATE_HOMING,
 )
 import dmccodegui.machine_config as mc
 
@@ -43,7 +45,9 @@ from dmccodegui.machine_config import _FLAT_PARAM_DEFS as PARAM_DEFS  # noqa: F4
 # ---------------------------------------------------------------------------
 
 # Setup-loop sibling screens — navigating between these does NOT trigger exit-setup
-_SETUP_SCREENS: frozenset = frozenset({"axes_setup", "parameters"})
+_SETUP_SCREENS: frozenset = frozenset({
+    "axes_setup", "parameters", "profiles", "users", "diagnostics",
+})
 
 # Groups that reject zero values (calibration params)
 _ZERO_REJECT_GROUPS = {"Calibration"}
@@ -233,14 +237,16 @@ class ParametersScreen(Screen):
             except Exception:
                 pass
 
-            # Update screen state directly (Kivy properties are thread-safe for
-            # simple value assignments; widget canvas ops are deferred to next frame)
-            self._controller_vals.update(new_vals)
-            self._dirty.clear()
-            self.pending_count = 0
-            # Reset all field borders to normal (safe on background thread)
-            for var_name, widget in self._field_widgets.items():
-                self._set_field_state(widget, 'valid')
+            # Post UI updates to the main thread via Clock
+            def _update_ui(*_args):
+                self._controller_vals.update(new_vals)
+                self._dirty.clear()
+                self.pending_count = 0
+                # Reset all field borders to normal
+                for var_name, widget in self._field_widgets.items():
+                    self._set_field_state(widget, 'valid')
+
+            Clock.schedule_once(_update_ui)
 
         submit(_job)
 
@@ -304,24 +310,26 @@ class ParametersScreen(Screen):
                 except Exception:
                     pass
 
-            # Update screen state directly. _loading suppresses on_text callbacks
-            # while we programmatically update field widgets.
-            self._loading = True
-            try:
-                self._controller_vals.update(new_vals)
-                # Update field widgets
-                for var_name, widget in self._field_widgets.items():
-                    val = new_vals.get(var_name)
-                    if val is not None and hasattr(widget, 'text'):
-                        widget.text = str(val)
-                # Clear dirty state
-                self._dirty.clear()
-                self.pending_count = 0
-                # Reset all borders
-                for var_name, widget in self._field_widgets.items():
-                    self._set_field_state(widget, 'valid')
-            finally:
-                self._loading = False
+            # Post UI updates to the main thread via Clock
+            def _update_ui(*_args):
+                self._loading = True
+                try:
+                    self._controller_vals.update(new_vals)
+                    # Update field widgets
+                    for var_name, widget in self._field_widgets.items():
+                        val = new_vals.get(var_name)
+                        if val is not None and hasattr(widget, 'text'):
+                            widget.text = str(val)
+                    # Clear dirty state
+                    self._dirty.clear()
+                    self.pending_count = 0
+                    # Reset all borders
+                    for var_name, widget in self._field_widgets.items():
+                        self._set_field_state(widget, 'valid')
+                finally:
+                    self._loading = False
+
+            Clock.schedule_once(_update_ui)
 
         submit(_job)
 
@@ -400,17 +408,22 @@ class ParametersScreen(Screen):
             setup_unlocked = self.state.setup_unlocked
         self._apply_role_mode(setup_unlocked)
 
-        # Fire hmiSetp only if not already in setup — avoids spurious re-enter
-        # when switching between sibling setup screens (axes_setup <-> parameters)
-        already_in_setup = (
-            self.state is not None and self.state.dmc_state == STATE_SETUP
-        )
-        if self.controller is not None and self.controller.is_connected():
-            if not already_in_setup:
-                try:
-                    self.controller.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}")
-                except Exception:
-                    pass
+        # Guard: do NOT send hmiSetp while controller is in motion
+        if (self.state is not None
+                and self.state.dmc_state in (STATE_GRINDING, STATE_HOMING)):
+            pass  # Skip setup entry — controller is busy
+        else:
+            # Fire hmiSetp only if not already in setup — avoids spurious re-enter
+            # when switching between sibling setup screens (axes_setup <-> parameters)
+            already_in_setup = (
+                self.state is not None and self.state.dmc_state == STATE_SETUP
+            )
+            if self.controller is not None and self.controller.is_connected():
+                if not already_in_setup:
+                    try:
+                        self.controller.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}")
+                    except Exception:
+                        pass
 
         # Subscribe to state changes for live apply button gating
         if self.state is not None:

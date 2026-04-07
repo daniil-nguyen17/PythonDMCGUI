@@ -70,13 +70,15 @@ from ..utils import jobs
 from ..hmi.dmc_vars import (
     HMI_SETP, HMI_TRIGGER_FIRE, HMI_TRIGGER_DEFAULT,
     HMI_GO_REST, HMI_GO_START, HMI_EXIT_SETUP, HMI_HOME, HMI_NEWS,
-    STATE_SETUP,
+    STATE_SETUP, STATE_GRINDING, STATE_HOMING,
 )
 import dmccodegui.machine_config as mc
 
 # Screens that are siblings within the setup flow.
 # Navigating between these does NOT trigger the exit-setup HMI command.
-_SETUP_SCREENS: frozenset[str] = frozenset({"axes_setup", "parameters"})
+_SETUP_SCREENS: frozenset[str] = frozenset({
+    "axes_setup", "parameters", "profiles", "users", "diagnostics",
+})
 
 # Default CPM values per axis. Read from controller on enter; fall back if read fails.
 AXIS_CPM_DEFAULTS: dict[str, float] = {
@@ -171,6 +173,11 @@ class AxesSetupScreen(Screen):
 
         # Update saved-value column labels for current mode
         self._update_saved_labels()
+
+        # Guard: do NOT send hmiSetp while controller is in motion
+        if (self.state is not None
+                and self.state.dmc_state in (STATE_GRINDING, STATE_HOMING)):
+            return
 
         # Fire hmiSetp only if we are NOT already in setup mode.
         # When dmc_state is already STATE_SETUP (e.g. navigating between setup
@@ -299,10 +306,7 @@ class AxesSetupScreen(Screen):
           5. _BG{axis} == 0 (no jog in progress) — checked inside do_jog()
         """
         if not self.controller or not self.controller.is_connected():
-            return
-
-        # State gate: jog only allowed in setup mode
-        if self.state and self.state.dmc_state != STATE_SETUP:
+            print(f"[AxesSetup] Jog {axis} blocked — controller not connected (controller={self.controller})")
             return
 
         if not self._cpm_ready:

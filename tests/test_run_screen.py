@@ -124,31 +124,33 @@ def test_plot_buffer_properties():
     )
 
 
-def test_plot_buffer_only_during_cycle():
-    """RUN-07: _apply_state only appends to plot buffers when cycle is running and connected."""
+def test_plot_buffer_feeds_when_connected():
+    """RUN-07: _apply_state appends to plot buffers when connected (positions from #SHOWPOS)."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
     import sys, os as _os
     sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), '..', 'src'))
     from dmccodegui.screens.run import RunScreen
     from dmccodegui.app_state import MachineState
-    from dmccodegui.hmi.dmc_vars import STATE_GRINDING, STATE_IDLE
+    from dmccodegui.hmi.dmc_vars import STATE_IDLE
 
     r = RunScreen()
 
-    # With dmc_state=STATE_IDLE (not grinding), buffer should stay empty
+    # When connected (any state), buffer should receive entries
     s = MachineState(connected=True, dmc_state=STATE_IDLE,
                      pos={"A": 100.0, "B": 200.0, "C": 0.0, "D": 0.0})
     r._apply_state(s)
-    assert len(r._plot_buf_x) == 0, "Buffer should be empty when not grinding"
-    assert len(r._plot_buf_y) == 0, "Buffer should be empty when not grinding"
-
-    # With dmc_state=STATE_GRINDING and connected, buffer should receive one entry
-    s2 = MachineState(connected=True, dmc_state=STATE_GRINDING,
-                      pos={"A": 100.0, "B": 200.0, "C": 0.0, "D": 0.0})
-    r._apply_state(s2)
     assert len(r._plot_buf_x) == 1, f"Expected 1 entry in _plot_buf_x, got {len(r._plot_buf_x)}"
     assert len(r._plot_buf_y) == 1, f"Expected 1 entry in _plot_buf_y, got {len(r._plot_buf_y)}"
+
+    # When disconnected, buffer should NOT receive entries
+    r._plot_buf_x.clear()
+    r._plot_buf_y.clear()
+    s2 = MachineState(connected=False, dmc_state=STATE_IDLE,
+                      pos={"A": 300.0, "B": 400.0, "C": 0.0, "D": 0.0})
+    r._apply_state(s2)
+    assert len(r._plot_buf_x) == 0, "Buffer should be empty when disconnected"
+    assert len(r._plot_buf_y) == 0, "Buffer should be empty when disconnected"
 
 
 def test_trail_clears_on_start():
@@ -455,8 +457,8 @@ def test_more_stone_updates_start_pt_c():
     r = RunScreen()
     mock_ctrl = MagicMock(spec=GalilController)
     mock_ctrl.is_connected.return_value = True
-    # Trigger response + after-read value
-    mock_ctrl.cmd.side_effect = ["", "5000.0\n"]
+    # Before-read of startPtC + trigger response + after-read value
+    mock_ctrl.cmd.side_effect = ["4000.0\n", "", "5000.0\n"]
     r.controller = mock_ctrl
 
     captured_fn = []
@@ -498,8 +500,8 @@ def test_less_stone_updates_start_pt_c():
     r = RunScreen()
     mock_ctrl = MagicMock(spec=GalilController)
     mock_ctrl.is_connected.return_value = True
-    # Trigger response + after-read value
-    mock_ctrl.cmd.side_effect = ["", "4900.0\n"]
+    # Before-read of startPtC + trigger response + after-read value
+    mock_ctrl.cmd.side_effect = ["5000.0\n", "", "4900.0\n"]
     r.controller = mock_ctrl
 
     captured_fn = []
@@ -529,8 +531,8 @@ def test_less_stone_updates_start_pt_c():
     assert 'Stone Pos:' in r.start_pt_c, f"Expected 'Stone Pos:' in start_pt_c, got '{r.start_pt_c}'"
 
 
-def test_more_stone_reads_startptc_after():
-    """Phase 15: on_more_stone() reads startPtC after firing the trigger (no before read)."""
+def test_more_stone_reads_startptc_before_and_after():
+    """Phase 15: on_more_stone() reads startPtC before and after firing the trigger."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
     from unittest.mock import MagicMock, patch, call
@@ -541,8 +543,8 @@ def test_more_stone_reads_startptc_after():
     r = RunScreen()
     mock_ctrl = MagicMock(spec=GalilController)
     mock_ctrl.is_connected.return_value = True
-    # Sequence: trigger → "", after read → "1001.0"
-    mock_ctrl.cmd.side_effect = ["\n", "1001.0\n"]
+    # Sequence: before read → "1000.0", trigger → "", after read → "1001.0"
+    mock_ctrl.cmd.side_effect = ["1000.0\n", "\n", "1001.0\n"]
     r.controller = mock_ctrl
 
     captured_fn = []
@@ -559,6 +561,6 @@ def test_more_stone_reads_startptc_after():
 
     mg_calls = [c[0][0] for c in mock_ctrl.cmd.call_args_list
                 if f"MG {STARTPT_C}" in c[0][0]]
-    assert len(mg_calls) == 1, (
-        f"Expected exactly 1 'MG {STARTPT_C}' call (after only — before removed), got {len(mg_calls)}: {mg_calls}"
+    assert len(mg_calls) == 2, (
+        f"Expected exactly 2 'MG {STARTPT_C}' calls (before + after), got {len(mg_calls)}: {mg_calls}"
     )

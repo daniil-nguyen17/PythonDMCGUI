@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Optional
 
 from kivy.clock import Clock
 
-from .dmc_vars import HMI_STATE_VAR, CT_SES_KNI, CT_STN_KNI
+from .dmc_vars import HMI_STATE_VAR, CT_SES_KNI, CT_STN_KNI, APOS, BPOS, CPOS, DPOS
 from ..utils import jobs
 
 if TYPE_CHECKING:
@@ -115,29 +115,47 @@ class ControllerPoller:
                 # No address to reconnect to; nothing to do
                 return
 
+        # Read positions from built-in Galil registers.
+        # _TPA/_TPB/_TPC/_TPD always exist — no DMC program required.
         try:
-            dmc_state = int(float(ctrl.cmd(f"MG {HMI_STATE_VAR}").strip()))
             a = float(ctrl.cmd("MG _TPA").strip())
             b = float(ctrl.cmd("MG _TPB").strip())
             c = float(ctrl.cmd("MG _TPC").strip())
             d = float(ctrl.cmd("MG _TPD").strip())
-            ses_kni = int(float(ctrl.cmd(f"MG {CT_SES_KNI}").strip()))
-            stn_kni = int(float(ctrl.cmd(f"MG {CT_STN_KNI}").strip()))
         except Exception:
             self._fail_count += 1
             if self._fail_count >= DISCONNECT_THRESHOLD:
                 Clock.schedule_once(self._on_disconnect)
             return
 
-        # All reads succeeded — reset failure counter
+        # Non-critical reads: hmiState, knife counts.
+        # Failures here do NOT count toward disconnect threshold.
+        dmc_state = 0
+        ses_kni = 0
+        stn_kni = 0
+        try:
+            dmc_state = int(float(ctrl.cmd(f"MG {HMI_STATE_VAR}").strip()))
+        except Exception:
+            pass
+        try:
+            ses_kni = int(float(ctrl.cmd(f"MG {CT_SES_KNI}").strip()))
+        except Exception:
+            pass
+        try:
+            stn_kni = int(float(ctrl.cmd(f"MG {CT_STN_KNI}").strip()))
+        except Exception:
+            pass
+
+        # All position reads succeeded — reset failure counter
         self._fail_count = 0
 
-        # Read _XQ separately — failure does NOT increment _fail_count or trigger disconnect
+        # Read _XQ — non-critical; failure does NOT affect disconnect threshold
+        program_running = True  # Conservative default: assume running
         try:
             xq_raw = int(float(ctrl.cmd("MG _XQ").strip()))
             program_running = (xq_raw >= 0)
         except Exception:
-            program_running = True  # Conservative: assume running if read fails
+            pass
 
         # Post state update to main thread
         Clock.schedule_once(

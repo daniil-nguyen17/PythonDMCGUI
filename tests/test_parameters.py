@@ -337,7 +337,9 @@ def test_read_clears_dirty():
                 screen.read_from_controller()
 
     assert job_fn is not None
-    job_fn()
+    # job schedules UI update via Clock.schedule_once; patch to run immediately
+    with patch('dmccodegui.screens.parameters.Clock.schedule_once', side_effect=lambda fn, *a: fn(0)):
+        job_fn()
 
     assert screen.pending_count == 0, f"Expected pending_count=0 after read, got {screen.pending_count}"
     assert len(screen._dirty) == 0, f"Expected empty _dirty after read, got {screen._dirty}"

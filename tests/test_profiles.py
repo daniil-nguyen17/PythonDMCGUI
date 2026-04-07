@@ -473,8 +473,8 @@ def test_enter_skips_fire_when_already_setup():
         f"Should NOT send hmiSetp=0 when already in STATE_SETUP, got: {calls}"
 
 
-def test_enter_fires_when_not_in_setup():
-    """SETP-01: on_pre_enter with dmc_state=STATE_IDLE sends hmiSetp=0."""
+def test_enter_does_not_fire_hmiSetp():
+    """Profiles screen does not manage setup mode — no hmiSetp on enter."""
     from unittest.mock import patch
     from dmccodegui.hmi.dmc_vars import STATE_IDLE
 
@@ -483,13 +483,13 @@ def test_enter_fires_when_not_in_setup():
     with patch('dmccodegui.screens.profiles.Clock'):
         screen.on_pre_enter()
 
-    calls = [c[0][0] for c in ctrl.cmd.call_args_list]
-    assert any('hmiSetp=0' in s for s in calls), \
-        f"Should send hmiSetp=0 when not in STATE_SETUP, got: {calls}"
+    calls = [c[0][0] for c in ctrl.cmd.call_args_list] if ctrl.cmd.call_args_list else []
+    assert not any('hmiSetp=0' in s for s in calls), \
+        f"Profiles should NOT send hmiSetp=0, got: {calls}"
 
 
-def test_exit_fires_hmi_exit_setup():
-    """SETP-08: on_leave sends hmiExSt=0 to exit setup mode."""
+def test_exit_does_not_fire_hmiExSt():
+    """Profiles screen does not manage setup mode — no hmiExSt on leave."""
     from unittest.mock import patch
     from dmccodegui.hmi.dmc_vars import STATE_IDLE
 
@@ -498,9 +498,9 @@ def test_exit_fires_hmi_exit_setup():
     with patch('dmccodegui.screens.profiles.Clock'):
         screen.on_leave()
 
-    calls = [c[0][0] for c in ctrl.cmd.call_args_list]
-    assert any('hmiExSt=0' in s for s in calls), \
-        f"Should send hmiExSt=0 on leave, got: {calls}"
+    calls = [c[0][0] for c in ctrl.cmd.call_args_list] if ctrl.cmd.call_args_list else []
+    assert not any('hmiExSt=0' in s for s in calls), \
+        f"Profiles should NOT send hmiExSt=0, got: {calls}"
 
 
 def test_exit_does_not_send_hmiSetp():

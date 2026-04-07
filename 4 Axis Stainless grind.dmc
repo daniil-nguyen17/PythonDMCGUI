@@ -21,11 +21,11 @@
 ' ============================================================
 #AUTO
 CB 1,2,3,4,5,6,7,8
-JS #CONFIG
+'JS #CONFIG
 JS #PARAMS
-JS #COMPED
+'JS #COMPED
 JS #HOME
-XQ #THRD2, 1
+XQ #SHOWPOS, 1
 WT 500
 MG "AUTO INIT COMPLETE"
 
@@ -33,6 +33,7 @@ MG "AUTO INIT COMPLETE"
 '  MAIN: Wait loop ? poll buttons
 ' ============================================================
 #MAIN
+hmiState = 1;                        ' IDLE ? set immediately so HMI stays in sync
 WT 200
 MG "SYSTEM READY - WAITING FOR INPUT"
 
@@ -65,14 +66,14 @@ ENDIF
 
 IF (@IN[33] = 0) | (hmiMore = 0);   ' MORE STONE (C compensation down) OR HMI trigger
   hmiMore = 1;                        ' reset HMI var first
-  MG "MORE STONE FROM B"
+  MG "MORE STONE FROM C"
   JS #MOREGRI
   JP #WtAtRt
 ENDIF
 
 IF (@IN[36] = 0) | (hmiLess = 0);   ' LESS STONE (C compensation up) OR HMI trigger
   hmiLess = 1;                        ' reset HMI var first
-  MG "LESS STONE FROM B"
+  MG "LESS STONE FROM C"
   JS #LESSGRI
   JP #WtAtRt
 ENDIF
@@ -162,31 +163,33 @@ EN
 #SETUP
 MG "SETUP MENU ACTIVE"
 #SULOOP
+WT 100
+
 ' --- BUTTON 23: HANDWHEEL JOG ---
 IF (@IN[23] = 0) | (hmiJog = 0)
   hmiJog = 1;                          ' reset HMI var first
   MG "ENTERING WHEEL JOG MODE"
   JS #WheelJg
-  JS #W_REL
   MG "RETURNED TO SETUP"
+  JP #SULOOP
 ENDIF
 
 ' --- BUTTON 25: RUN HOME ---
 IF (@IN[25] = 0) | (hmiHome = 0)
-  hmiHome = 1;                         ' reset HMI var first
+  hmiHome = 1;                       
   hmiState = 4;                         ' HOMING
   MG "STARTING HOMING SEQUENCE"
   JS #HOME
-  hmiState = 3;                         ' back to SETUP (inside SULOOP)
-  JS #W_REL
+  hmiState = 3;                         ' back to SETUP
+  JP #SULOOP
 ENDIF
 
 ' --- BUTTON 26: CHANGE KNIFE / RECALCULATE ---
 IF (@IN[26] = 0) | (hmiCalc = 0)
-  hmiCalc = 1;                          ' reset HMI var first
+  hmiCalc = 1;                        
   MG " NEW KNIFE CALCULATIONS"
   JS #VARCALC
-  JS #W_REL
+  JP #SULOOP
 ENDIF
 
 ' --- HMI: GO TO REST ---
@@ -194,7 +197,7 @@ IF (hmiGoRs = 0)
   hmiGoRs = 1
   MG "HMI: GOING TO REST"
   JS #GOREST
-  JS #W_REL
+  JP #SULOOP
 ENDIF
 
 ' --- HMI: GO TO START ---
@@ -202,25 +205,17 @@ IF (hmiGoSt = 0)
   hmiGoSt = 1
   MG "HMI: GOING TO START"
   JS #GOSTR
-  JS #W_REL
+  JP #SULOOP
 ENDIF
 
 ' --- BUTTON 32 OR HMI EXIT SETUP ---
 IF (@IN[32] = 0) | (hmiExSt = 0)
   hmiExSt = 1
   MG "RETURNING TO MAIN MENU"
-  JS #W_REL
-  EN;
+  JP #MAIN
 ENDIF
 
-WT 100
 JP #SULOOP
-
-' --- Wait for Button Release ---
-#W_REL
-#W_LP; JP #W_LP
-WT 100
-EN
 
 ' ============================================================
 '  SAVE POINTS ROUTINES
@@ -246,7 +241,7 @@ EN
 '  HOMING ROUTINE - all 4 axes
 ' ============================================================
 #HOME
-hmiState = 4;                    ' HOMING — set at entry before any motion
+hmiState = 4;                    ' HOMING ? set at entry before any motion
 SH ABCD
 SP 20000, 20000, 20000, 15000;
 HV 5000, 5000, 5000, 5000;
@@ -271,15 +266,15 @@ MG "MOVING TO REST"
 SPC =fdCup * cpmC
 PAC=restPtC
 BGC; AMC
-' D to flat/rest angle SECOND
+
 SPD=fdD * cpmD
 PAD=restPtD
 BGD; AMD
-' A to rest position LAST
+
 SPA =fdA * cpmA
 PAA= restPtA
 BGA; AMA
-' B away from stone FIRST - always safest move
+
 SPB = fdB * cpmB
 PAB=restPtB
 BGB; AMB
@@ -297,7 +292,6 @@ EN
 MG "MOVING TO START"
 SH ABCD
 
-'0=A, 1=B 3=C 4=D
 ' B start position first
 SP , fdB * cpmB,,
 PA , startPtB,,
@@ -306,20 +300,20 @@ BGB; AMB
 SP fdA * cpmA,,,
 PA startPtA,,,
 BGA; AMA
-' D to flat start angle
+
 SP ,,, fdD * cpmD
 PA ,,, startPtD
 BGD; AMD
-' C to start reference height
+
 SP ,, fdCdn * cpmC,
 PA ,, startPtC,
 BGC; AMC
 
 MG "AT START POSITION RIGHT"
-MG "startPtA / A: ", startPtA , " or ",  _TDA;
-MG "startPtB / B: ", startPtB , " or ",  _TDB;
-MG "startPtC / C: ", startPtC , " or ",  _TDC;
-MG "startPtD / D: ", startPtD , " or ",  _TDD;
+MG "startPtA : ", startPtA , " or _TDA",  _TDA;
+MG "startPtB : ", startPtB , " or _TDA",  _TDB;
+MG "startPtC : ", startPtC , " or _TDA",  _TDC;
+MG "startPtD : ", startPtD , " or _TDA",  _TDD;
 EN
 
 ' ============================================================
@@ -327,14 +321,14 @@ EN
 ' ============================================================
 #MOREGRI
 SB 3;
-startPtD = startPtD + (cpmC * 0.001);       ' more grinding 0.001mm
+startPtC = startPtC + (cpmC * 0.005);       ' more grinding 0.005mm
 MG "MORE GRINDER ADDED"
 WT 200; BV
 EN
 
 #LESSGRI
 SB 3
-startPtD = startPtD - (cpmC * 0.001)
+startPtC = startPtC - (cpmC * 0.005)
 MG "LESS GRINDER ADDED"
 WT 200; BV
 EN
@@ -414,26 +408,20 @@ JP #MAIN
 EN
 
 ' ============================================================
-'  EMERGENCY STOP
-' ============================================================
-#ESTOP
-ST ABCD
-MG "*** EMERGENCY STOP - MANUAL ABORT ***"
-MG "Cycle must be restarted manually."
-EN
-
-' ============================================================
 '  UPDATE SPEED FROM MAIN KNOB
 ' ============================================================
 #UPDSPD
 mainSp = mainSp + @AN[1] * 10000
+autoWear= autoWear + @AN[2]*
 MG "Speed updated:", mainSp
 WT 100
 JP #UPDSPD
 EN
 
 ' ============================================================
-'  SHOWPOS - track all 4 axis positions
+'  SHOWPOS - track all 4 axis positions (runs on thread 1)
+'  Updates aPos/bPos/cPos/dPos every 50ms for HMI polling.
+'  Writes to ring buffer arrays for plot history.
 ' ============================================================
 #SHOWPOS
 WT 50
@@ -441,8 +429,6 @@ aPos = _TDA
 bPos = _TDB
 cPos = _TDC
 dPos = _TDD
-
-MG "A:", aPos, "mm  B:", bPos, "mm  C:", cPos, "mm  D:", dPos, "deg"
 
 ' ring buffer write
 idx = idx + 1
@@ -454,11 +440,6 @@ bBuf[idx] = bPos
 cBuf[idx] = cPos
 dBuf[idx] = dPos
 
-' session counter
-JP #NODONE, cycDone = 0
-knfSess = knfSess + 1
-cycDone = 0
-#NODONE
 JP #SHOWPOS
 EN
 
@@ -494,7 +475,6 @@ pitchD = 1;  ratioD = 16;  ctsRevD = 22500;  ' D: angle- calibrate
 scount   = 0
 currA    = 0
 fltflg   = 0
-cycDone  = 0
 ctSesKni = 0
 ctStnKni = 0
 lastSt   = 0
@@ -504,8 +484,8 @@ idx      = 0
 ' --- HMI trigger variables (default=1, send 0 to trigger) ---
 hmiGrnd = 1;  hmiSetp = 1;  hmiMore = 1;  hmiLess = 1
 hmiNewS = 1;  hmiHome = 1;  hmiJog  = 1;  hmiCalc = 1
-hmiGoRs = 1;   ' HMI trigger: go to rest position (in setup)
-hmiGoSt = 1;   ' HMI trigger: go to start position (in setup)
+hmiGoRs = 1
+hmiGoSt = 1
 hmiExSt = 1;   ' HMI trigger: exit setup, return to #MAIN
 ' --- Machine state (1=IDLE 2=GRINDING 3=SETUP 4=HOMING) ---
 hmiState = 1
@@ -520,10 +500,14 @@ EN
 '  COMPED - array declarations for compensation tables
 ' ============================================================
 #COMPED
-DM aBuf[300];                   
+aPos=0
+bPos=0
+cPos=0
+dPos=0
+DM aBuf[300]                 
 DM bBuf[300]
 DM cBuf[300]
-DM dBuf[300];                    
+DM dBuf[300]                   
 ' ----- arrays to store deltas of the knife's edge
 DM deltaA[300]
 DM deltaB[300]
@@ -564,16 +548,3 @@ MG "VARCALC DONE"
 BV;                                   ' save all to EEPROM
 EN
 
-' ============================================================
-'  THREAD 2 - hmiState observer
-'  Runs on Galil thread 2 for continuous state monitoring
-'  Started by XQ #THRD2,1 in #AUTO
-' ============================================================
-#THRD2
-#T2LOOP
-WT 100
-' --- Thread 2 observes hmiState for future requirements ---
-' Currently a passive observer; state transitions are set
-' by the main thread subroutines.
-JP #T2LOOP
-EN

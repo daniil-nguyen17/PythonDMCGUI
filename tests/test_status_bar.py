@@ -173,20 +173,20 @@ class TestStatusBarStateLabel:
             f"Reconnect with stopped program: recover_enabled should be True, got {sb.recover_enabled}"
         )
 
-    def test_prev_dmc_state_change_detection(self):
-        """Calling update_from_state twice with same dmc_state does not change state_text."""
+    def test_state_always_recomputed(self):
+        """State label is always recomputed from current state (no stale cache)."""
         sb = _make_status_bar()
         # First call — sets state
         state1 = _make_state(connected=True, dmc_state=1)
         sb.update_from_state(state1)
         assert sb.state_text == "IDLE"
 
-        # Override state_text to something else to detect if it's re-set
+        # Override state_text to something else
         sb.state_text = "TAMPERED"
 
-        # Second call with same dmc_state and same connected — change detection should skip
+        # Second call with same dmc_state — should correct the tampered value
         state2 = _make_state(connected=True, dmc_state=1)
         sb.update_from_state(state2)
-        assert sb.state_text == "TAMPERED", (
-            "_prev_dmc_state change detection should skip redundant update"
+        assert sb.state_text == "IDLE", (
+            "State label must always reflect current state"
         )

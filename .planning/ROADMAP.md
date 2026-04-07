@@ -206,7 +206,7 @@ Plans:
 | 14. State-Driven UI | 2/2 | Complete    | 2026-04-06 | - |
 | 15. Run Page Missing Controls | 1/1 | Complete    | 2026-04-06 | - |
 | 16. ProfilesScreen Setup Loop Fix | 1/1 | Complete    | 2026-04-07 | - |
-| 17. Poll Reset and Cold-Start Fix | 1/1 | Complete   | 2026-04-07 | - |
+| 17. Poll Reset and Cold-Start Fix | 1/1 | Complete    | 2026-04-07 | - |
 
 ---
 

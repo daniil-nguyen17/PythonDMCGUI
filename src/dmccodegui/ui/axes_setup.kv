@@ -47,12 +47,12 @@
             BoxLayout:
                 orientation: 'horizontal'
                 size_hint_x: None
-                width: '360dp'
+                width: '600dp'
                 spacing: 0
 
                 ToggleButton:
                     id: mode_rest_btn
-                    text: 'CÀI ĐẶT VỊ TRÍ NGHỈ/RESTPOINTS'
+                    text: 'CÀI VỊ TRÍ NGHỈ'
                     group: 'mode_sel'
                     state: 'down'
                     font_size: '18sp'
@@ -66,7 +66,7 @@
 
                 ToggleButton:
                     id: mode_start_btn
-                    text: 'CÀI ĐẶT VỊ TRÍ BẮT ĐẦU/STARTPOINTS'
+                    text: 'CÀI VỊ TRÍ BẮT ĐẦU'
                     group: 'mode_sel'
                     font_size: '18sp'
                     bold: True
@@ -92,31 +92,31 @@
                 text_size: self.size
 
             Button:
-                text: 'ĐI ĐẾN VỊ TRÍ NGHỈ/REST POINTS'
+                text: 'ĐI ĐẾN VỊ TRÍ NGHỈ'
                 font_size: '15sp'
                 bold: True
                 size_hint_x: None
-                width: '110dp'
+                width: '160dp'
                 background_color: theme.bg_row
                 color: theme.text_mid
                 on_release: root.go_to_rest_all()
 
             Button:
-                text: 'ĐI ĐẾN VỊ TRÍ BẮT ĐẦU/START POINTS'
+                text: 'ĐI ĐẾN VỊ TRÍ BẮT ĐẦU'
                 font_size: '15sp'
                 bold: True
                 size_hint_x: None
-                width: '110dp'
+                width: '160dp'
                 background_color: theme.bg_row
                 color: theme.text_mid
                 on_release: root.go_to_start_all()
 
             Button:
-                text: 'ĐI VỀ VỊ TRÍ GỐC/HOME'
+                text: 'ĐI VỀ VỊ TRÍ GỐC'
                 font_size: '15sp'
                 bold: True
                 size_hint_x: None
-                width: '100dp'
+                width: '145dp'
                 background_color: theme.bg_row
                 color: theme.text_mid
                 on_release: root.home_all()
@@ -185,7 +185,7 @@
                 on_release: root.set_step(1.0)
 
             Label:
-                text: 'mm'
+                text: 'MM'
                 font_size: '14sp'
                 color: theme.text_dim
                 size_hint_x: None

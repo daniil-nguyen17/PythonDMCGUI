@@ -276,10 +276,10 @@ class AxesSetupScreen(Screen):
         if not btn:
             return
         if self._mode == "rest":
-            btn.text = "SAVE AS REST POINTS"
+            btn.text = "LƯU ĐIỂM NGHỈ"
             btn.background_color = (0.031, 0.314, 0.471, 1)
         else:
-            btn.text = "SAVE AS START POINTS"
+            btn.text = "LƯU ĐIỂM BẮT ĐẦU"
             btn.background_color = (0.031, 0.471, 0.188, 1)
 
     # ── Step size ─────────────────────────────────────────────────────────────

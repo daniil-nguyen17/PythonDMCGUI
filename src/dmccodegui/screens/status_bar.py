@@ -24,10 +24,10 @@ class StatusBar(BoxLayout):
 
     # Map dmc_state int -> (label, color) for connected states
     _STATE_MAP: dict = {
-        1: ("IDLE",     [1.0,  0.6,  0.0,  1]),  # orange
-        2: ("GRINDING", [0.13, 0.77, 0.37, 1]),  # green
-        3: ("SETUP",    [0.9,  0.2,  0.2,  1]),  # red
-        4: ("HOMING",   [1.0,  0.6,  0.0,  1]),  # orange
+        1: ("CHỜ",     [1.0,  0.6,  0.0,  1]),  # orange
+        2: ("ĐANG MÀI", [0.13, 0.77, 0.37, 1]),  # green
+        3: ("ĐANG THIẾT LẬP",    [0.9,  0.2,  0.2,  1]),  # red
+        4: ("ĐANG VỀ VỊ TRÍ GỐC",   [1.0,  0.6,  0.0,  1]),  # orange
     }
 
     # Cache previous values to skip redundant UI updates

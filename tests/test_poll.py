@@ -302,17 +302,43 @@ class TestDisconnectClosesHandle(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# Phase 17 — poller stop reset tests
+# ---------------------------------------------------------------------------
+
+class TestPollerStopResetsFailCount(unittest.TestCase):
+    """Verify stop() resets _fail_count and _disconnect_start unconditionally."""
+
+    def test_stop_resets_fail_count_and_disconnect_start(self):
+        """stop() sets _fail_count=0 and _disconnect_start=None after being set."""
+        poller, ctrl, state = _make_poller()
+        # Simulate state after partial disconnect
+        poller._fail_count = 5
+        poller._disconnect_start = time.monotonic()
+
+        with patch("dmccodegui.hmi.poll.Clock") as mock_clock:
+            mock_event = MagicMock()
+            mock_clock.schedule_interval.return_value = mock_event
+            poller.start()
+            poller.stop()
+
+        self.assertEqual(poller._fail_count, 0,
+                         "_fail_count must be reset to 0 by stop()")
+        self.assertIsNone(poller._disconnect_start,
+                          "_disconnect_start must be reset to None by stop()")
+
+
+# ---------------------------------------------------------------------------
 # Phase 11 — program_running tests
 # ---------------------------------------------------------------------------
 
 class TestProgramRunningDefault(unittest.TestCase):
-    """test_program_running_default_false"""
+    """test_program_running_default_true"""
 
-    def test_program_running_default_false(self):
-        """MachineState().program_running defaults to False."""
+    def test_program_running_default_true(self):
+        """MachineState().program_running defaults to True."""
         from dmccodegui.app_state import MachineState
         state = MachineState()
-        self.assertFalse(state.program_running)
+        self.assertTrue(state.program_running)
 
 
 class TestApplySetsProgramRunning(unittest.TestCase):

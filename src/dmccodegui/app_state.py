@@ -46,7 +46,7 @@ class MachineState:
 
     # E-STOP safety field (Phase 11)
     # True when _XQ >= 0 (DMC program thread active on controller)
-    program_running: bool = False
+    program_running: bool = True
 
     _listeners: List[ChangeListener] = field(default_factory=list, repr=False)
 

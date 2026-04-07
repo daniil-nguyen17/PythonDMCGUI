@@ -70,6 +70,8 @@ class ControllerPoller:
         if self._clock_event is not None:
             self._clock_event.cancel()
             self._clock_event = None
+        self._fail_count = 0
+        self._disconnect_start = None
 
     # ------------------------------------------------------------------
     # Tick — called on main thread by Clock

@@ -438,11 +438,13 @@ try:
         # ------------------------------------------------------------------
 
         def on_pre_enter(self, *args) -> None:
-            """Subscribe to state changes, fire hmiSetp, and update import button interlock."""
-            # Fire hmiSetp to tell controller we're in setup mode
-            if self.controller is not None:
+            """Subscribe to state changes, fire hmiSetp if needed, and update import button interlock."""
+            from dmccodegui.hmi.dmc_vars import HMI_SETP, HMI_TRIGGER_FIRE, STATE_SETUP
+
+            # Smart-enter: only send hmiSetp=0 if not already in setup mode
+            already_in_setup = self.state is not None and self.state.dmc_state == STATE_SETUP
+            if self.controller is not None and self.controller.is_connected() and not already_in_setup:
                 try:
-                    from dmccodegui.hmi.dmc_vars import HMI_SETP, HMI_TRIGGER_FIRE
                     self.controller.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}")
                 except Exception:
                     pass
@@ -454,12 +456,13 @@ try:
             self._update_import_button()
 
         def on_leave(self, *args) -> None:
-            """Unsubscribe from state changes and reset hmiSetp when leaving."""
-            # Reset hmiSetp=1 to exit setup mode
-            if self.controller is not None:
+            """Unsubscribe from state changes and send hmiExSt=0 to exit setup mode."""
+            from dmccodegui.hmi.dmc_vars import HMI_EXIT_SETUP, HMI_TRIGGER_FIRE
+
+            # Exit setup mode — profiles always fires exit on leave (no sibling check needed)
+            if self.controller is not None and self.controller.is_connected():
                 try:
-                    from dmccodegui.hmi.dmc_vars import HMI_SETP, HMI_TRIGGER_DEFAULT
-                    self.controller.cmd(f"{HMI_SETP}={HMI_TRIGGER_DEFAULT}")
+                    self.controller.cmd(f"{HMI_EXIT_SETUP}={HMI_TRIGGER_FIRE}")
                 except Exception:
                     pass
 

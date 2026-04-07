@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Flat Grind Integration
 status: planning
-stopped_at: Phase 16 context gathered
-last_updated: "2026-04-07T00:23:39.817Z"
+stopped_at: Completed 16-01-PLAN.md
+last_updated: "2026-04-07T00:36:01.126Z"
 last_activity: 2026-04-06 — Roadmap created
 progress:
   total_phases: 10
-  completed_phases: 7
-  total_plans: 15
-  completed_plans: 15
+  completed_phases: 8
+  total_plans: 16
+  completed_plans: 16
   percent: 100
 ---
 
@@ -91,6 +91,7 @@ Progress (v2.0): [░░░░░░░░░░] 0% (0/6 phases)
 | Phase 13-setup-loop P02 | 6 | 2 tasks | 2 files |
 | Phase 14-state-driven-ui P02 | 12 | 2 tasks | 4 files |
 | Phase 15-run-page-missing-controls P01 | 5 | 2 tasks | 5 files |
+| Phase 16-profiles-setup-loop-fix P01 | 2 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -141,6 +142,8 @@ Decisions affecting current work (v2.0):
 - [Phase 14-state-driven-ui]: _update_apply_button uses _apply_btn attribute first, falls back to ids.get('apply_btn') — consistent with _apply_role_mode pattern
 - [Phase 15-run-page-missing-controls]: Stone Compensation card in right column with persistent startPtC readback — before-read removed, label replaces toast-style alert
 - [Phase 15-run-page-missing-controls]: RUN-02, RUN-03, RUN-06 re-mapped to Phase 13 — satisfied by existing AxesSetupScreen implementation
+- [Phase 16-profiles-setup-loop-fix]: ProfilesScreen on_leave always fires hmiExSt=0 on leave — no sibling screen check since profiles has no sibling setup screens
+- [Phase 16-profiles-setup-loop-fix]: Smart-enter guard uses is_connected() check in addition to STATE_SETUP check — consistent with axes_setup and parameters pattern
 
 ### Research Flags (require hardware validation)
 
@@ -159,7 +162,7 @@ Decisions affecting current work (v2.0):
 
 ## Session Continuity
 
-Last session: 2026-04-07T00:23:39.815Z
-Stopped at: Phase 16 context gathered
-Resume file: .planning/phases/16-profiles-setup-loop-fix/16-CONTEXT.md
+Last session: 2026-04-07T00:36:01.124Z
+Stopped at: Completed 16-01-PLAN.md
+Resume file: None
 Next action: `/gsd:plan-phase 9`

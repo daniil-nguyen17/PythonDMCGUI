@@ -41,14 +41,14 @@ Requirements for Flat Grind HMI-controller integration. Each maps to roadmap pha
 
 ### Setup Integration
 
-- [ ] **SETP-01**: User can enter Setup mode on the controller from the HMI (sends hmiSetp=0)
+- [x] **SETP-01**: User can enter Setup mode on the controller from the HMI (sends hmiSetp=0)
 - [x] **SETP-02**: User can trigger homing sequence from Axes Setup page (sends hmiHome=0, Setup/Admin role required)
 - [x] **SETP-03**: User can jog axes from Axes Setup page with movement on real controller
 - [x] **SETP-04**: User can teach Rest point — saves current axis positions to restPt[] array on controller
 - [x] **SETP-05**: User can teach Start point — saves current axis positions to startPt[] array on controller
 - [x] **SETP-06**: User can write parameter values from Parameters page to controller variables
 - [x] **SETP-07**: User can trigger varcalc recalculation from Parameters page (sends hmiCalc=0)
-- [ ] **SETP-08**: User can exit Setup mode back to main loop from HMI
+- [x] **SETP-08**: User can exit Setup mode back to main loop from HMI
 
 ### State-Driven UI
 
@@ -130,14 +130,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RUN-05 | Phase 12 | Complete |
 | RUN-06 | Phase 13 | Complete |
 | RUN-07 | Phase 12 | Complete |
-| SETP-01 | Phase 16 | Pending |
+| SETP-01 | Phase 16 | Complete |
 | SETP-02 | Phase 13 | Complete |
 | SETP-03 | Phase 13 | Complete |
 | SETP-04 | Phase 13 | Complete |
 | SETP-05 | Phase 13 | Complete |
 | SETP-06 | Phase 13 | Complete |
 | SETP-07 | Phase 13 | Complete |
-| SETP-08 | Phase 16 | Pending |
+| SETP-08 | Phase 16 | Complete |
 | UI-01 | Phase 14 | Complete |
 | UI-02 | Phase 17 | Pending |
 | UI-03 | Phase 14 | Complete |

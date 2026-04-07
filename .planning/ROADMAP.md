@@ -42,7 +42,7 @@ Full context: `.planning/phases/08-CONTEXT.md`
 - [x] **Phase 14: State-Driven UI** — Button enable/disable, status labels, setup badge, and live plot validation
 - [x] **Phase 15: Run Page Missing Controls** — Restructure Run page layout: Stone Compensation card with persistent startPtC readback (layout gap closure) (completed 2026-04-06)
 - [x] **Phase 16: ProfilesScreen Setup Loop Fix** — Fix smart-enter guard and exit-setup wiring in ProfilesScreen (gap closure) (completed 2026-04-07)
-- [ ] **Phase 17: Poll Reset and Cold-Start Fix** — Reset _fail_count on reconnect and fix cold-start E-STOP label (gap closure)
+- [x] **Phase 17: Poll Reset and Cold-Start Fix** — Reset _fail_count on reconnect and fix cold-start E-STOP label (gap closure) (completed 2026-04-07)
 
 ---
 
@@ -182,7 +182,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. After disconnect_and_refresh(), _fail_count is reset to 0 so reconnection starts with a clean slate
   2. Before the first successful poll, the status bar shows OFFLINE instead of E-STOP
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 17-01-PLAN.md — Reset _fail_count on stop() and fix program_running cold-start default
 
@@ -206,7 +206,7 @@ Plans:
 | 14. State-Driven UI | 2/2 | Complete    | 2026-04-06 | - |
 | 15. Run Page Missing Controls | 1/1 | Complete    | 2026-04-06 | - |
 | 16. ProfilesScreen Setup Loop Fix | 1/1 | Complete    | 2026-04-07 | - |
-| 17. Poll Reset and Cold-Start Fix | v2.0 | 0/1 | Pending | - |
+| 17. Poll Reset and Cold-Start Fix | 1/1 | Complete   | 2026-04-07 | - |
 
 ---
 

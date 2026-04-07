@@ -20,7 +20,7 @@ Requirements for Flat Grind HMI-controller integration. Each maps to roadmap pha
 
 - [x] **POLL-01**: HMI polls hmiState from controller at 10 Hz and updates MachineState.dmc_state
 - [x] **POLL-02**: HMI polls axis positions (A, B, C, D) from controller and displays live values on Run page
-- [ ] **POLL-03**: HMI detects controller connection loss and displays disconnected status
+- [x] **POLL-03**: HMI detects controller connection loss and displays disconnected status
 - [x] **POLL-04**: HMI reads knife count (ctSesKni) from controller and displays on Run page
 
 ### Safety
@@ -53,7 +53,7 @@ Requirements for Flat Grind HMI-controller integration. Each maps to roadmap pha
 ### State-Driven UI
 
 - [x] **UI-01**: Buttons enable/disable based on polled controller state (e.g., no Start Grind while already grinding)
-- [ ] **UI-02**: Status label displays current controller state (IDLE, GRINDING, SETUP, HOMING, NEW SESSION)
+- [x] **UI-02**: Status label displays current controller state (IDLE, GRINDING, SETUP, HOMING, NEW SESSION)
 - [x] **UI-03**: Setup mode badge visible on all screens when controller is in setup state
 - [x] **UI-04**: Run tab disables when controller is in setup mode
 - [x] **UI-05**: Connection status indicator visible at all times
@@ -118,7 +118,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DMC-06 | Phase 9 | Complete |
 | POLL-01 | Phase 10 | Complete |
 | POLL-02 | Phase 10 | Complete |
-| POLL-03 | Phase 17 | Pending |
+| POLL-03 | Phase 17 | Complete |
 | POLL-04 | Phase 10 | Complete |
 | SAFE-01 | Phase 11 | Complete |
 | SAFE-02 | Phase 11 | Complete |
@@ -139,7 +139,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SETP-07 | Phase 13 | Complete |
 | SETP-08 | Phase 16 | Complete |
 | UI-01 | Phase 14 | Complete |
-| UI-02 | Phase 17 | Pending |
+| UI-02 | Phase 17 | Complete |
 | UI-03 | Phase 14 | Complete |
 | UI-04 | Phase 14 | Complete |
 | UI-05 | Phase 14 | Complete |

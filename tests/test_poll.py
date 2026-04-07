@@ -341,6 +341,24 @@ class TestProgramRunningDefault(unittest.TestCase):
         self.assertTrue(state.program_running)
 
 
+# ---------------------------------------------------------------------------
+# Phase 17 — cold-start StatusBar integration test
+# ---------------------------------------------------------------------------
+
+class TestColdStartShowsOffline(unittest.TestCase):
+    """Fresh MachineState (never polled) must cause StatusBar to show OFFLINE."""
+
+    def test_cold_start_status_bar_shows_offline(self):
+        """A brand-new MachineState with defaults drives StatusBar to OFFLINE, not E-STOP."""
+        from dmccodegui.app_state import MachineState
+        from dmccodegui.screens.status_bar import StatusBar
+        state = MachineState()  # Real defaults — connected=False, program_running=True
+        sb = StatusBar()
+        sb.update_from_state(state)
+        self.assertEqual(sb.state_text, "OFFLINE",
+                         f"Cold-start should show OFFLINE, got '{sb.state_text}'")
+
+
 class TestApplySetsProgramRunning(unittest.TestCase):
     """test_apply_sets_program_running"""
 

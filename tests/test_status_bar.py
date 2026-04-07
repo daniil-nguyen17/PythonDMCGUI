@@ -148,6 +148,31 @@ class TestStatusBarStateLabel:
         sb.update_from_state(state)
         assert sb.state_text == "OFFLINE", f"Expected 'OFFLINE' for uninitialized dmc_state=0, got '{sb.state_text}'"
 
+    def test_recover_enabled_chain(self):
+        """RECOVER button state follows the full connect/disconnect/E-STOP lifecycle."""
+        sb = _make_status_bar()
+
+        # Cold-start: disconnected, program_running=True -> RECOVER disabled
+        state = _make_state(connected=False, program_running=True)
+        sb.update_from_state(state)
+        assert sb.recover_enabled is False, (
+            f"Cold-start: recover_enabled should be False, got {sb.recover_enabled}"
+        )
+
+        # Post E-STOP disconnect: disconnected, program_running=False -> RECOVER disabled
+        state = _make_state(connected=False, program_running=False)
+        sb.update_from_state(state)
+        assert sb.recover_enabled is False, (
+            f"E-STOP disconnect: recover_enabled should be False, got {sb.recover_enabled}"
+        )
+
+        # Reconnect with stopped program: connected=True, program_running=False -> RECOVER enabled
+        state = _make_state(connected=True, program_running=False)
+        sb.update_from_state(state)
+        assert sb.recover_enabled is True, (
+            f"Reconnect with stopped program: recover_enabled should be True, got {sb.recover_enabled}"
+        )
+
     def test_prev_dmc_state_change_detection(self):
         """Calling update_from_state twice with same dmc_state does not change state_text."""
         sb = _make_status_bar()

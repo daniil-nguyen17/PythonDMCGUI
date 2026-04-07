@@ -171,6 +171,9 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Navigating to ProfilesScreen while already in STATE_SETUP does not re-send hmiSetp=0
   2. Leaving ProfilesScreen sends hmiExSt=0 (not hmiSetp=1) to correctly exit setup mode
+**Plans:** 1 plan
+Plans:
+- [ ] 16-01-PLAN.md — Fix smart-enter guard and exit command in ProfilesScreen
 
 ### Phase 17: Poll Reset and Cold-Start Fix
 **Goal**: Controller poller resets cleanly between disconnect/reconnect cycles and the status bar shows OFFLINE (not E-STOP) before the first successful connection.
@@ -200,7 +203,7 @@ Plans:
 | 13. Setup Loop | 3/3 | Complete   | 2026-04-06 | - |
 | 14. State-Driven UI | 2/2 | Complete    | 2026-04-06 | - |
 | 15. Run Page Missing Controls | 1/1 | Complete    | 2026-04-06 | - |
-| 16. ProfilesScreen Setup Loop Fix | v2.0 | 0/TBD | Pending | - |
+| 16. ProfilesScreen Setup Loop Fix | v2.0 | 0/1 | In Progress | - |
 | 17. Poll Reset and Cold-Start Fix | v2.0 | 0/TBD | Pending | - |
 
 ---

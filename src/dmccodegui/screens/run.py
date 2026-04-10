@@ -5,6 +5,7 @@ import time
 from collections import deque
 
 from kivy.clock import Clock
+from kivy.core.text import Label as CoreLabel
 from kivy.graphics import Color, Line, Rectangle
 from kivy.properties import (
     BooleanProperty,
@@ -24,7 +25,8 @@ from ..app_state import MachineState
 from ..controller import GalilController
 from ..hmi.dmc_vars import (
     STATE_GRINDING, STATE_HOMING,
-    HMI_GRND, HMI_MORE, HMI_LESS, HMI_TRIGGER_FIRE, STARTPT_C,
+    HMI_GRND, HMI_MORE, HMI_LESS, HMI_TRIGGER_FIRE,
+    STARTPT_A, STARTPT_B, STARTPT_C,
     POS_BUF_IDX, POS_BUF_A, POS_BUF_B, POS_BUF_SIZE,
 )
 from ..utils import jobs
@@ -46,6 +48,7 @@ PLOT_BUFFER_SIZE: int = 750   # points — rolling history buffer; tuning point:
 BG_PANEL_HEX = "#0D1219"     # matches theme.bg_panel
 TICK_COLOR = "#94A1B5"        # matches theme.text_mid
 TRAIL_COLOR = "#7DF9FF"       # electric cyan — high contrast on dark navy
+TOOLPATH_COLOR = "#445566"    # muted grey-blue for expected path ghost line
 
 # ---------------------------------------------------------------------------
 # Delta-C (Knife Grind Adjustment) constants — Plan 02-02 fills the full panel
@@ -171,6 +174,9 @@ class DeltaCBarChart(_BaseBarChart):
     (highlighted in orange); the RunScreen up/down buttons adjust the selected
     bar's offset.
 
+    Segment labels are drawn below the bars: "MŨI" (tip) on the left edge,
+    "GÓT" (heel) on the right edge, and segment numbers centred under each bar.
+
     Properties
     ----------
     offsets : ListProperty([])
@@ -182,6 +188,92 @@ class DeltaCBarChart(_BaseBarChart):
     """
 
     STEP: int = DELTA_C_STEP
+    _LABEL_HEIGHT: int = 18  # px reserved at bottom for labels
+
+    def _draw(self) -> None:
+        self.canvas.clear()
+        offsets = list(self.offsets)
+        n = len(offsets)
+        if n == 0:
+            return
+
+        label_h = self._LABEL_HEIGHT
+        bar_w = self.width / n
+        # Reserve label_h at bottom for segment labels
+        chart_top = self.y + self.height
+        chart_bottom = self.y + label_h
+        chart_h = chart_top - chart_bottom
+        mid_y = chart_bottom + chart_h / 2.0
+        half_h = chart_h / 2.0
+
+        with self.canvas:
+            # Zero baseline
+            Color(0.4, 0.4, 0.4, 1)
+            Rectangle(pos=(self.x, mid_y - 0.5), size=(self.width, 1))
+
+            # Bars
+            for i, offset in enumerate(offsets):
+                if self.max_offset > 0:
+                    raw_h = abs(offset) / self.max_offset * half_h
+                else:
+                    raw_h = 0.0
+                bar_h = max(10.0, raw_h)
+
+                if i == int(self.selected_index):
+                    Color(1.0, 0.65, 0.0, 1)
+                else:
+                    Color(0.235, 0.510, 0.960, 1)
+
+                bar_x = self.x + i * bar_w
+                if offset >= 0:
+                    Rectangle(pos=(bar_x + 1, mid_y), size=(bar_w - 2, bar_h))
+                else:
+                    Rectangle(pos=(bar_x + 1, mid_y - bar_h), size=(bar_w - 2, bar_h))
+
+            # Segment number labels under each bar
+            Color(0.7, 0.7, 0.7, 1)
+            for i in range(n):
+                lbl = CoreLabel(text=str(i + 1), font_size=10)
+                lbl.refresh()
+                tex = lbl.texture
+                bx = self.x + i * bar_w + (bar_w - tex.width) / 2.0
+                Rectangle(texture=tex, pos=(bx, self.y), size=tex.size)
+
+            # "MŨI" (tip) label — left edge
+            Color(0.95, 0.75, 0.3, 1)
+            tip_lbl = CoreLabel(text='MŨI', font_size=10, bold=True)
+            tip_lbl.refresh()
+            tip_tex = tip_lbl.texture
+            Rectangle(
+                texture=tip_tex,
+                pos=(self.x + 2, self.y),
+                size=tip_tex.size,
+            )
+
+            # "GÓT" (heel) label — right edge
+            heel_lbl = CoreLabel(text='GÓT', font_size=10, bold=True)
+            heel_lbl.refresh()
+            heel_tex = heel_lbl.texture
+            Rectangle(
+                texture=heel_tex,
+                pos=(self.x + self.width - heel_tex.width - 2, self.y),
+                size=heel_tex.size,
+            )
+
+    def on_touch_down(self, touch) -> bool:
+        """Select bar — ignore touches in the label strip at the bottom."""
+        if not self.collide_point(touch.x, touch.y):
+            return False
+        if touch.y < self.y + self._LABEL_HEIGHT:
+            return False
+        n = len(self.offsets)
+        if n == 0:
+            return True
+        bar_w = self.width / n
+        idx = int((touch.x - self.x) / bar_w)
+        idx = max(0, min(n - 1, idx))
+        self.selected_index = idx
+        return True
 
 
 class BCompBarChart(_BaseBarChart):
@@ -297,6 +389,10 @@ class RunScreen(Screen):
     _ax = None
     _plot_line = None
     _cycle_start_time: float | None = None
+    _cpm_a_raw: float = 1200.0  # counts per mm — updated by _read_cpm_values
+    _cpm_b_raw: float = 1200.0
+    _toolpath_line = None        # matplotlib line artist for expected path
+    _toolpath_loaded: bool = False
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -328,7 +424,18 @@ class RunScreen(Screen):
             self._fig = Figure(figsize=(4, 3), facecolor=BG_PANEL_HEX)
             self._ax = self._fig.add_subplot(111)
             self._configure_plot_axes()
-            self._plot_line, = self._ax.plot([], [], color=TRAIL_COLOR, linewidth=1.2)
+            # Expected toolpath — dashed ghost line (drawn first, behind live trace)
+            self._toolpath_line, = self._ax.plot(
+                [], [], color=TOOLPATH_COLOR, linewidth=2.0, linestyle='--', label='DỰ KIẾN',
+            )
+            # Live A/B trace — solid cyan on top
+            self._plot_line, = self._ax.plot(
+                [], [], color=TRAIL_COLOR, linewidth=1.2, label='THỰC TẾ',
+            )
+            self._ax.legend(
+                fontsize=7, facecolor=BG_PANEL_HEX, labelcolor='white',
+                loc='upper right', framealpha=0.8,
+            )
             plot_wgt.figure = self._fig
             # Disable all touch interaction — preserves E-STOP responsiveness
             plot_wgt.do_pan_x = False
@@ -345,6 +452,13 @@ class RunScreen(Screen):
         visible before the next poll fires.
         Also starts the 5 Hz plot redraw clock.
         """
+        # Stop the centralized poller — its 10 Hz MG traffic floods the
+        # controller bus and blocks GDK unsolicited message printing during grind.
+        from kivy.app import App
+        app = App.get_running_app()
+        if app and hasattr(app, '_stop_poller'):
+            app._stop_poller()
+
         # Apply machine-type-specific widget visibility first
         self._apply_machine_type_widgets()
 
@@ -365,6 +479,9 @@ class RunScreen(Screen):
         # Read CPM values from controller for axis position annotations
         self._read_cpm_values()
 
+        # Read deltaA/deltaB to draw expected toolpath (FIFO after CPM read)
+        self._read_toolpath()
+
     def on_leave(self, *args) -> None:
         """Called by Kivy when operator navigates away.
 
@@ -380,6 +497,14 @@ class RunScreen(Screen):
         if self._plot_clock_event:
             self._plot_clock_event.cancel()
             self._plot_clock_event = None
+        # Invalidate toolpath so it re-reads on next entry (picks up profile changes)
+        self._toolpath_loaded = False
+
+        # Restart the centralized poller for other screens
+        from kivy.app import App
+        app = App.get_running_app()
+        if app and hasattr(app, '_start_poller'):
+            app._start_poller()
 
     # -----------------------------------------------------------------------
     # Machine type widget switching
@@ -502,7 +627,11 @@ class RunScreen(Screen):
         self.pos_d = "---"
 
     def _configure_plot_axes(self) -> None:
-        """Style the A/B position plot axes to match app dark theme."""
+        """Style the A/B position plot axes to match app dark theme.
+
+        Axes are labelled in mm (A = length, B = width).  Left edge = MŨI (tip),
+        right edge = GÓT (heel) to match the segment bar below.
+        """
         ax = self._ax
         self._fig.patch.set_facecolor(BG_PANEL_HEX)
         ax.set_facecolor(BG_PANEL_HEX)
@@ -511,22 +640,34 @@ class RunScreen(Screen):
         for spine in ax.spines.values():
             spine.set_edgecolor(TICK_COLOR)
             spine.set_linewidth(0.5)
-        ax.xaxis.set_major_locator(MaxNLocator(nbins=4, integer=True))
-        ax.yaxis.set_major_locator(MaxNLocator(nbins=4, integer=True))
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=4))
+        ax.set_xlabel("A  (mm)   MŨI →  GÓT", fontsize=8, color=TICK_COLOR)
+        ax.set_ylabel("B  (mm)", fontsize=8, color=TICK_COLOR)
         ax.grid(False)
-        self._fig.tight_layout(pad=0.4)
+        self._fig.tight_layout(pad=0.5)
 
     def _tick_plot(self, dt: float) -> None:
-        """5 Hz Kivy clock: redraw the A/B position trail. Main thread only."""
+        """5 Hz Kivy clock: redraw the live A/B trace in mm. Main thread only.
+
+        Axis limits are fixed by the toolpath — no relim/autoscale needed.
+        """
         if self._plot_line is None:
             return
-        xs = list(self._plot_buf_x)
-        ys = list(self._plot_buf_y)
-        if len(xs) < 2:
+        xs_raw = list(self._plot_buf_x)
+        ys_raw = list(self._plot_buf_y)
+        if len(xs_raw) < 2:
             return
+        # Convert counts → mm using CPM values
+        cpm_a = self._cpm_a_raw
+        cpm_b = self._cpm_b_raw
+        xs = [v / cpm_a for v in xs_raw]
+        ys = [v / cpm_b for v in ys_raw]
         self._plot_line.set_data(xs, ys)
-        self._ax.relim()
-        self._ax.autoscale_view()
+        # Fall back to autoscale only if toolpath hasn't set limits yet
+        if not self._toolpath_loaded:
+            self._ax.relim()
+            self._ax.autoscale_view()
         self._fig.canvas.draw_idle()
 
     # -----------------------------------------------------------------------
@@ -560,7 +701,7 @@ class RunScreen(Screen):
             if self.state.dmc_state in (STATE_SETUP, STATE_GRINDING, STATE_HOMING):
                 return
 
-        # Clear plot trail for fresh cycle view (main thread — safe)
+        # Clear live trace for fresh cycle view; toolpath ghost line stays
         self._plot_buf_x.clear()
         self._plot_buf_y.clear()
         if self._plot_line is not None:
@@ -713,6 +854,16 @@ class RunScreen(Screen):
         self.delta_c_offsets = offsets
         self.selected_section_value = str(int(self.delta_c_offsets[idx]))
 
+    def on_clear_delta_c(self) -> None:
+        """Reset all section offsets to zero."""
+        n = max(1, int(self.section_count))
+        self.delta_c_offsets = [0.0] * n
+        chart = self.ids.get("delta_c_chart")
+        if chart is not None:
+            idx = int(chart.selected_index)
+            if 0 <= idx < n:
+                self.selected_section_value = "0"
+
     def on_apply_delta_c(self) -> None:
         """Convert section offsets to a 100-element deltaC array and send to controller.
 
@@ -743,6 +894,10 @@ class RunScreen(Screen):
         last section absorbs any remainder so the output length is always
         exactly DELTA_C_ARRAY_SIZE.
 
+        Only the first index of each segment receives the offset value and the
+        last index receives the negated offset (to return the grind to normal).
+        All other indices in the segment are zero.
+
         Returns
         -------
         list[float]
@@ -754,13 +909,14 @@ class RunScreen(Screen):
         while len(offsets) < n:
             offsets.append(0.0)
 
-        result: list[float] = []
+        result: list[float] = [0.0] * size
         chunk = size // n
         for i in range(n):
-            start = i * chunk
-            end = start + chunk if i < n - 1 else size
+            first = i * chunk
+            last = (first + chunk - 1) if i < n - 1 else (size - 1)
             val = offsets[i]
-            result.extend([val] * (end - start))
+            result[first] = val
+            result[last] = -val
 
         return result
 
@@ -866,12 +1022,14 @@ class RunScreen(Screen):
 
         def _do():
             results: dict[str, str] = {}
+            raw_cpms: dict[str, float] = {}
             for axis in ("A", "B", "C", "D"):
                 try:
                     raw = ctrl.cmd(f"MG cpm{axis}").strip()
                     cpm = float(raw)
                 except Exception:
                     cpm = _CPM_DEFAULTS.get(axis, 0.0)
+                raw_cpms[axis] = cpm
                 if cpm > 0:
                     unit = "1 deg" if axis == "D" else "1mm"
                     results[axis] = f"{int(cpm):,} counts = {unit}"
@@ -879,9 +1037,84 @@ class RunScreen(Screen):
             def _apply(*_):
                 for axis, text in results.items():
                     setattr(self, f"cpm_{axis.lower()}", text)
+                # Store raw numeric CPM for plot scaling
+                if raw_cpms.get("A", 0) > 0:
+                    self._cpm_a_raw = raw_cpms["A"]
+                if raw_cpms.get("B", 0) > 0:
+                    self._cpm_b_raw = raw_cpms["B"]
             Clock.schedule_once(_apply)
 
         jobs.submit(_do)
+
+    def _read_toolpath(self) -> None:
+        """Background: read deltaA/deltaB arrays and startPtA/B from controller.
+
+        Reconstructs the expected toolpath by cumulative-summing the deltas
+        from the start positions, converts to mm, and draws on the plot.
+        """
+        if self._toolpath_loaded:
+            return
+        if not self.controller or not self.controller.is_connected():
+            return
+        ctrl = self.controller
+
+        def _do():
+            try:
+                # Read start positions (counts)
+                start_a = float(ctrl.cmd(f"MG {STARTPT_A}").strip())
+                start_b = float(ctrl.cmd(f"MG {STARTPT_B}").strip())
+
+                # Read delta arrays
+                delta_a = ctrl.upload_array_auto("deltaA")
+                delta_b = ctrl.upload_array_auto("deltaB")
+
+                if not delta_a or not delta_b:
+                    return
+
+                # Cumulative sum from start position → absolute positions (counts)
+                n = min(len(delta_a), len(delta_b))
+                abs_a = [0.0] * n
+                abs_b = [0.0] * n
+                acc_a = start_a
+                acc_b = start_b
+                for i in range(n):
+                    acc_a += delta_a[i]
+                    acc_b += delta_b[i]
+                    abs_a[i] = acc_a
+                    abs_b[i] = acc_b
+
+                # Convert counts → mm
+                cpm_a = self._cpm_a_raw
+                cpm_b = self._cpm_b_raw
+                mm_a = [v / cpm_a for v in abs_a]
+                mm_b = [v / cpm_b for v in abs_b]
+
+                def _apply(*_):
+                    self._toolpath_loaded = True
+                    self._draw_toolpath(mm_a, mm_b)
+                Clock.schedule_once(_apply)
+
+            except Exception as e:
+                print(f"[RunScreen] Read toolpath error: {e}")
+
+        jobs.submit(_do)
+
+    def _draw_toolpath(self, mm_a: list[float], mm_b: list[float]) -> None:
+        """Draw the expected toolpath on the plot and lock axis limits."""
+        if self._toolpath_line is None or self._ax is None:
+            return
+
+        self._toolpath_line.set_data(mm_a, mm_b)
+
+        # Set axis limits from toolpath extents with padding
+        if mm_a and mm_b:
+            pad_a = max(1.0, (max(mm_a) - min(mm_a)) * 0.05)
+            pad_b = max(1.0, (max(mm_b) - min(mm_b)) * 0.05)
+            self._ax.set_xlim(min(mm_a) - pad_a, max(mm_a) + pad_a)
+            self._ax.set_ylim(min(mm_b) - pad_b, max(mm_b) + pad_b)
+
+        if self._fig and self._fig.canvas:
+            self._fig.canvas.draw_idle()
 
     def on_apply_bcomp(self) -> None:
         """Write bComp offsets to controller bComp array and burn NV.

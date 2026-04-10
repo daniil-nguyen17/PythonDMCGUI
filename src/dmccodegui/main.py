@@ -487,7 +487,6 @@ class DMCApp(App):
             try:
                 if self.controller.is_connected():
                     self.controller.cmd("ST ABCD")
-                    self.controller.cmd("HX")
                     self.controller.reset_handle()
             except Exception as e:
                 import logging

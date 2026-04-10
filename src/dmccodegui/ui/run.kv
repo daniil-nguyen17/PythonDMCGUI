@@ -182,7 +182,7 @@
                             halign: 'left'
                             text_size: self.size
                             valign: 'middle'
-                            size_hint_x: 0.4
+                            size_hint_x: 0.3
 
                         # Down adjustment button
                         Button:
@@ -192,7 +192,7 @@
                             background_normal: ''
                             background_color: 0.15, 0.08, 0.02, 1
                             color: 0.984, 0.573, 0.235, 1
-                            size_hint_x: 0.2
+                            size_hint_x: 0.175
                             on_release: root.on_adjust_down()
 
                         # Up adjustment button
@@ -203,8 +203,19 @@
                             background_normal: ''
                             background_color: 0.02, 0.12, 0.06, 1
                             color: 0.133, 0.773, 0.369, 1
-                            size_hint_x: 0.2
+                            size_hint_x: 0.175
                             on_release: root.on_adjust_up()
+
+                        # Clear button
+                        Button:
+                            text: 'XOÁ'
+                            font_size: '13sp'
+                            bold: True
+                            background_normal: ''
+                            background_color: 0.25, 0.08, 0.08, 1
+                            color: 0.95, 0.35, 0.35, 1
+                            size_hint_x: 0.15
+                            on_release: root.on_clear_delta_c()
 
                         # Apply button
                         Button:

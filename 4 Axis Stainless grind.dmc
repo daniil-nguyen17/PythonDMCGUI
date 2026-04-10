@@ -22,7 +22,7 @@
 #AUTO
 CB 1,2,3,4,5,6,7,8
 'JS #CONFIG
-JS #PARAMS
+'JS #PARAMS
 'JS #COMPED
 JS #HOME
 XQ #SHOWPOS, 1
@@ -85,17 +85,7 @@ feedADis=4
 MG "GRIND MODE ACTIVE"
 
 JS #GOSTR
-MG "           AT CONTOUR START"
 MG " A:", _TDA, " B:", _TDB, " C:", _TDC, " D:", _TDD
-
-' Step 1: move D to grind angle AND compensate C simultaneously
-SP ,, fdCup * cpmC, cpmD
-PRD=deltaD[0]
-BGD
-PRC= deltaC[0]
-BGC
-AM
-MG "         C:", _TDC, "  D:", _TDD
 
 ' Step 3: back A up 2mm past tip into fresh air
 SPA= 5500
@@ -111,12 +101,12 @@ VD 100000
 MG "VECTOR START - LEAD IN"
 MG "  PRE-LI  A:", _TDA, "  B:", _TDB
 ' Feed remaining contour segments
-n = 1
+n = 0
 #RLOOP
 JP #WBUF, (_LM=0)
 LI deltaA[n],deltaB[n],deltaC[n],deltaD[n]
 n = n + 1
-JP #RLOOP, (n < 300)
+JP #RLOOP, (n < 99)
 JP #FDONE
 #WBUF
 WT 2
@@ -241,7 +231,7 @@ EN
 '  HOMING ROUTINE - all 4 axes
 ' ============================================================
 #HOME
-hmiState = 4;                    ' HOMING ? set at entry before any motion
+hmiState = 4;               
 SH ABCD
 SP 20000, 20000, 20000, 15000;
 HV 5000, 5000, 5000, 5000;
@@ -253,7 +243,7 @@ HMD; BGD; AMD
 
 WT 2000
 DP 0, 0, 0, 0;
-MG "A B C D - ALL AXES HOMED"
+MG "A B C D - ALL AXES HOMED and got 0"
 hmiState = 1;                    ' back to IDLE (caller sets 3 if inside SULOOP)
 EN
 
@@ -412,7 +402,7 @@ EN
 ' ============================================================
 #UPDSPD
 mainSp = mainSp + @AN[1] * 10000
-autoWear= autoWear + @AN[2]*
+autoWear= autoWear + @AN[2]*200
 MG "Speed updated:", mainSp
 WT 100
 JP #UPDSPD
@@ -518,10 +508,10 @@ DM bBuf[300]
 DM cBuf[300]
 DM dBuf[300]                   
 ' ----- arrays to store deltas of the knife's edge
-DM deltaA[300]
-DM deltaB[300]
-DM deltaC[300]
-DM deltaD[300]
+DM deltaA[100]
+DM deltaB[100]
+DM deltaC[100]
+DM deltaD[100]
 MG "One time Init DONE"
 EN
 

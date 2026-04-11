@@ -118,7 +118,7 @@ class GalilController:
         try:
             self._driver.GOpen(address)
             self._connected = True
-            self._address = address
+            self._address = address  # Store raw address (without flags) for MG handle
             if self._logger:
                 try:
                     self._logger(f"Connected to: {address}")

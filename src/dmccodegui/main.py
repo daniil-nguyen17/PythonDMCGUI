@@ -190,6 +190,7 @@ class DMCApp(App):
         if self.controller.verify_connection():
             self.state.set_connected(True)
             self._start_poller()
+            self._preload_params()
             # Connection present — show machine type picker first if not configured,
             # then PIN overlay. Use callback chaining to guarantee order.
             Clock.schedule_once(lambda *_: self._show_startup_flow(), 0)
@@ -205,6 +206,7 @@ class DMCApp(App):
                             self.state.connected_address = addr
                             self.state.log(f"Connected to: {addr}")
                             self._start_poller()
+                            self._preload_params()
                             # Auto-connect succeeded — startup flow (picker then PIN)
                             Clock.schedule_once(lambda *_: self._show_startup_flow(), 0)
                         else:
@@ -372,7 +374,95 @@ class DMCApp(App):
     def _on_connect_from_setup(self) -> None:
         """Called when setup screen successfully connects. Show picker then PIN overlay."""
         self._start_poller()
+        self._preload_params()
         Clock.schedule_once(lambda *_: self._show_startup_flow(), 0)
+
+    def _preload_params(self) -> None:
+        """Bulk-read common controller parameters into state.cached_params.
+
+        Runs on the jobs worker thread. Screens can read from the cache
+        instead of issuing redundant GCommand reads on each entry.
+        """
+        ctrl = self.controller
+        state = self.state
+        if not ctrl or not ctrl.is_connected():
+            return
+
+        def _do():
+            params: dict[str, float] = {}
+            try:
+                from .hmi.dmc_vars import (
+                    HMI_STATE_VAR, CT_SES_KNI, CT_STN_KNI,
+                    RESTPT_VARS, STARTPT_VARS,
+                )
+            except ImportError:
+                from dmccodegui.hmi.dmc_vars import (
+                    HMI_STATE_VAR, CT_SES_KNI, CT_STN_KNI,
+                    RESTPT_VARS, STARTPT_VARS,
+                )
+            # Batch 1: state + knife counts
+            try:
+                raw = ctrl.cmd(f"MG {HMI_STATE_VAR}, {CT_SES_KNI}, {CT_STN_KNI}").strip()
+                vals = [float(v) for v in raw.split()]
+                params[HMI_STATE_VAR] = vals[0]
+                params[CT_SES_KNI] = vals[1]
+                params[CT_STN_KNI] = vals[2]
+            except Exception:
+                pass
+            # Batch 2: rest points
+            try:
+                refs = ", ".join(RESTPT_VARS)
+                raw = ctrl.cmd(f"MG {refs}").strip()
+                vals = [float(v) for v in raw.split()]
+                for name, val in zip(RESTPT_VARS, vals):
+                    params[name] = val
+            except Exception:
+                pass
+            # Batch 3: start points
+            try:
+                refs = ", ".join(STARTPT_VARS)
+                raw = ctrl.cmd(f"MG {refs}").strip()
+                vals = [float(v) for v in raw.split()]
+                for name, val in zip(STARTPT_VARS, vals):
+                    params[name] = val
+            except Exception:
+                pass
+            # Batch 4: CPM values
+            for axis in ("A", "B", "C", "D"):
+                try:
+                    raw = ctrl.cmd(f"MG cpm{axis}").strip()
+                    params[f"cpm{axis}"] = float(raw)
+                except Exception:
+                    pass
+            # Batch 5: positions
+            try:
+                raw = ctrl.cmd("MG _TPA, _TPB, _TPC, _TPD").strip()
+                vals = [float(v) for v in raw.split()]
+                params["_TPA"] = vals[0]
+                params["_TPB"] = vals[1]
+                params["_TPC"] = vals[2]
+                params["_TPD"] = vals[3]
+            except Exception:
+                pass
+
+            def _apply(*_):
+                state.cached_params.update(params)
+                # Also update live state fields from preloaded data
+                if HMI_STATE_VAR in params:
+                    state.dmc_state = int(params[HMI_STATE_VAR])
+                if CT_SES_KNI in params:
+                    state.session_knife_count = int(params[CT_SES_KNI])
+                if CT_STN_KNI in params:
+                    state.stone_knife_count = int(params[CT_STN_KNI])
+                for axis, key in zip("ABCD", ("_TPA", "_TPB", "_TPC", "_TPD")):
+                    if key in params:
+                        state.pos[axis] = params[key]
+                state.notify()
+                print(f"[preload] Cached {len(params)} params from controller")
+
+            Clock.schedule_once(_apply)
+
+        jobs.submit(_do)
 
     # ------------------------------------------------------------------
     # Idle auto-lock
@@ -431,11 +521,29 @@ class DMCApp(App):
             Clock.schedule_once(lambda *_: self.state.log(msg))
 
     def on_stop(self):
+        # Cancel timers and poller first — no more commands queued
         if self._poll_cancel:
             self._poll_cancel()
         self._stop_poller()
         if self._idle_event:
             self._idle_event.cancel()
+
+        # Stop Run screen background threads (MG reader + position poll)
+        # before shutting down jobs — prevents commands in flight during GClose
+        try:
+            sm = self.root.ids.sm
+            run_screen = next(
+                (s for s in sm.screens if getattr(s, 'name', '') == 'run'), None
+            )
+            if run_screen:
+                run_screen._stop_pos_poll()
+                run_screen._stop_mg_reader()
+        except Exception:
+            pass
+
+        # Shut down jobs thread, then quietly close the TCP handle.
+        # No ST/AB/MO sent — controller keeps running independently.
+        # On next HMI start, we pick up whatever state the controller is in.
         jobs.shutdown()
         self.controller.disconnect()
 

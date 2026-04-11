@@ -1,6 +1,7 @@
 """RunScreen — operator run screen with live axis positions and cycle monitoring."""
 from __future__ import annotations
 
+import threading
 import time
 from collections import deque
 
@@ -26,7 +27,7 @@ from ..controller import GalilController
 from ..hmi.dmc_vars import (
     STATE_GRINDING, STATE_HOMING,
     HMI_GRND, HMI_MORE, HMI_LESS, HMI_TRIGGER_FIRE,
-    STARTPT_A, STARTPT_B, STARTPT_C,
+    STARTPT_C,
     POS_BUF_IDX, POS_BUF_A, POS_BUF_B, POS_BUF_SIZE,
 )
 from ..utils import jobs
@@ -48,7 +49,7 @@ PLOT_BUFFER_SIZE: int = 750   # points — rolling history buffer; tuning point:
 BG_PANEL_HEX = "#0D1219"     # matches theme.bg_panel
 TICK_COLOR = "#94A1B5"        # matches theme.text_mid
 TRAIL_COLOR = "#7DF9FF"       # electric cyan — high contrast on dark navy
-TOOLPATH_COLOR = "#445566"    # muted grey-blue for expected path ghost line
+## TOOLPATH_COLOR removed — toolpath preview disabled to prevent jobs queue blocking
 
 # ---------------------------------------------------------------------------
 # Delta-C (Knife Grind Adjustment) constants — Plan 02-02 fills the full panel
@@ -58,10 +59,46 @@ DELTA_C_WRITABLE_END: int = 99     # Last writable index (inclusive) — 100 ele
 DELTA_C_ARRAY_SIZE: int = DELTA_C_WRITABLE_END - DELTA_C_WRITABLE_START + 1  # = 100
 DELTA_C_STEP: int = 50             # Adjustment increment per button press in controller counts
 
+# Stone geometry for windowed compensation
+STONE_SURFACE_MM: float = 40.0       # grinding surface width (outer - inner diameter / 2)
+STONE_OVERHANG_MM: float = 3.0       # stone extends past heel (index 0 is 3mm past heel)
+STEP_MM: float = 1.3                 # approx mm per deltaC index (avg of 1.2-1.4)
+STONE_WINDOW_INDICES: int = int(STONE_SURFACE_MM / STEP_MM)  # ~30 indices
+
 # ---------------------------------------------------------------------------
 # bComp (Serration Grind Adjustment) constants
 # ---------------------------------------------------------------------------
 BCOMP_STEP: int = 50               # Adjustment increment per button press in controller counts
+
+
+def stone_window_for_index(
+    center: int,
+    array_size: int = DELTA_C_ARRAY_SIZE,
+    window: int = STONE_WINDOW_INDICES,
+) -> tuple[int, int]:
+    """Return (start, end) inclusive indices of stone contact for a knife position.
+
+    The window is centered on *center*. Near the heel (low indices) or tip
+    (high indices), the window shifts to stay within bounds.
+
+    Examples (defaults: array_size=100, window=30):
+        center=0  -> (0, 29)     heel: window pushed right
+        center=50 -> (35, 65)    mid-knife: centered
+        center=99 -> (70, 99)    tip: window pushed left
+    """
+    half = window // 2
+    start = center - half
+    end = start + window - 1
+
+    if start < 0:
+        end -= start
+        start = 0
+    if end > array_size - 1:
+        start -= (end - (array_size - 1))
+        end = array_size - 1
+    start = max(0, start)
+
+    return (start, end)
 
 
 class _BaseBarChart(Widget):
@@ -174,8 +211,8 @@ class DeltaCBarChart(_BaseBarChart):
     (highlighted in orange); the RunScreen up/down buttons adjust the selected
     bar's offset.
 
-    Segment labels are drawn below the bars: "MŨI" (tip) on the left edge,
-    "GÓT" (heel) on the right edge, and segment numbers centred under each bar.
+    Segment labels are drawn below the bars: "GÓT" (heel) on the left edge,
+    "MŨI" (tip) on the right edge, and segment numbers centred under each bar.
 
     Properties
     ----------
@@ -239,26 +276,49 @@ class DeltaCBarChart(_BaseBarChart):
                 bx = self.x + i * bar_w + (bar_w - tex.width) / 2.0
                 Rectangle(texture=tex, pos=(bx, self.y), size=tex.size)
 
-            # "MŨI" (tip) label — left edge
+            # "GÓT" (heel) label — left edge (grind start)
             Color(0.95, 0.75, 0.3, 1)
-            tip_lbl = CoreLabel(text='MŨI', font_size=10, bold=True)
-            tip_lbl.refresh()
-            tip_tex = tip_lbl.texture
-            Rectangle(
-                texture=tip_tex,
-                pos=(self.x + 2, self.y),
-                size=tip_tex.size,
-            )
-
-            # "GÓT" (heel) label — right edge
             heel_lbl = CoreLabel(text='GÓT', font_size=10, bold=True)
             heel_lbl.refresh()
             heel_tex = heel_lbl.texture
             Rectangle(
                 texture=heel_tex,
-                pos=(self.x + self.width - heel_tex.width - 2, self.y),
+                pos=(self.x + 2, self.y),
                 size=heel_tex.size,
             )
+
+            # "MŨI" (tip) label — right edge (grind end)
+            tip_lbl = CoreLabel(text='MŨI', font_size=10, bold=True)
+            tip_lbl.refresh()
+            tip_tex = tip_lbl.texture
+            Rectangle(
+                texture=tip_tex,
+                pos=(self.x + self.width - tip_tex.width - 2, self.y),
+                size=tip_tex.size,
+            )
+
+            # Stone window overlay — shows which indices are under the stone
+            sel = int(self.selected_index)
+            if sel >= 0 and n > 0:
+                chunk = DELTA_C_ARRAY_SIZE // n
+                seg_first = sel * chunk
+                seg_last = (seg_first + chunk - 1) if sel < n - 1 else (DELTA_C_ARRAY_SIZE - 1)
+                seg_center = (seg_first + seg_last) // 2
+
+                win_start, win_end = stone_window_for_index(seg_center)
+
+                px_per_idx = self.width / DELTA_C_ARRAY_SIZE
+                overlay_x = self.x + win_start * px_per_idx
+                overlay_w = (win_end - win_start + 1) * px_per_idx
+
+                # Semi-transparent yellow fill
+                Color(1.0, 1.0, 0.0, 0.10)
+                Rectangle(pos=(overlay_x, chart_bottom), size=(overlay_w, chart_h))
+
+                # Edge lines
+                Color(1.0, 1.0, 0.0, 0.35)
+                Rectangle(pos=(overlay_x, chart_bottom), size=(1, chart_h))
+                Rectangle(pos=(overlay_x + overlay_w - 1, chart_bottom), size=(1, chart_h))
 
     def on_touch_down(self, touch) -> bool:
         """Select bar — ignore touches in the label strip at the bottom."""
@@ -376,6 +436,9 @@ class RunScreen(Screen):
     # Disconnect banner (empty string = no banner visible)
     disconnect_banner = StringProperty("")
 
+    # MG message log — scrollable text on Run page for controller debug output
+    mg_log_text = StringProperty("")
+
     # -----------------------------------------------------------------------
     # Internal state
     # -----------------------------------------------------------------------
@@ -389,10 +452,15 @@ class RunScreen(Screen):
     _ax = None
     _plot_line = None
     _cycle_start_time: float | None = None
+    _last_cycle_duration: float | None = None  # total seconds of last completed grind
+    _elapsed_clock_event = None
     _cpm_a_raw: float = 1200.0  # counts per mm — updated by _read_cpm_values
     _cpm_b_raw: float = 1200.0
-    _toolpath_line = None        # matplotlib line artist for expected path
-    _toolpath_loaded: bool = False
+    ## Toolpath preview disabled — was causing jobs queue blocking
+    _mg_thread: threading.Thread | None = None
+    _mg_stop_event: threading.Event | None = None
+    _pos_clock_event = None  # lightweight position poll (replaces centralized poller on Run)
+    _pos_busy: bool = False  # guard: skip tick if previous read still in flight
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -424,17 +492,9 @@ class RunScreen(Screen):
             self._fig = Figure(figsize=(4, 3), facecolor=BG_PANEL_HEX)
             self._ax = self._fig.add_subplot(111)
             self._configure_plot_axes()
-            # Expected toolpath — dashed ghost line (drawn first, behind live trace)
-            self._toolpath_line, = self._ax.plot(
-                [], [], color=TOOLPATH_COLOR, linewidth=2.0, linestyle='--', label='DỰ KIẾN',
-            )
-            # Live A/B trace — solid cyan on top
+            # Live A/B trace
             self._plot_line, = self._ax.plot(
                 [], [], color=TRAIL_COLOR, linewidth=1.2, label='THỰC TẾ',
-            )
-            self._ax.legend(
-                fontsize=7, facecolor=BG_PANEL_HEX, labelcolor='white',
-                loc='upper right', framealpha=0.8,
             )
             plot_wgt.figure = self._fig
             # Disable all touch interaction — preserves E-STOP responsiveness
@@ -470,7 +530,10 @@ class RunScreen(Screen):
             # Apply current state immediately (shows values without waiting for next poll)
             self._apply_state(self.state)
 
-        # Start 5 Hz plot redraw (separate clock to protect E-STOP latency)
+        # Start 5 Hz position poll — runs all the time on Run page (only 2 commands)
+        self._start_pos_poll()
+
+        # Start 5 Hz plot redraw
         self._plot_clock_event = Clock.schedule_interval(self._tick_plot, 1.0 / PLOT_UPDATE_HZ)
 
         # Read startPtC from controller so the Stone Compensation label is populated on entry
@@ -479,8 +542,11 @@ class RunScreen(Screen):
         # Read CPM values from controller for axis position annotations
         self._read_cpm_values()
 
-        # Read deltaA/deltaB to draw expected toolpath (FIFO after CPM read)
-        self._read_toolpath()
+        # Read startPtA/B and draw stone arcs (2 fast commands, FIFO after CPM)
+        self._read_start_and_draw_stone()
+
+        # Start MG message reader (second gclib handle)
+        self._start_mg_reader()
 
     def on_leave(self, *args) -> None:
         """Called by Kivy when operator navigates away.
@@ -494,11 +560,15 @@ class RunScreen(Screen):
             self._disconnect_clock.cancel()
             self._disconnect_clock = None
             self._disconnect_t0 = None
+        self._stop_pos_poll()
+        if self._elapsed_clock_event:
+            self._elapsed_clock_event.cancel()
+            self._elapsed_clock_event = None
         if self._plot_clock_event:
             self._plot_clock_event.cancel()
             self._plot_clock_event = None
-        # Invalidate toolpath so it re-reads on next entry (picks up profile changes)
-        self._toolpath_loaded = False
+        # Stop MG message reader
+        self._stop_mg_reader()
 
         # Restart the centralized poller for other screens
         from kivy.app import App
@@ -527,17 +597,19 @@ class RunScreen(Screen):
 
         self.is_serration = serration
 
-        # Delta-C panel: visible on Flat/Convex, hidden on Serration
+        # Delta-C panel: visible on Flat/Convex, collapsed on Serration
         delta_c_panel = self.ids.get("delta_c_panel")
         if delta_c_panel is not None:
             delta_c_panel.opacity = 0.0 if serration else 1.0
             delta_c_panel.disabled = serration
+            delta_c_panel.height = 0 if serration else 185
 
-        # bComp panel: visible on Serration, hidden on Flat/Convex
+        # bComp panel: visible on Serration, collapsed on Flat/Convex
         bcomp_panel = self.ids.get("bcomp_panel")
         if bcomp_panel is not None:
             bcomp_panel.opacity = 1.0 if serration else 0.0
             bcomp_panel.disabled = not serration
+            bcomp_panel.height = 220 if serration else 0
 
         # D axis position row: hidden on Serration
         pos_d_row = self.ids.get("pos_d_row")
@@ -598,19 +670,7 @@ class RunScreen(Screen):
                     self._tick_disconnect_banner, 1.0
                 )
 
-        # Feed raw A/B to plot buffer while connected.
-        # Positions come from the #SHOWPOS controller thread (aPos/bPos/cPos/dPos)
-        # which updates every 50ms regardless of grinding state.
-        # Buffer is cleared on START GRIND so each cycle gets a fresh trail.
-        if s.connected:
-            raw_a = s.pos.get("A")
-            raw_b = s.pos.get("B")
-            if raw_a is not None and raw_b is not None:
-                try:
-                    self._plot_buf_x.append(float(raw_a))
-                    self._plot_buf_y.append(float(raw_b))
-                except (ValueError, TypeError):
-                    pass
+        # Note: plot buffer feeding moved to _tick_pos() which reads positions directly
 
     def _tick_disconnect_banner(self, dt: float) -> None:
         """1 Hz callback: update disconnect elapsed time banner."""
@@ -626,48 +686,157 @@ class RunScreen(Screen):
         self.pos_c = "---"
         self.pos_d = "---"
 
-    def _configure_plot_axes(self) -> None:
-        """Style the A/B position plot axes to match app dark theme.
+    # -----------------------------------------------------------------------
+    # Lightweight position poll — only runs during grind cycle
+    # -----------------------------------------------------------------------
 
-        Axes are labelled in mm (A = length, B = width).  Left edge = MŨI (tip),
-        right edge = GÓT (heel) to match the segment bar below.
+    def _start_pos_poll(self) -> None:
+        """Start 5 Hz position polling. Called on screen entry."""
+        if self._pos_clock_event is not None:
+            return
+        self._pos_clock_event = Clock.schedule_interval(self._tick_pos, 1.0 / PLOT_UPDATE_HZ)
+
+    def _stop_pos_poll(self) -> None:
+        """Stop position polling. Called when grind ends or on_leave."""
+        if self._pos_clock_event is not None:
+            self._pos_clock_event.cancel()
+            self._pos_clock_event = None
+        self._pos_busy = False
+
+    def _set_poll_rate(self, hz: float) -> None:
+        """Switch position poll rate (e.g., 5 Hz idle, 1 Hz during grind)."""
+        if self._pos_clock_event is not None:
+            self._pos_clock_event.cancel()
+        self._pos_clock_event = Clock.schedule_interval(self._tick_pos, 1.0 / hz)
+
+    def _tick_elapsed(self, dt: float) -> None:
+        """1 Hz clock: update elapsed time display only. ETA/progress driven by _tick_pos."""
+        if self._cycle_start_time is None:
+            return
+        elapsed = time.monotonic() - self._cycle_start_time
+        self.cycle_elapsed = _format_mmss(elapsed)
+
+    def _stop_elapsed(self) -> None:
+        """Stop the elapsed timer and record cycle duration."""
+        if self._elapsed_clock_event is not None:
+            self._elapsed_clock_event.cancel()
+            self._elapsed_clock_event = None
+        if self._cycle_start_time is not None:
+            self._last_cycle_duration = time.monotonic() - self._cycle_start_time
+            self.cycle_completion_pct = 100
+            self.cycle_eta = "00:00"
+            self._cycle_start_time = None
+
+    def _tick_pos(self, dt: float) -> None:
+        """5 Hz clock: read positions + state from controller in background.
+
+        Uses a busy guard to prevent job pileup — if the previous read is still
+        in the jobs queue or in-flight, this tick is skipped. This prevents the
+        FIFO queue from backing up and blocking operator commands.
+        """
+        if self._pos_busy:
+            return  # previous read still in flight — skip this tick
+        if not self.controller or not self.controller.is_connected():
+            return
+        ctrl = self.controller
+        self._pos_busy = True
+
+        def _do():
+            from ..utils.jobs import get_jobs
+            cancel = get_jobs().cancel_event
+
+            # Batch 1: all 4 positions in one command (1 round-trip)
+            try:
+                raw = ctrl.cmd("MG _TPA, _TPB, _TPC, _TPD").strip()
+                vals = [float(v) for v in raw.split()]
+                a, b, c, d = vals[0], vals[1], vals[2], vals[3]
+            except Exception:
+                self._pos_busy = False
+                return
+
+            # Bail early if urgent job is waiting (e.g., Start Grind)
+            if cancel.is_set():
+                self._pos_busy = False
+                return
+
+            # Batch 2: hmiState + knife counts (1 round-trip)
+            dmc_state = 0
+            ses_kni = 0
+            stn_kni = 0
+            try:
+                from ..hmi.dmc_vars import HMI_STATE_VAR, CT_SES_KNI, CT_STN_KNI
+                raw2 = ctrl.cmd(f"MG {HMI_STATE_VAR}, {CT_SES_KNI}, {CT_STN_KNI}").strip()
+                vals2 = [float(v) for v in raw2.split()]
+                dmc_state = int(vals2[0])
+                ses_kni = int(vals2[1])
+                stn_kni = int(vals2[2])
+            except Exception:
+                pass
+
+            def _apply(*_):
+                self._pos_busy = False  # ready for next tick
+                # Update positions on screen
+                self.pos_a = f"{int(a):,}"
+                self.pos_b = f"{int(b):,}"
+                self.pos_c = f"{int(c):,}"
+                self.pos_d = f"{int(d):,}"
+                # Feed plot buffer only during grind
+                if dmc_state == STATE_GRINDING:
+                    self._plot_buf_x.append(a)
+                    self._plot_buf_y.append(b)
+                # Update state-driven properties
+                self.session_knife_count = str(ses_kni)
+                self.stone_knife_count = str(stn_kni)
+                was_grinding = self.cycle_running
+                self.cycle_running = dmc_state == STATE_GRINDING
+                self.motion_active = dmc_state in (STATE_GRINDING, STATE_HOMING)
+                # Detect grind end: was grinding, now idle
+                if was_grinding and not self.cycle_running:
+                    self._stop_elapsed()
+                    self._set_poll_rate(PLOT_UPDATE_HZ)  # restore 5 Hz
+                    self._read_start_pt_c()  # refresh Stone Pos after auto wear
+            Clock.schedule_once(_apply)
+
+        jobs.submit(_do)
+
+    def _configure_plot_axes(self) -> None:
+        """Style the A/B position plot axes to match machine orientation.
+
+        X = A axis (mm): positive (heel ~257mm) on LEFT, 0 (tip) on RIGHT
+        Y = B axis (mm): negative on TOP, positive on BOTTOM
         """
         ax = self._ax
         self._fig.patch.set_facecolor(BG_PANEL_HEX)
         ax.set_facecolor(BG_PANEL_HEX)
-        ax.set_aspect("equal", adjustable="datalim")
+        ax.set_aspect("auto")
         ax.tick_params(colors=TICK_COLOR, labelsize=7, length=3, width=0.5)
         for spine in ax.spines.values():
             spine.set_edgecolor(TICK_COLOR)
             spine.set_linewidth(0.5)
         ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
         ax.yaxis.set_major_locator(MaxNLocator(nbins=4))
-        ax.set_xlabel("A  (mm)   MŨI →  GÓT", fontsize=8, color=TICK_COLOR)
+        ax.set_xlabel("A  (mm)   GÓT ←          → MŨI", fontsize=8, color=TICK_COLOR)
         ax.set_ylabel("B  (mm)", fontsize=8, color=TICK_COLOR)
+        ax.invert_xaxis()   # positive (heel) on left, 0 (tip) on right
+        ax.invert_yaxis()   # negative on top, positive on bottom
         ax.grid(False)
         self._fig.tight_layout(pad=0.5)
 
     def _tick_plot(self, dt: float) -> None:
-        """5 Hz Kivy clock: redraw the live A/B trace in mm. Main thread only.
-
-        Axis limits are fixed by the toolpath — no relim/autoscale needed.
-        """
+        """5 Hz Kivy clock: redraw the live A/B trace in mm. Main thread only."""
         if self._plot_line is None:
             return
         xs_raw = list(self._plot_buf_x)
         ys_raw = list(self._plot_buf_y)
         if len(xs_raw) < 2:
             return
-        # Convert counts → mm using CPM values
         cpm_a = self._cpm_a_raw
         cpm_b = self._cpm_b_raw
         xs = [v / cpm_a for v in xs_raw]
         ys = [v / cpm_b for v in ys_raw]
         self._plot_line.set_data(xs, ys)
-        # Fall back to autoscale only if toolpath hasn't set limits yet
-        if not self._toolpath_loaded:
-            self._ax.relim()
-            self._ax.autoscale_view()
+        self._ax.relim()
+        self._ax.autoscale_view()
         self._fig.canvas.draw_idle()
 
     # -----------------------------------------------------------------------
@@ -675,7 +844,7 @@ class RunScreen(Screen):
     # -----------------------------------------------------------------------
 
     def on_stop(self) -> None:
-        """Send ST ABCD via priority path (halts axes, DMC program thread stays alive)."""
+        """Send ST ABCD via submit_urgent — preempts polls, thread-safe."""
         if not self.controller or not self.controller.is_connected():
             return
         def do_stop():
@@ -683,8 +852,7 @@ class RunScreen(Screen):
                 self.controller.cmd("ST ABCD")
             except Exception as e:
                 Clock.schedule_once(lambda *_: self._alert(f"Stop failed: {e}"))
-        from ..utils.jobs import submit_urgent
-        submit_urgent(do_stop)
+        jobs.submit_urgent(do_stop)
 
     def on_start_grind(self) -> None:
         """Send hmiGrnd=0 via jobs.submit to start/continue grinding cycle.
@@ -695,11 +863,10 @@ class RunScreen(Screen):
         """
         if not self.controller or not self.controller.is_connected():
             return
-        # Guard: don't fire hmiGrnd if controller is in setup or already in motion
-        if self.state is not None:
-            from ..hmi.dmc_vars import STATE_SETUP, STATE_HOMING
-            if self.state.dmc_state in (STATE_SETUP, STATE_GRINDING, STATE_HOMING):
-                return
+        # Guard: don't fire hmiGrnd if already in motion or cycle running
+        # Uses self.motion_active (updated by _tick_pos) not self.state.dmc_state (stale)
+        if self.motion_active or self.cycle_running:
+            return
 
         # Clear live trace for fresh cycle view; toolpath ghost line stays
         self._plot_buf_x.clear()
@@ -709,13 +876,29 @@ class RunScreen(Screen):
             if self._fig and self._fig.canvas:
                 self._fig.canvas.draw_idle()
 
+        # Start elapsed timer
+        self._cycle_start_time = time.monotonic()
+        self.cycle_elapsed = "00:00"
+        if self._last_cycle_duration is not None:
+            self.cycle_eta = _format_mmss(self._last_cycle_duration)
+        else:
+            self.cycle_eta = "--:--"
+        self.cycle_completion_pct = 0
+        if self._elapsed_clock_event is None:
+            self._elapsed_clock_event = Clock.schedule_interval(self._tick_elapsed, 1.0)
+
+        # Send grind command via submit_urgent — preempts any queued polls,
+        # fires instantly. cancel_event causes in-flight _tick_pos to bail early.
         def _fire():
             try:
                 self.controller.cmd(f"{HMI_GRND}={HMI_TRIGGER_FIRE}")
             except Exception as e:
                 Clock.schedule_once(lambda *_: self._alert(f"Start failed: {e}"))
 
-        jobs.submit(_fire)
+        jobs.submit_urgent(_fire)
+
+        # Reduce poll rate during grind — free command channel for triggers
+        self._set_poll_rate(1.0)
 
     def on_more_stone(self) -> None:
         """Send hmiMore=0 then read startPtC after 400ms delay to update persistent label.
@@ -757,7 +940,8 @@ class RunScreen(Screen):
             except Exception as e:
                 print(f"[RunScreen] More stone — failed to read startPtC after: {e}")
 
-        jobs.submit(_fire)
+        from ..utils.jobs import submit_urgent
+        submit_urgent(_fire)
 
     def on_less_stone(self) -> None:
         """Send hmiLess=0 then read startPtC after 400ms delay to update persistent label.
@@ -799,7 +983,8 @@ class RunScreen(Screen):
             except Exception as e:
                 print(f"[RunScreen] Less stone — failed to read startPtC after: {e}")
 
-        jobs.submit(_fire)
+        from ..utils.jobs import submit_urgent
+        submit_urgent(_fire)
 
     # -----------------------------------------------------------------------
     # Delta-C (Knife Grind Adjustment) — Flat/Convex machines
@@ -867,20 +1052,34 @@ class RunScreen(Screen):
     def on_apply_delta_c(self) -> None:
         """Convert section offsets to a 100-element deltaC array and send to controller.
 
-        Only writes the writable index range [DELTA_C_WRITABLE_START, DELTA_C_WRITABLE_END].
-        Submits the download_array call on the background job thread.
+        Uses individual element assignments (like bComp) for reliable writes.
+        Submits on the background job thread.
         """
         if not self.controller or not self.controller.is_connected():
             return
         values = self._offsets_to_delta_c()
+        ctrl = self.controller
+
+        nonzero = sum(1 for v in values if v != 0.0)
+        print(f"[RunScreen] Apply deltaC: {len(values)} elements, {nonzero} nonzero")
 
         def _send():
             try:
-                self.controller.download_array(
-                    "deltaC",
-                    DELTA_C_WRITABLE_START,
-                    values,
-                )
+                # Write using chunked GCommand assignments (reliable)
+                line = ""
+                written = 0
+                for i, v in enumerate(values):
+                    cmd = f"deltaC[{DELTA_C_WRITABLE_START + i}]={v}"
+                    if len(line) + len(cmd) + 1 < 300:
+                        line = f"{line};{cmd}" if line else cmd
+                    else:
+                        ctrl.cmd(line)
+                        written += line.count("=")
+                        line = cmd
+                if line:
+                    ctrl.cmd(line)
+                    written += line.count("=")
+                print(f"[RunScreen] deltaC written: {written} elements")
             except Exception as e:
                 print(f"[RunScreen] Apply deltaC error: {e}")
                 Clock.schedule_once(lambda *_: self._alert(f"Apply failed: {e}"))
@@ -888,20 +1087,22 @@ class RunScreen(Screen):
         jobs.submit(_send)
 
     def _offsets_to_delta_c(self) -> list[float]:
-        """Expand per-section offsets into the full DELTA_C_ARRAY_SIZE-element array.
+        """Expand per-section offsets into the full deltaC array using windowed ramps.
 
-        Each section covers ``DELTA_C_ARRAY_SIZE // section_count`` indices.  The
-        last section absorbs any remainder so the output length is always
-        exactly DELTA_C_ARRAY_SIZE.
+        The stone grinding surface is ~40mm wide (~30 indices). A point change
+        is physically impossible — the stone blends over its contact width.
 
-        Only the first index of each segment receives the offset value and the
-        last index receives the negated offset (to return the grind to normal).
-        All other indices in the segment are zero.
+        Each segment's offset creates a triangular ramp across the stone window:
+          - Ramp UP:   constant +val/half from (center - half) to center
+          - Ramp DOWN: constant -val/half from center to (center + half)
+
+        The cumulative sum of the output = the actual C-axis profile.
+        Multiple segments' ramps add together where they overlap.
 
         Returns
         -------
         list[float]
-            Length DELTA_C_ARRAY_SIZE (== DELTA_C_WRITABLE_END - DELTA_C_WRITABLE_START + 1).
+            Length DELTA_C_ARRAY_SIZE.
         """
         n = max(1, int(self.section_count))
         size = DELTA_C_ARRAY_SIZE
@@ -911,12 +1112,32 @@ class RunScreen(Screen):
 
         result: list[float] = [0.0] * size
         chunk = size // n
+        half = STONE_WINDOW_INDICES // 2  # ~15
+
         for i in range(n):
+            val = offsets[i]
+            if val == 0.0:
+                continue
+
+            # Segment center in deltaC index space
             first = i * chunk
             last = (first + chunk - 1) if i < n - 1 else (size - 1)
-            val = offsets[i]
-            result[first] = val
-            result[last] = -val
+            center = (first + last) // 2
+
+            # Ramp boundaries (clamped to array)
+            ramp_start = max(0, center - half)
+            ramp_end = min(size - 1, center + half)
+
+            # Increment per step (using ideal half-width for consistent scaling)
+            inc = val / half if half > 0 else val
+
+            # Ramp up: constant positive increment
+            for j in range(ramp_start, center):
+                result[j] += inc
+
+            # Ramp down: constant negative increment
+            for j in range(center, ramp_end):
+                result[j] -= inc
 
         return result
 
@@ -1046,75 +1267,218 @@ class RunScreen(Screen):
 
         jobs.submit(_do)
 
-    def _read_toolpath(self) -> None:
-        """Background: read deltaA/deltaB arrays and startPtA/B from controller.
+    def _read_start_and_draw_stone(self) -> None:
+        """Read startPtA/B (2 fast commands) and draw stone arcs on the plot.
 
-        Reconstructs the expected toolpath by cumulative-summing the deltas
-        from the start positions, converts to mm, and draws on the plot.
+        No array reads — just 2 scalar MG commands that won't block the queue.
         """
-        if self._toolpath_loaded:
-            return
         if not self.controller or not self.controller.is_connected():
             return
         ctrl = self.controller
 
         def _do():
             try:
-                # Read start positions (counts)
+                from ..hmi.dmc_vars import STARTPT_A, STARTPT_B
                 start_a = float(ctrl.cmd(f"MG {STARTPT_A}").strip())
                 start_b = float(ctrl.cmd(f"MG {STARTPT_B}").strip())
+                start_a_mm = start_a / self._cpm_a_raw
+                start_b_mm = start_b / self._cpm_b_raw
+                print(f"[RunScreen] Stone: startPt=({start_a_mm:.1f}, {start_b_mm:.1f})mm")
 
-                # Read delta arrays
+                # Read delta arrays for knife contour
                 delta_a = ctrl.upload_array_auto("deltaA")
                 delta_b = ctrl.upload_array_auto("deltaB")
+                print(f"[RunScreen] Contour: deltaA[{len(delta_a)}], deltaB[{len(delta_b)}]")
 
-                if not delta_a or not delta_b:
-                    return
-
-                # Cumulative sum from start position → absolute positions (counts)
-                n = min(len(delta_a), len(delta_b))
-                abs_a = [0.0] * n
-                abs_b = [0.0] * n
-                acc_a = start_a
-                acc_b = start_b
-                for i in range(n):
-                    acc_a += delta_a[i]
-                    acc_b += delta_b[i]
-                    abs_a[i] = acc_a
-                    abs_b[i] = acc_b
-
-                # Convert counts → mm
-                cpm_a = self._cpm_a_raw
-                cpm_b = self._cpm_b_raw
-                mm_a = [v / cpm_a for v in abs_a]
-                mm_b = [v / cpm_b for v in abs_b]
+                # Build contour path: cumsum from startPt
+                contour_a_mm = None
+                contour_b_mm = None
+                if delta_a and delta_b:
+                    n = min(len(delta_a), len(delta_b))
+                    cpm_a = self._cpm_a_raw
+                    cpm_b = self._cpm_b_raw
+                    acc_a, acc_b = start_a, start_b
+                    ca = [acc_a / cpm_a]
+                    cb = [acc_b / cpm_b]
+                    for i in range(n):
+                        acc_a += delta_a[i]
+                        acc_b += delta_b[i]
+                        ca.append(acc_a / cpm_a)
+                        cb.append(acc_b / cpm_b)
+                    contour_a_mm = ca
+                    contour_b_mm = cb
+                    print(f"[RunScreen] Contour: A={ca[0]:.1f}->{ca[-1]:.1f}, "
+                          f"B={cb[0]:.1f}->{cb[-1]:.1f}")
 
                 def _apply(*_):
-                    self._toolpath_loaded = True
-                    self._draw_toolpath(mm_a, mm_b)
+                    self._draw_stone(start_a_mm, start_b_mm, contour_a_mm, contour_b_mm)
                 Clock.schedule_once(_apply)
-
             except Exception as e:
-                print(f"[RunScreen] Read toolpath error: {e}")
+                print(f"[RunScreen] Read startPt/contour error: {e}")
 
+        # Route through jobs queue — thread-safe, runs on worker thread
         jobs.submit(_do)
 
-    def _draw_toolpath(self, mm_a: list[float], mm_b: list[float]) -> None:
-        """Draw the expected toolpath on the plot and lock axis limits."""
-        if self._toolpath_line is None or self._ax is None:
+    def _draw_stone(self, start_a_mm: float, start_b_mm: float,
+                    contour_a: list[float] | None = None,
+                    contour_b: list[float] | None = None) -> None:
+        """Draw stone arcs, startPt marker, and knife contour on the plot.
+
+        Stone arcs and startPt are always drawn.
+        Knife contour drawn if contour_a/contour_b are provided (from controller deltas).
+        """
+        if self._ax is None:
             return
 
-        self._toolpath_line.set_data(mm_a, mm_b)
+        import numpy as np
+        ax = self._ax
 
-        # Set axis limits from toolpath extents with padding
-        if mm_a and mm_b:
-            pad_a = max(1.0, (max(mm_a) - min(mm_a)) * 0.05)
-            pad_b = max(1.0, (max(mm_b) - min(mm_b)) * 0.05)
-            self._ax.set_xlim(min(mm_a) - pad_a, max(mm_a) + pad_a)
-            self._ax.set_ylim(min(mm_b) - pad_b, max(mm_b) + pad_b)
+        # Clean up old elements
+        for line in list(ax.lines):
+            if getattr(line, '_stone_arc', False) or \
+               getattr(line, '_startpt_marker', False) or \
+               getattr(line, '_contour_line', False):
+                line.remove()
+        for txt in list(ax.texts):
+            if getattr(txt, '_startpt_label', False):
+                txt.remove()
 
+        # --- Knife contour (from controller delta arrays) ---
+        if contour_a and contour_b:
+            cline, = ax.plot(contour_a, contour_b, color='#556677',
+                            linewidth=1.5, linestyle='--', label='DỰ KIẾN')
+            cline._contour_line = True
+
+        # --- Stone arcs ---
+        outer_r = 347.0 / 2.0
+        inner_r = 267.0 / 2.0
+        center_a = start_a_mm - outer_r
+        center_b = start_b_mm
+
+        # Show only the grinding face (~120°) facing the knife
+        theta = np.linspace(-np.pi / 3, np.pi / 3, 80)
+        for radius, color, style, label in [
+            (outer_r, '#776622', '--', '347mm'),
+            (inner_r, '#775533', ':', '267mm'),
+        ]:
+            arc_a = center_a + radius * np.cos(theta)
+            arc_b = center_b + radius * np.sin(theta)
+            line, = ax.plot(arc_a, arc_b, color=color, linewidth=1.2,
+                           linestyle=style, label=label)
+            line._stone_arc = True
+
+        # --- StartPt marker (heel) ---
+        marker, = ax.plot(start_a_mm, start_b_mm, 'o', color='#ff4444',
+                         markersize=6, zorder=10)
+        marker._startpt_marker = True
+
+        txt = ax.annotate(
+            f'GÓT (Heel)\nA={start_a_mm:.0f}  B={start_b_mm:.0f}',
+            xy=(start_a_mm, start_b_mm),
+            xytext=(start_a_mm - 30, start_b_mm + 40),
+            fontsize=7, color='#ff6666',
+            arrowprops=dict(arrowstyle='->', color='#ff4444', lw=0.8),
+        )
+        txt._startpt_label = True
+
+        self._fig.tight_layout(pad=0.5)
         if self._fig and self._fig.canvas:
             self._fig.canvas.draw_idle()
+
+    # -----------------------------------------------------------------------
+    # MG Message Reader — second gclib handle for unsolicited messages
+    #
+    # Uses --subscribe MG which configures the UDP unsolicited handle.
+    # HMI is the sole communicator — no GDK conflict.
+    # GMessage() takes NO arguments — timeout set via GTimeout().
+    # -----------------------------------------------------------------------
+
+    def _start_mg_reader(self) -> None:
+        """Open a second gclib handle subscribed to MG on a background thread."""
+        if self._mg_thread is not None:
+            return
+        if not self.controller or not self.controller.is_connected():
+            return
+
+        addr = getattr(self.controller, '_address', '')
+        if not addr:
+            return
+
+        self._mg_stop_event = threading.Event()
+        self._mg_thread = threading.Thread(
+            target=self._mg_reader_loop,
+            args=(addr, self._mg_stop_event),
+            daemon=True,
+        )
+        self._mg_thread.start()
+
+    def _stop_mg_reader(self) -> None:
+        """Signal the MG reader thread to stop and wait for it."""
+        if self._mg_stop_event is not None:
+            self._mg_stop_event.set()
+        if self._mg_thread is not None:
+            self._mg_thread.join(timeout=2.0)
+            self._mg_thread = None
+        self._mg_stop_event = None
+
+    def _mg_reader_loop(self, address: str, stop_event: threading.Event) -> None:
+        """Background thread: subscribe to MG via UDP and drain unsolicited messages.
+
+        GMessage() takes NO arguments — timeout controlled by GTimeout().
+        """
+        try:
+            import gclib  # type: ignore
+        except ImportError:
+            print("[RunScreen] MG reader: gclib not available")
+            return
+
+        handle = None
+        try:
+            handle = gclib.py()
+            handle.GOpen(f"{address} --subscribe MG")
+            handle.GTimeout(500)  # 500ms so loop checks stop_event regularly
+            print(f"[RunScreen] MG reader connected: {address} --subscribe MG")
+        except Exception as e:
+            print(f"[RunScreen] MG reader open failed: {e}")
+            if handle:
+                try:
+                    handle.GClose()
+                except Exception:
+                    pass
+            return
+
+        try:
+            while not stop_event.is_set():
+                try:
+                    msg = handle.GMessage()  # blocks up to 500ms (GTimeout)
+                    if msg:
+                        for line in msg.strip().split('\n'):
+                            line = line.strip()
+                            if line:
+                                Clock.schedule_once(
+                                    lambda *_, t=line: self._append_mg_log(t)
+                                )
+                except Exception:
+                    # Timeout or read error — just retry
+                    pass
+        finally:
+            try:
+                handle.GClose()
+            except Exception:
+                pass
+            print("[RunScreen] MG reader closed")
+
+    def _append_mg_log(self, text: str) -> None:
+        """Main thread: append MG message to the log (cap at 200 lines)."""
+        lines = self.mg_log_text.split('\n') if self.mg_log_text else []
+        lines.append(text)
+        if len(lines) > 200:
+            lines = lines[-200:]
+        self.mg_log_text = '\n'.join(lines)
+        # Auto-scroll the log
+        log_view = self.ids.get("mg_log_scroll")
+        if log_view:
+            Clock.schedule_once(lambda *_: setattr(log_view, 'scroll_y', 0))
 
     def on_apply_bcomp(self) -> None:
         """Write bComp offsets to controller bComp array and burn NV.

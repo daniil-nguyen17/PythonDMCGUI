@@ -120,8 +120,9 @@ class TabBar(BoxLayout):
         motion_active = dmc_state in (STATE_GRINDING, STATE_HOMING)
 
         # Gate dict: tab_name -> should_disable
+        # Run tab is NEVER gated — operator must always be able to return to Run.
+        # Axes Setup / Parameters are gated during active motion (grinding/homing).
         gates = {
-            "run": dmc_state == STATE_SETUP,
             "axes_setup": motion_active,
             "parameters": motion_active,
         }

@@ -120,8 +120,11 @@ class AxesSetupScreen(Screen):
     controller: GalilController = ObjectProperty(None, allownone=True)  # type: ignore
     state: MachineState = ObjectProperty(None, allownone=True)          # type: ignore
 
-    # Current mode: "rest" or "start"
-    _mode = StringProperty("rest")
+    # Current mode: "" (no selection), "rest", or "start"
+    _mode = StringProperty("")
+
+    # Command response log for setup operations
+    cmd_log_text = StringProperty("")
 
     # Current jog step size in mm (or degrees for D axis)
     _current_step_mm = NumericProperty(10.0)
@@ -167,12 +170,23 @@ class AxesSetupScreen(Screen):
         # Clear CPM so stale values from a previous visit can't be used
         self._axis_cpm = {}
         self._cpm_ready = False
+        self.cmd_log_text = ""
 
         # Show/hide axis rows for current machine type
         self._rebuild_axis_rows()
 
+        # Reset mode to unselected — operator must pick rest or start
+        self._mode = ""
+        rest_btn = self.ids.get("mode_rest_btn")
+        start_btn = self.ids.get("mode_start_btn")
+        if rest_btn:
+            rest_btn.state = "normal"
+        if start_btn:
+            start_btn.state = "normal"
+
         # Update saved-value column labels for current mode
         self._update_saved_labels()
+        self._update_save_button()
 
         # Guard: do NOT send hmiSetp while controller is in motion
         if (self.state is not None
@@ -203,10 +217,8 @@ class AxesSetupScreen(Screen):
             next_screen = self.manager.current
         if next_screen not in _SETUP_SCREENS:
             if self.controller and self.controller.is_connected():
-                try:
-                    self.controller.cmd(f"{HMI_EXIT_SETUP}={HMI_TRIGGER_FIRE}")
-                except Exception:
-                    pass
+                ctrl = self.controller
+                jobs.submit(lambda: ctrl.cmd(f"{HMI_EXIT_SETUP}={HMI_TRIGGER_FIRE}"))
 
     # ── Axis row visibility ──────────────────────────────────────────────────
 
@@ -236,6 +248,19 @@ class AxesSetupScreen(Screen):
             row.size_hint_y = None if visible else 0
             row.height = "80dp" if visible else 0
 
+    # ── Command log ────────────────────────────────────────────────────────
+
+    def _log_cmd(self, text: str) -> None:
+        """Append a line to the command response log (main thread). Cap at 50 lines."""
+        lines = self.cmd_log_text.split('\n') if self.cmd_log_text else []
+        lines.append(text)
+        if len(lines) > 50:
+            lines = lines[-50:]
+        self.cmd_log_text = '\n'.join(lines)
+        scroll = self.ids.get("setup_log_scroll")
+        if scroll:
+            Clock.schedule_once(lambda *_: setattr(scroll, 'scroll_y', 0))
+
     # ── Mode toggle ──────────────────────────────────────────────────────────
 
     def set_mode(self, mode: str) -> None:
@@ -259,8 +284,15 @@ class AxesSetupScreen(Screen):
     def _update_saved_labels(self) -> None:
         """Update the 'Saved Rest' / 'Saved Start' labels and values in each
         axis row to match the current mode."""
-        label_text = "Saved Rest" if self._mode == "rest" else "Saved Start"
-        source = self.pos_rest if self._mode == "rest" else self.pos_start
+        if self._mode == "rest":
+            label_text = "Saved Rest"
+            source = self.pos_rest
+        elif self._mode == "start":
+            label_text = "Saved Start"
+            source = self.pos_start
+        else:
+            label_text = "---"
+            source = {"A": "---", "B": "---", "C": "---", "D": "---"}
 
         for axis in ("A", "B", "C", "D"):
             lbl = self.ids.get(f"saved_label_{axis.lower()}")
@@ -278,9 +310,15 @@ class AxesSetupScreen(Screen):
         if self._mode == "rest":
             btn.text = "LƯU ĐIỂM NGHỈ"
             btn.background_color = (0.031, 0.314, 0.471, 1)
-        else:
+            btn.disabled = False
+        elif self._mode == "start":
             btn.text = "LƯU ĐIỂM BẮT ĐẦU"
             btn.background_color = (0.031, 0.471, 0.188, 1)
+            btn.disabled = False
+        else:
+            btn.text = "CHỌN CHẾ ĐỘ"
+            btn.background_color = (0.15, 0.15, 0.15, 0.6)
+            btn.disabled = True
 
     # ── Step size ─────────────────────────────────────────────────────────────
 
@@ -362,10 +400,15 @@ class AxesSetupScreen(Screen):
                         break
                 # Final position read after motion stopped
                 raw = ctrl.cmd(f"MG _TD{axis}").strip()
-                print(f"[AxesSetup] Jog {axis} final: MG _TD{axis} -> {raw}")
-                _push_pos(f"{float(raw):.1f}")
+                final_val = f"{float(raw):.1f}"
+                _push_pos(final_val)
+                Clock.schedule_once(
+                    lambda *_, a=axis, c=counts, v=final_val: self._log_cmd(
+                        f"JOG {a}: {c:+d} cts -> {v}"
+                    )
+                )
             except Exception as e:
-                print(f"[AxesSetup] Jog {axis} failed: {e}")
+                Clock.schedule_once(lambda *_, err=e: self._log_cmd(f"JOG ERROR: {err}"))
 
         jobs.submit(do_jog)
 
@@ -375,7 +418,7 @@ class AxesSetupScreen(Screen):
         """Delegate to teach_rest_point or teach_start_point based on mode."""
         if self._mode == "rest":
             self.teach_rest_point()
-        else:
+        elif self._mode == "start":
             self.teach_start_point()
 
     # ── Teach ─────────────────────────────────────────────────────────────────
@@ -433,17 +476,21 @@ class AxesSetupScreen(Screen):
                     except Exception:
                         pass
 
+                # Build log message
+                log_parts = [f"restPt{a}={vals[a]}" for a in axis_list]
+                log_msg = "REST SET: " + ", ".join(log_parts)
+
                 def update_ui(*_):
                     self.pos_rest.update(readback)
                     self.pos_current.update(current)
                     self._update_position_labels()
-                    # Refresh saved-value column if in rest mode
                     if self._mode == "rest":
                         self._update_saved_labels()
+                    self._log_cmd(log_msg)
 
                 Clock.schedule_once(update_ui)
             except Exception as e:
-                print(f"[AxesSetup] teach_rest_point failed: {e}")
+                Clock.schedule_once(lambda *_, err=e: self._log_cmd(f"REST ERROR: {err}"))
 
         jobs.submit(do_teach)
 
@@ -499,17 +546,20 @@ class AxesSetupScreen(Screen):
                     except Exception:
                         pass
 
+                log_parts = [f"startPt{a}={vals[a]}" for a in axis_list]
+                log_msg = "START SET: " + ", ".join(log_parts)
+
                 def update_ui(*_):
                     self.pos_start.update(readback)
                     self.pos_current.update(current)
                     self._update_position_labels()
-                    # Refresh saved-value column if in start mode
                     if self._mode == "start":
                         self._update_saved_labels()
+                    self._log_cmd(log_msg)
 
                 Clock.schedule_once(update_ui)
             except Exception as e:
-                print(f"[AxesSetup] teach_start_point failed: {e}")
+                Clock.schedule_once(lambda *_, err=e: self._log_cmd(f"START ERROR: {err}"))
 
         jobs.submit(do_teach)
 

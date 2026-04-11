@@ -420,10 +420,8 @@ class ParametersScreen(Screen):
             )
             if self.controller is not None and self.controller.is_connected():
                 if not already_in_setup:
-                    try:
-                        self.controller.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}")
-                    except Exception:
-                        pass
+                    ctrl = self.controller
+                    submit(lambda: ctrl.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}"))
 
         # Subscribe to state changes for live apply button gating
         if self.state is not None:
@@ -450,10 +448,8 @@ class ParametersScreen(Screen):
             next_screen = self.manager.current
         if next_screen not in _SETUP_SCREENS:
             if self.controller is not None and self.controller.is_connected():
-                try:
-                    self.controller.cmd(f"{HMI_EXIT_SETUP}={HMI_TRIGGER_FIRE}")
-                except Exception:
-                    pass
+                ctrl = self.controller
+                submit(lambda: ctrl.cmd(f"{HMI_EXIT_SETUP}={HMI_TRIGGER_FIRE}"))
 
     def on_kv_post(self, base_widget):
         """Build parameter cards after KV post (initial load only)."""

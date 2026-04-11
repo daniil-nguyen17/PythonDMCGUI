@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import os
 os.environ["KIVY_DPI_AWARE"] = "1"
 os.environ["KIVY_METRICS_DENSITY"] = "1"
@@ -67,12 +68,39 @@ KV_FILES = [
     "ui/status_bar.kv",    # StatusBar widget
     "ui/tab_bar.kv",       # TabBar widget
     "ui/setup.kv",         # SetupScreen (connection)
-    # Flat Grind KV loaded by screens.flat_grind.__init__
+    # Machine-specific KV loaded by _add_machine_screens() before this loop
     "ui/profiles.kv",      # ProfilesScreen (CSV import/export)
     "ui/diagnostics.kv",   # DiagnosticsScreen placeholder
     "ui/users.kv",         # UsersScreen (Admin)
     "ui/base.kv",          # RootLayout - always last
 ]
+
+# machType DMC variable value -> machine type string
+# TODO: Verify mapping against DMC controller program on hardware
+_MACH_TYPE_MAP = {
+    1: "4-Axes Flat Grind",
+    2: "3-Axes Serration Grind",
+    3: "4-Axes Convex Grind",
+}
+
+
+def _resolve_dotted_path(dotted: str):
+    """Resolve a dotted import path string to the named attribute.
+
+    Args:
+        dotted: A fully-qualified dotted path, e.g.
+            "dmccodegui.screens.flat_grind.FlatGrindRunScreen".
+
+    Returns:
+        The resolved object (class, function, etc.).
+
+    Raises:
+        ImportError: If the module portion cannot be imported.
+        AttributeError: If the attribute does not exist on the module.
+    """
+    module_path, attr_name = dotted.rsplit(".", 1)
+    module = importlib.import_module(module_path)
+    return getattr(module, attr_name)
 
 
 class DMCApp(App):
@@ -104,18 +132,27 @@ class DMCApp(App):
         from kivy.resources import resource_add_path
         resource_add_path(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'images'))
 
-        # Load Flat Grind KV files before the general KV_FILES loop.
-        # This must happen before Factory.RootLayout() instantiates screens.
-        from .screens.flat_grind import load_kv as _load_flat_grind_kv
-        _load_flat_grind_kv()
+        # Step 1: Load machine-specific KV files (before base.kv instantiates RootLayout).
+        # Resolved from _REGISTRY so no hard-coded machine type references live here.
+        if mc.is_configured():
+            try:
+                entry = mc._REGISTRY[mc.get_active_type()]
+                _load_kv_fn = _resolve_dotted_path(entry["load_kv"])
+                _load_kv_fn()
+            except Exception as exc:
+                import logging
+                logging.getLogger(__name__).error("Failed to load machine KV: %s", exc)
 
         for kv in KV_FILES:
             Builder.load_file(os.path.join(os.path.dirname(__file__), kv))
 
         root = Factory.RootLayout()
 
-        # Inject controller/state into screens
+        # Step 2: Add machine screens programmatically into the ScreenManager.
         sm = root.ids.sm
+        self._add_machine_screens(sm)
+
+        # Inject controller/state into ALL screens (KV-declared + programmatic)
         for screen in sm.screens:
             if hasattr(screen, 'controller') and hasattr(screen, 'state'):
                 screen.controller = self.controller
@@ -299,6 +336,25 @@ class DMCApp(App):
             self.state.machine_type = mtype
             self.state.notify()
             picker.dismiss()
+            # First-launch: load machine screens inline so they are available
+            # immediately without a restart. Only needed when no 'run' screen
+            # exists yet (i.e. first configuration of the machine type).
+            try:
+                sm = self.root.ids.sm
+                has_run = any(getattr(s, "name", "") == "run" for s in sm.screens)
+                if not has_run:
+                    # Load machine KV before instantiating screens
+                    entry = mc._REGISTRY[mtype]
+                    _load_kv_fn = _resolve_dotted_path(entry["load_kv"])
+                    _load_kv_fn()
+                    self._add_machine_screens(sm)
+                    # Inject controller/state into newly added screens
+                    for screen in sm.screens:
+                        if hasattr(screen, "controller") and hasattr(screen, "state"):
+                            screen.controller = self.controller
+                            screen.state = self.state
+            except Exception:
+                pass
             if callable(on_selected):
                 on_selected(mtype)
 
@@ -320,6 +376,73 @@ class DMCApp(App):
 
         picker.add_widget(layout)
         picker.open()
+
+    # ------------------------------------------------------------------
+    # Registry-driven machine screen loader
+    # ------------------------------------------------------------------
+
+    def _add_machine_screens(self, sm) -> None:
+        """Instantiate machine-type screens from the registry and add to ScreenManager.
+
+        Reads mc._REGISTRY[active_type]["screen_classes"], resolves each dotted
+        class path via importlib, instantiates with the canonical screen name, injects
+        controller and state, then calls sm.add_widget().
+
+        Does nothing if mc.get_active_type() returns "" (app not yet configured).
+
+        On any resolution or instantiation failure, shows an error popup and stops
+        the app rather than leaving it in a half-initialised state.
+
+        Args:
+            sm: A Kivy ScreenManager (or compatible add_widget container).
+        """
+        import logging
+        _log = logging.getLogger(__name__)
+
+        mtype = mc.get_active_type()
+        if not mtype:
+            _log.debug("_add_machine_screens: no active machine type — skipping")
+            return
+
+        try:
+            entry = mc._REGISTRY[mtype]
+            for canonical_name, class_path in entry["screen_classes"].items():
+                cls = _resolve_dotted_path(class_path)
+                screen = cls(name=canonical_name)
+                if hasattr(screen, "controller"):
+                    screen.controller = self.controller
+                if hasattr(screen, "state"):
+                    screen.state = self.state
+                sm.add_widget(screen)
+                _log.info("_add_machine_screens: added %r (%s)", canonical_name, class_path)
+        except Exception as exc:
+            _log.error("_add_machine_screens failed: %s", exc)
+            self._show_loader_error(str(exc))
+
+    def _show_loader_error(self, message: str) -> None:
+        """Show a blocking error popup then stop the app."""
+        from kivy.uix.modalview import ModalView
+        from kivy.uix.boxlayout import BoxLayout
+        from kivy.uix.label import Label
+        from kivy.uix.button import Button
+
+        modal = ModalView(auto_dismiss=False, size_hint=(0.6, 0.4))
+        layout = BoxLayout(orientation="vertical", padding="20dp", spacing="16dp")
+        layout.add_widget(Label(
+            text=f"Failed to load machine screens:\n{message}",
+            font_size="18sp",
+            halign="center",
+        ))
+        btn = Button(
+            text="Exit",
+            size_hint_y=None,
+            height="56dp",
+            background_color=(0.6, 0.1, 0.1, 1),
+        )
+        btn.bind(on_release=lambda *_: self.stop())
+        layout.add_widget(btn)
+        modal.add_widget(layout)
+        modal.open()
 
     # ------------------------------------------------------------------
     # PIN overlay management
@@ -379,6 +502,152 @@ class DMCApp(App):
         self._start_poller()
         self._preload_params()
         Clock.schedule_once(lambda *_: self._show_startup_flow(), 0)
+        # Delay machType check to give poller time to establish connection
+        Clock.schedule_once(lambda *_: self._check_machine_type_mismatch(), 1.0)
+
+    def _check_machine_type_mismatch(self) -> None:
+        """Query machType from controller and compare against the configured type.
+
+        Runs in a background job. On any query failure or unknown value, returns
+        silently (graceful degradation — per Phase 20 locked decision).
+
+        If the controller reports a different machine type than the current config,
+        schedules _show_mismatch_popup on the UI thread.
+        """
+        def _do():
+            try:
+                raw = self.controller.cmd("MG machType").strip()
+                mach_int = int(float(raw))
+                ctrl_type = _MACH_TYPE_MAP.get(mach_int)
+                if ctrl_type is None:
+                    # Unknown machType value — graceful degradation
+                    return
+                config_type = mc.get_active_type()
+                if not config_type:
+                    return
+                if ctrl_type != config_type:
+                    Clock.schedule_once(
+                        lambda *_: self._show_mismatch_popup(ctrl_type, config_type)
+                    )
+            except Exception:
+                # Query failure — silently ignore per locked decision
+                return
+
+        jobs.submit(_do)
+
+    def _show_mismatch_popup(self, ctrl_type: str, config_type: str) -> None:
+        """Show a popup when controller machType mismatches the configured type.
+
+        Offers machine type selection buttons to switch and restart. Also provides
+        a 'Keep Current' button to dismiss the popup without action.
+
+        Args:
+            ctrl_type: Machine type string reported by the controller.
+            config_type: Machine type string from local settings.json.
+        """
+        from kivy.uix.modalview import ModalView
+        from kivy.uix.boxlayout import BoxLayout
+        from kivy.uix.label import Label
+        from kivy.uix.button import Button
+
+        popup = ModalView(auto_dismiss=False, size_hint=(0.6, 0.7))
+        layout = BoxLayout(orientation="vertical", padding="20dp", spacing="14dp")
+
+        # Header
+        header = Label(
+            text="Machine Type Mismatch",
+            font_size="22sp",
+            bold=True,
+            color=(1, 0.85, 0, 1),
+            size_hint_y=None,
+            height="44dp",
+            halign="center",
+            valign="middle",
+        )
+        header.bind(size=header.setter("text_size"))
+        layout.add_widget(header)
+
+        # Description
+        desc = Label(
+            text=(
+                f"Controller reports:\n[b]{ctrl_type}[/b]\n\n"
+                f"App configured for:\n[b]{config_type}[/b]\n\n"
+                "Select the correct machine type:"
+            ),
+            markup=True,
+            font_size="18sp",
+            halign="center",
+            valign="top",
+        )
+        desc.bind(size=desc.setter("text_size"))
+        layout.add_widget(desc)
+
+        def _on_type_selected(selected: str) -> None:
+            if selected != mc.get_active_type():
+                mc.set_active_type(selected)
+            popup.dismiss()
+            # Show restart notice
+            restart_modal = ModalView(auto_dismiss=False, size_hint=(0.45, 0.3))
+            restart_layout = BoxLayout(orientation="vertical", padding="20dp", spacing="12dp")
+            restart_layout.add_widget(Label(
+                text="Machine type changed.\nPlease restart the application.",
+                font_size="18sp",
+                halign="center",
+            ))
+            exit_btn = Button(
+                text="Exit Now",
+                size_hint_y=None,
+                height="56dp",
+                background_color=(0.1, 0.4, 0.2, 1),
+            )
+
+            def _do_exit(*_):
+                restart_modal.dismiss()
+                try:
+                    sm = self.root.ids.sm
+                    for screen in list(sm.screens):
+                        if hasattr(screen, "cleanup"):
+                            screen.cleanup()
+                except Exception:
+                    pass
+                self.stop()
+
+            exit_btn.bind(on_release=_do_exit)
+            restart_layout.add_widget(exit_btn)
+            restart_modal.add_widget(restart_layout)
+            restart_modal.open()
+
+        # One button per machine type
+        for mtype in mc.MACHINE_TYPES:
+            btn = Button(
+                text=mtype,
+                font_size="18sp",
+                size_hint_y=None,
+                height="56dp",
+                background_normal="",
+                background_down="",
+                background_color=(0.1, 0.25, 0.5, 1),
+                color=(1, 1, 1, 1),
+            )
+            btn.bind(on_release=lambda inst, t=mtype: _on_type_selected(t))
+            layout.add_widget(btn)
+
+        # Keep Current dismiss button
+        keep_btn = Button(
+            text="Keep Current",
+            font_size="18sp",
+            size_hint_y=None,
+            height="56dp",
+            background_normal="",
+            background_down="",
+            background_color=(0.25, 0.25, 0.25, 1),
+            color=(1, 1, 1, 1),
+        )
+        keep_btn.bind(on_release=lambda *_: popup.dismiss())
+        layout.add_widget(keep_btn)
+
+        popup.add_widget(layout)
+        popup.open()
 
     def _preload_params(self) -> None:
         """Bulk-read common controller parameters into state.cached_params.
@@ -531,16 +800,14 @@ class DMCApp(App):
         if self._idle_event:
             self._idle_event.cancel()
 
-        # Stop Run screen background threads (MG reader + position poll)
-        # before shutting down jobs — prevents commands in flight during GClose
+        # Delegate teardown to each screen's cleanup() method.
+        # This replaces ad-hoc _stop_pos_poll / _stop_mg_reader calls — each
+        # screen knows how to tear itself down cleanly.
         try:
             sm = self.root.ids.sm
-            run_screen = next(
-                (s for s in sm.screens if getattr(s, 'name', '') == 'run'), None
-            )
-            if run_screen:
-                run_screen._stop_pos_poll()
-                run_screen._stop_mg_reader()
+            for screen in list(sm.screens):
+                if hasattr(screen, 'cleanup'):
+                    screen.cleanup()
         except Exception:
             pass
 

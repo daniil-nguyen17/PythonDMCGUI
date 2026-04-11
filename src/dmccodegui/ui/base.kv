@@ -43,12 +43,8 @@
         transition: NoTransition()
         SetupScreen:
             name: 'setup'
-        FlatGrindRunScreen:
-            name: 'run'
-        FlatGrindAxesSetupScreen:
-            name: 'axes_setup'
-        FlatGrindParametersScreen:
-            name: 'parameters'
+        # Machine-specific screens (run, axes_setup, parameters) are added
+        # programmatically by DMCApp._add_machine_screens() from the registry.
         ProfilesScreen:
             name: 'profiles'
         DiagnosticsScreen:

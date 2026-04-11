@@ -274,7 +274,7 @@ def test_on_state_change_dispatches_to_subclass():
 
 def test_run_screen_inherits_base():
     """18-02: RunScreen is a subclass of BaseRunScreen."""
-    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen as RunScreen
     from dmccodegui.screens.base import BaseRunScreen
 
     assert issubclass(RunScreen, BaseRunScreen), \
@@ -283,7 +283,7 @@ def test_run_screen_inherits_base():
 
 def test_axes_setup_inherits_base():
     """18-02: AxesSetupScreen is a subclass of BaseAxesSetupScreen."""
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen as AxesSetupScreen
     from dmccodegui.screens.base import BaseAxesSetupScreen
 
     assert issubclass(AxesSetupScreen, BaseAxesSetupScreen), \
@@ -292,7 +292,7 @@ def test_axes_setup_inherits_base():
 
 def test_parameters_inherits_base():
     """18-02: ParametersScreen is a subclass of BaseParametersScreen."""
-    from dmccodegui.screens.parameters import ParametersScreen
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen
     from dmccodegui.screens.base import BaseParametersScreen
 
     assert issubclass(ParametersScreen, BaseParametersScreen), \
@@ -300,14 +300,14 @@ def test_parameters_inherits_base():
 
 
 def test_no_duplicate_setup_screens_frozenset():
-    """18-02: _SETUP_SCREENS is NOT defined in axes_setup.py or parameters.py.
+    """18-02: _SETUP_SCREENS is NOT defined in flat_grind/axes_setup.py or flat_grind/parameters.py.
 
     It must exist only in SetupScreenMixin (base.py).
     """
     import ast
     import pathlib
 
-    src_root = pathlib.Path(__file__).parent.parent / "src" / "dmccodegui" / "screens"
+    src_root = pathlib.Path(__file__).parent.parent / "src" / "dmccodegui" / "screens" / "flat_grind"
 
     for filename in ("axes_setup.py", "parameters.py"):
         src = (src_root / filename).read_text(encoding="utf-8")
@@ -320,29 +320,29 @@ def test_no_duplicate_setup_screens_frozenset():
                 for t in targets:
                     if isinstance(t, ast.Name) and t.id == "_SETUP_SCREENS":
                         raise AssertionError(
-                            f"_SETUP_SCREENS is defined in {filename} — must only exist in base.py"
+                            f"_SETUP_SCREENS is defined in flat_grind/{filename} — must only exist in base.py"
                         )
 
 
 def test_run_screen_no_inline_object_properties():
-    """18-02: RunScreen does not directly declare controller or state ObjectProperty.
+    """18-02: FlatGrindRunScreen does not directly declare controller or state ObjectProperty.
 
     Both properties must be inherited from BaseRunScreen.
     """
     import ast
     import pathlib
 
-    src = (pathlib.Path(__file__).parent.parent / "src" / "dmccodegui" / "screens" / "run.py").read_text(encoding="utf-8")
+    src = (pathlib.Path(__file__).parent.parent / "src" / "dmccodegui" / "screens" / "flat_grind" / "run.py").read_text(encoding="utf-8")
     tree = ast.parse(src)
 
-    # Find the RunScreen class node
+    # Find the FlatGrindRunScreen class node
     run_screen_node = None
     for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef) and node.name == "RunScreen":
+        if isinstance(node, ast.ClassDef) and node.name == "FlatGrindRunScreen":
             run_screen_node = node
             break
 
-    assert run_screen_node is not None, "RunScreen class not found in run.py"
+    assert run_screen_node is not None, "FlatGrindRunScreen class not found in flat_grind/run.py"
 
     # Look for top-level class body assignments named 'controller' or 'state'
     for item in run_screen_node.body:
@@ -350,7 +350,7 @@ def test_run_screen_no_inline_object_properties():
             for t in item.targets:
                 if isinstance(t, ast.Name) and t.id in ("controller", "state"):
                     raise AssertionError(
-                        f"RunScreen directly declares '{t.id}' ObjectProperty — "
+                        f"FlatGrindRunScreen directly declares '{t.id}' ObjectProperty — "
                         "must be inherited from BaseRunScreen"
                     )
 
@@ -358,7 +358,7 @@ def test_run_screen_no_inline_object_properties():
 def test_two_enter_leave_cycles_no_leak_run():
     """18-02: RunScreen — two enter/leave cycles produce zero leaked subscriptions."""
     from unittest.mock import patch
-    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen as RunScreen
 
     state = _MockMachineState()
     screen = RunScreen()
@@ -384,7 +384,7 @@ def test_two_enter_leave_cycles_no_leak_run():
 def test_two_enter_leave_cycles_no_leak_axes():
     """18-02: AxesSetupScreen — two enter/leave cycles produce zero leaked subscriptions."""
     from unittest.mock import patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen as AxesSetupScreen
 
     state = _MockMachineState()
     screen = AxesSetupScreen()
@@ -408,7 +408,7 @@ def test_two_enter_leave_cycles_no_leak_axes():
 def test_two_enter_leave_cycles_no_leak_params():
     """18-02: ParametersScreen — two enter/leave cycles produce zero leaked subscriptions."""
     from unittest.mock import patch
-    from dmccodegui.screens.parameters import ParametersScreen
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen
 
     state = _MockMachineState()
     screen = ParametersScreen()

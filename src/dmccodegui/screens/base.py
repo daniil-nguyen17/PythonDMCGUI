@@ -231,9 +231,10 @@ class BaseAxesSetupScreen(Screen, SetupScreenMixin):
 
         Gates (in order):
           1. Controller connected
-          2. _cpm_ready (CPM read from controller)
-          3. cpm > 0 for the axis
-          4. _BG{axis} == 0 (no jog in progress) — checked inside do_jog()
+          2. dmc_state == STATE_SETUP
+          3. _cpm_ready (CPM read from controller)
+          4. cpm > 0 for the axis
+          5. _BG{axis} == 0 (no jog in progress) — checked inside do_jog()
 
         Validates axis against mc.get_axis_list() so Serration (3-axis) and
         Convex (4-axis) machines automatically block invalid axes.
@@ -243,6 +244,14 @@ class BaseAxesSetupScreen(Screen, SetupScreenMixin):
         if not self.controller or not self.controller.is_connected():
             logger.debug(
                 "[%s] Jog %s blocked — controller not connected",
+                self.__class__.__name__, axis,
+            )
+            return
+
+        from ..hmi.dmc_vars import STATE_SETUP  # noqa: PLC0415
+        if not self.state or getattr(self.state, 'dmc_state', None) != STATE_SETUP:
+            logger.debug(
+                "[%s] Jog %s blocked — dmc_state != STATE_SETUP",
                 self.__class__.__name__, axis,
             )
             return

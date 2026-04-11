@@ -1,7 +1,13 @@
 """Flat Grind screen package.
 
-Loads KV files and exports screen classes. Importing this package
-automatically registers KV rules for all Flat Grind screens.
+Exports screen classes. KV files are loaded via load_kv() which must be
+called before screen instantiation (main.py build() handles this).
+
+NOTE: KV loading is NOT done at import time to avoid circular imports
+when screens/__init__.py imports this package while dmccodegui.screens
+is still being initialized. Kivy's #:import directive in the KV files
+references dmccodegui.screens.flat_grind.* which fails if the parent
+package attribute is not yet set.
 """
 import os
 from kivy.lang import Builder
@@ -9,9 +15,19 @@ from kivy.lang import Builder
 _PKG_DIR = os.path.dirname(os.path.abspath(__file__))
 _UI_DIR = os.path.normpath(os.path.join(_PKG_DIR, '..', '..', 'ui', 'flat_grind'))
 
-Builder.load_file(os.path.join(_UI_DIR, 'run.kv'))
-Builder.load_file(os.path.join(_UI_DIR, 'axes_setup.kv'))
-Builder.load_file(os.path.join(_UI_DIR, 'parameters.kv'))
+_kv_loaded = False
+
+
+def load_kv() -> None:
+    """Load Flat Grind KV files. Safe to call multiple times (idempotent)."""
+    global _kv_loaded
+    if _kv_loaded:
+        return
+    Builder.load_file(os.path.join(_UI_DIR, 'run.kv'))
+    Builder.load_file(os.path.join(_UI_DIR, 'axes_setup.kv'))
+    Builder.load_file(os.path.join(_UI_DIR, 'parameters.kv'))
+    _kv_loaded = True
+
 
 from .run import FlatGrindRunScreen  # noqa: E402
 from .axes_setup import FlatGrindAxesSetupScreen  # noqa: E402
@@ -21,4 +37,5 @@ __all__ = [
     "FlatGrindRunScreen",
     "FlatGrindAxesSetupScreen",
     "FlatGrindParametersScreen",
+    "load_kv",
 ]

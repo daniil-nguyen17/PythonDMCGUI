@@ -23,7 +23,7 @@ def _setup_env():
 def test_param_groups_defined():
     """PARAM-01: PARAM_DEFS contains entries for all five groups."""
     _setup_env()
-    from dmccodegui.screens.parameters import PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import PARAM_DEFS
     groups = {p['group'] for p in PARAM_DEFS}
     assert 'Geometry' in groups, "Missing Geometry group"
     assert 'Feedrates' in groups, "Missing Feedrates group"
@@ -33,7 +33,7 @@ def test_param_groups_defined():
 def test_param_def_structure():
     """PARAM-02: Each param def has required keys: label, var, unit, group, min, max."""
     _setup_env()
-    from dmccodegui.screens.parameters import PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import PARAM_DEFS
     required_keys = {'label', 'var', 'unit', 'group', 'min', 'max'}
     for p in PARAM_DEFS:
         missing = required_keys - set(p.keys())
@@ -47,7 +47,7 @@ def test_param_def_structure():
 def test_invalid_input_flags_red():
     """PARAM-03: on_field_text_change with non-numeric text returns 'error' state."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen, PARAM_DEFS
     screen = ParametersScreen()
     screen._controller_vals = {p['var']: 1.0 for p in PARAM_DEFS}
     result = screen.validate_field('fdA', 'not_a_number')
@@ -57,7 +57,7 @@ def test_invalid_input_flags_red():
 def test_out_of_range_flags_red():
     """PARAM-03: on_field_text_change with value outside min/max returns 'error' state."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen, PARAM_DEFS
     screen = ParametersScreen()
     screen._controller_vals = {p['var']: 1.0 for p in PARAM_DEFS}
     # fdA has max=500.0, so 9999 should be error
@@ -68,7 +68,7 @@ def test_out_of_range_flags_red():
 def test_zero_rejected_for_pitch():
     """PARAM-03: pitchA with value 0 is flagged as error."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen, PARAM_DEFS
     screen = ParametersScreen()
     screen._controller_vals = {p['var']: 1.0 for p in PARAM_DEFS}
     result = screen.validate_field('pitchA', '0')
@@ -78,7 +78,7 @@ def test_zero_rejected_for_pitch():
 def test_negative_rejected_for_feedrates():
     """PARAM-03: fdA with value -5 is flagged as error."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen, PARAM_DEFS
     screen = ParametersScreen()
     screen._controller_vals = {p['var']: 1.0 for p in PARAM_DEFS}
     result = screen.validate_field('fdA', '-5')
@@ -88,7 +88,7 @@ def test_negative_rejected_for_feedrates():
 def test_valid_returns_valid_when_matches_controller():
     """validate_field returns 'valid' when value matches controller value."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen, PARAM_DEFS
     screen = ParametersScreen()
     screen._controller_vals = {p['var']: 100.0 for p in PARAM_DEFS}
     result = screen.validate_field('fdA', '100.0')
@@ -98,7 +98,7 @@ def test_valid_returns_valid_when_matches_controller():
 def test_valid_returns_modified_when_differs():
     """validate_field returns 'modified' when valid value differs from controller."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen, PARAM_DEFS
     screen = ParametersScreen()
     screen._controller_vals = {p['var']: 100.0 for p in PARAM_DEFS}
     result = screen.validate_field('fdA', '200.0')
@@ -112,7 +112,7 @@ def test_valid_returns_modified_when_differs():
 def test_dirty_tracking():
     """PARAM-04: on_field_text_change with valid changed value increments pending_count."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen, PARAM_DEFS
     screen = ParametersScreen()
     screen._controller_vals = {p['var']: 100.0 for p in PARAM_DEFS}
     assert screen.pending_count == 0
@@ -124,7 +124,7 @@ def test_dirty_tracking():
 def test_dirty_clear_on_revert():
     """PARAM-05: on_field_text_change with value matching controller removes from dirty."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen, PARAM_DEFS
     screen = ParametersScreen()
     screen._controller_vals = {p['var']: 100.0 for p in PARAM_DEFS}
     # First mark as dirty
@@ -139,7 +139,7 @@ def test_dirty_clear_on_revert():
 def test_loading_flag_suppresses_dirty():
     """PARAM-04: With _loading=True, on_field_text_change does not add to _dirty."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen, PARAM_DEFS
     screen = ParametersScreen()
     screen._controller_vals = {p['var']: 100.0 for p in PARAM_DEFS}
     screen._loading = True
@@ -151,7 +151,7 @@ def test_loading_flag_suppresses_dirty():
 def test_error_does_not_add_to_dirty():
     """Error state does not add to dirty dict."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen, PARAM_DEFS
     screen = ParametersScreen()
     screen._controller_vals = {p['var']: 100.0 for p in PARAM_DEFS}
     screen.on_field_text_change('fdA', 'invalid')
@@ -166,7 +166,7 @@ def test_error_does_not_add_to_dirty():
 def test_apply_sends_dirty():
     """PARAM-06: apply_to_controller() sends controller.cmd('{var}={value}') for dirty params."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen, PARAM_DEFS
     from dmccodegui.hmi.dmc_vars import STATE_IDLE
 
     screen = ParametersScreen()
@@ -209,7 +209,7 @@ def test_apply_sends_dirty():
 def test_apply_burns_nv():
     """PARAM-06: apply_to_controller() sends BV after all writes."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen, PARAM_DEFS
     from dmccodegui.hmi.dmc_vars import STATE_IDLE
 
     screen = ParametersScreen()
@@ -249,7 +249,7 @@ def test_apply_burns_nv():
 def test_apply_reads_back():
     """PARAM-06: apply_to_controller() reads back params after BV."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen, PARAM_DEFS
     from dmccodegui.hmi.dmc_vars import STATE_IDLE
 
     screen = ParametersScreen()
@@ -285,7 +285,7 @@ def test_apply_reads_back():
 def test_apply_skips_when_motion_active():
     """PARAM-06: apply_to_controller() is a no-op when motion is active (GRINDING)."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen, PARAM_DEFS
     from dmccodegui.hmi.dmc_vars import STATE_GRINDING
 
     screen = ParametersScreen()
@@ -313,7 +313,7 @@ def test_apply_skips_when_motion_active():
 def test_read_clears_dirty():
     """PARAM-05: read_from_controller() clears _dirty dict and resets pending_count to 0."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen, PARAM_DEFS
 
     screen = ParametersScreen()
     mock_controller = MagicMock()
@@ -338,7 +338,7 @@ def test_read_clears_dirty():
 
     assert job_fn is not None
     # job schedules UI update via Clock.schedule_once; patch to run immediately
-    with patch('dmccodegui.screens.parameters.Clock.schedule_once', side_effect=lambda fn, *a: fn(0)):
+    with patch('dmccodegui.screens.flat_grind.parameters.Clock.schedule_once', side_effect=lambda fn, *a: fn(0)):
         job_fn()
 
     assert screen.pending_count == 0, f"Expected pending_count=0 after read, got {screen.pending_count}"
@@ -352,7 +352,7 @@ def test_read_clears_dirty():
 def test_operator_readonly():
     """PARAM-07: _apply_role_mode(setup_unlocked=False) returns readonly=True."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen
     screen = ParametersScreen()
     result = screen._apply_role_mode(setup_unlocked=False)
     assert result is True, f"Expected readonly=True for operator, got {result}"
@@ -361,7 +361,7 @@ def test_operator_readonly():
 def test_setup_not_readonly():
     """PARAM-07: _apply_role_mode(setup_unlocked=True) returns readonly=False."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen
     screen = ParametersScreen()
     result = screen._apply_role_mode(setup_unlocked=True)
     assert result is False, f"Expected readonly=False for setup, got {result}"
@@ -378,7 +378,7 @@ def _make_apply_screen():
     'dmccodegui.screens.base.mc.get_param_defs' if the job will call it.
     """
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen, PARAM_DEFS
 
     screen = ParametersScreen()
     mock_controller = MagicMock()
@@ -400,7 +400,7 @@ def _run_apply_job_with_mc_patch(screen):
     Patches mc.get_param_defs to return PARAM_DEFS so the job doesn't require
     machine_config to be globally initialized.
     """
-    from dmccodegui.screens.parameters import PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import PARAM_DEFS
     job_fn = None
 
     def capture_job(fn, *args, **kwargs):
@@ -431,7 +431,7 @@ def test_apply_fires_hmi_calc():
 def test_apply_readback_after_delay():
     """SETP-06: apply_to_controller calls time.sleep(0.5) then reads back all params."""
     _setup_env()
-    from dmccodegui.screens.parameters import PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import PARAM_DEFS
     screen, mock_controller = _make_apply_screen()
 
     sleep_calls = []
@@ -456,7 +456,7 @@ def test_apply_readback_after_delay():
 def test_apply_bv_after_readback():
     """SETP-06: BV is sent after readback (not before varcalc)."""
     _setup_env()
-    from dmccodegui.screens.parameters import PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import PARAM_DEFS
     screen, mock_controller = _make_apply_screen()
 
     with patch('dmccodegui.screens.base.mc.get_param_defs', return_value=PARAM_DEFS):
@@ -484,7 +484,7 @@ def test_apply_bv_after_readback():
 def test_enter_skips_fire_when_already_setup():
     """SETP-07: on_pre_enter with dmc_state=STATE_SETUP does NOT send hmiSetp=0."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen
     from dmccodegui.hmi.dmc_vars import STATE_SETUP
 
     screen = ParametersScreen()
@@ -508,7 +508,7 @@ def test_enter_skips_fire_when_already_setup():
 def test_enter_fires_when_not_in_setup():
     """SETP-07: on_pre_enter with dmc_state=STATE_IDLE sends hmiSetp=0."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen
     from dmccodegui.hmi.dmc_vars import STATE_IDLE
 
     screen = ParametersScreen()
@@ -532,7 +532,7 @@ def test_enter_fires_when_not_in_setup():
 def test_exit_fires_to_non_setup_screen():
     """SETP-08: on_leave when manager.current='run' sends hmiExSt=0."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen
 
     screen = ParametersScreen()
     mock_controller = MagicMock()
@@ -555,7 +555,7 @@ def test_exit_fires_to_non_setup_screen():
 def test_exit_skips_to_sibling_setup_screen():
     """SETP-08: on_leave when manager.current='axes_setup' does NOT send hmiExSt=0."""
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen
 
     screen = ParametersScreen()
     mock_controller = MagicMock()
@@ -596,7 +596,7 @@ def _make_apply_screen_with_state(connected: bool, dmc_state: int):
     The screen has one dirty param (fdA) and a connected mock controller.
     """
     _setup_env()
-    from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
+    from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen, PARAM_DEFS
 
     screen = ParametersScreen()
     mock_controller = MagicMock()
@@ -619,7 +619,7 @@ class TestParametersApplyMotionGating:
         Patches mc.get_param_defs so apply_to_controller() can proceed past the
         guard (when motion_active=False) without requiring machine_config init.
         """
-        from dmccodegui.screens.parameters import PARAM_DEFS
+        from dmccodegui.screens.flat_grind.parameters import PARAM_DEFS
         submitted = []
         with patch('dmccodegui.screens.base.submit', side_effect=lambda fn, *a, **k: submitted.append(fn)):
             with patch('dmccodegui.screens.base.mc.get_param_defs', return_value=PARAM_DEFS):
@@ -683,7 +683,7 @@ class TestParametersUpdateApplyButton:
     def _make_screen_with_apply_btn(self, connected: bool, dmc_state: int):
         """Create a ParametersScreen with a mock apply button."""
         _setup_env()
-        from dmccodegui.screens.parameters import ParametersScreen
+        from dmccodegui.screens.flat_grind.parameters import FlatGrindParametersScreen as ParametersScreen
 
         screen = ParametersScreen()
         screen.state = _make_state_with_dmc(connected=connected, dmc_state=dmc_state)

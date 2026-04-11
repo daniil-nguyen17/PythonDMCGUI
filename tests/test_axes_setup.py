@@ -1,5 +1,5 @@
 """
-Tests for AxesSetupScreen — mode toggle, jog math, teach/save, quick actions,
+Tests for FlatGrindAxesSetupScreen -- mode toggle, jog math, teach/save, quick actions,
 axis row visibility.
 
 Pattern: import inside test functions, set env vars before kivy import.
@@ -16,15 +16,15 @@ os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
 os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+# -- Helpers ------------------------------------------------------------------
 
 
 def _make_screen():
-    """Instantiate AxesSetupScreen with a mock controller and state."""
+    """Instantiate FlatGrindAxesSetupScreen with a mock controller and state."""
     from unittest.mock import MagicMock
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     ctrl.cmd.return_value = "0.0000"
@@ -34,42 +34,42 @@ def _make_screen():
     return screen, ctrl
 
 
-# ── Mode toggle ──────────────────────────────────────────────────────────────
+# -- Mode toggle --------------------------------------------------------------
 
 
 def test_mode_default_rest():
-    """_mode defaults to 'rest'."""
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
-    screen = AxesSetupScreen()
-    assert screen._mode == "rest"
+    """_mode defaults to '' (empty string — operator must pick mode)."""
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
+    screen = FlatGrindAxesSetupScreen()
+    assert screen._mode == ""
 
 
 def test_set_mode_start():
     """set_mode('start') changes _mode to 'start'."""
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
-    screen = AxesSetupScreen()
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
+    screen = FlatGrindAxesSetupScreen()
     screen.set_mode("start")
     assert screen._mode == "start"
 
 
 def test_set_mode_rest():
     """set_mode('rest') changes _mode back to 'rest'."""
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
-    screen = AxesSetupScreen()
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
+    screen = FlatGrindAxesSetupScreen()
     screen.set_mode("start")
     screen.set_mode("rest")
     assert screen._mode == "rest"
 
 
-# ── Save delegation ─────────────────────────────────────────────────────────
+# -- Save delegation ----------------------------------------------------------
 
 
 def test_save_points_rest_mode():
     """save_points() in rest mode calls teach_rest_point."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     screen._mode = "rest"
     screen.teach_rest_point = MagicMock()
     screen.teach_start_point = MagicMock()
@@ -81,9 +81,9 @@ def test_save_points_rest_mode():
 def test_save_points_start_mode():
     """save_points() in start mode calls teach_start_point."""
     from unittest.mock import MagicMock
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     screen._mode = "start"
     screen.teach_rest_point = MagicMock()
     screen.teach_start_point = MagicMock()
@@ -92,13 +92,13 @@ def test_save_points_start_mode():
     screen.teach_rest_point.assert_not_called()
 
 
-# ── Step size ────────────────────────────────────────────────────────────────
+# -- Step size -----------------------------------------------------------------
 
 
 def test_step_mm_property():
     """_current_step_mm defaults to 10.0; set_step changes it."""
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
-    screen = AxesSetupScreen()
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
+    screen = FlatGrindAxesSetupScreen()
     assert screen._current_step_mm == 10.0
     screen.set_step(5.0)
     assert screen._current_step_mm == 5.0
@@ -108,22 +108,22 @@ def test_step_mm_property():
 
 def test_cpm_defaults():
     """AXIS_CPM_DEFAULTS has all 4 axes with positive values."""
-    from dmccodegui.screens.axes_setup import AXIS_CPM_DEFAULTS
+    from dmccodegui.screens.flat_grind.axes_setup import AXIS_CPM_DEFAULTS
     assert set(AXIS_CPM_DEFAULTS.keys()) == {"A", "B", "C", "D"}
     for axis, cpm in AXIS_CPM_DEFAULTS.items():
         assert cpm > 0, f"CPM for {axis} must be positive, got {cpm}"
 
 
-# ── Jog math ─────────────────────────────────────────────────────────────────
+# -- Jog math ------------------------------------------------------------------
 
 
 def test_jog_counts_calculation():
     """jog_axis('A', +1) with step_mm=10.0 and cpm=1200 produces PR A=12000."""
     from unittest.mock import MagicMock, patch, call
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
     from dmccodegui.hmi.dmc_vars import STATE_SETUP
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     # MG _BGA returns 0.0 (not in progress) so in-progress gate passes immediately
@@ -155,10 +155,10 @@ def test_jog_counts_calculation():
 def test_jog_counts_negative():
     """jog_axis('A', -1) with step_mm=5.0 and cpm=1200 produces PR A=-6000."""
     from unittest.mock import MagicMock, patch, call
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
     from dmccodegui.hmi.dmc_vars import STATE_SETUP
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     ctrl.cmd.return_value = " 0.0000 "
@@ -187,13 +187,13 @@ def test_jog_counts_negative():
 def test_jog_blocked_before_cpm_read():
     """jog_axis does nothing when _cpm_ready is False (CPM not yet read from controller)."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     screen.controller = ctrl
-    # _cpm_ready defaults to False — jog must be blocked
+    # _cpm_ready defaults to False -- jog must be blocked
     assert screen._cpm_ready is False
 
     submitted_fns = []
@@ -207,9 +207,9 @@ def test_jog_blocked_before_cpm_read():
 def test_jog_no_controller():
     """jog_axis does nothing when controller is None."""
     from unittest.mock import patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     screen.controller = None
 
     submitted_fns = []
@@ -223,9 +223,9 @@ def test_jog_no_controller():
 def test_jog_disconnected():
     """jog_axis does nothing when controller is disconnected."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = False
     screen.controller = ctrl
@@ -238,15 +238,15 @@ def test_jog_disconnected():
     assert len(submitted_fns) == 0
 
 
-# ── Teach ─────────────────────────────────────────────────────────────────────
+# -- Teach ---------------------------------------------------------------------
 
 
 def test_teach_rest_burns_nv():
     """teach_rest_point() reads TD positions, writes restPtA/B/C/D, sends BV."""
     from unittest.mock import MagicMock, patch, call
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
 
@@ -268,8 +268,8 @@ def test_teach_rest_burns_nv():
     screen.state.cycle_running = False
 
     submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
-        with patch('dmccodegui.screens.axes_setup.Clock'):
+    with patch('dmccodegui.screens.flat_grind.axes_setup.jobs') as mock_jobs:
+        with patch('dmccodegui.screens.flat_grind.axes_setup.Clock'):
             mock_jobs.submit = lambda fn: submitted_fns.append(fn)
             screen.teach_rest_point()
 
@@ -293,9 +293,9 @@ def test_teach_rest_burns_nv():
 def test_teach_start_burns_nv():
     """teach_start_point() reads TD positions, writes startPtA/B/C/D, sends BV."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     ctrl.cmd.side_effect = [
@@ -316,8 +316,8 @@ def test_teach_start_burns_nv():
     screen.state.cycle_running = False
 
     submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
-        with patch('dmccodegui.screens.axes_setup.Clock'):
+    with patch('dmccodegui.screens.flat_grind.axes_setup.jobs') as mock_jobs:
+        with patch('dmccodegui.screens.flat_grind.axes_setup.Clock'):
             mock_jobs.submit = lambda fn: submitted_fns.append(fn)
             screen.teach_start_point()
 
@@ -334,9 +334,9 @@ def test_teach_start_burns_nv():
 def test_teach_skips_when_cycle_running():
     """teach_rest_point() does nothing when cycle_running=True."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     screen.controller = ctrl
@@ -344,29 +344,29 @@ def test_teach_skips_when_cycle_running():
     screen.state.cycle_running = True
 
     submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+    with patch('dmccodegui.screens.flat_grind.axes_setup.jobs') as mock_jobs:
         mock_jobs.submit = lambda fn: submitted_fns.append(fn)
         screen.teach_rest_point()
 
     assert len(submitted_fns) == 0
 
 
-# ── Quick actions ─────────────────────────────────────────────────────────────
+# -- Quick actions -------------------------------------------------------------
 
 
 def test_quick_action_go_rest():
     """go_to_rest_all() fires hmiGoRs=0 (HMI trigger, not dead sw var)."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     ctrl.cmd.return_value = ""
     screen.controller = ctrl
 
     submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+    with patch('dmccodegui.screens.flat_grind.axes_setup.jobs') as mock_jobs:
         mock_jobs.submit = lambda fn: submitted_fns.append(fn)
         screen.go_to_rest_all()
 
@@ -378,16 +378,16 @@ def test_quick_action_go_rest():
 def test_quick_action_go_start():
     """go_to_start_all() fires hmiGoSt=0 (HMI trigger, not dead sw var)."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     ctrl.cmd.return_value = ""
     screen.controller = ctrl
 
     submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+    with patch('dmccodegui.screens.flat_grind.axes_setup.jobs') as mock_jobs:
         mock_jobs.submit = lambda fn: submitted_fns.append(fn)
         screen.go_to_start_all()
 
@@ -399,16 +399,16 @@ def test_quick_action_go_start():
 def test_quick_action_home_all():
     """home_all() fires hmiHome=0 (HMI trigger, not dead sw var)."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     ctrl.cmd.return_value = ""
     screen.controller = ctrl
 
     submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+    with patch('dmccodegui.screens.flat_grind.axes_setup.jobs') as mock_jobs:
         mock_jobs.submit = lambda fn: submitted_fns.append(fn)
         screen.home_all()
 
@@ -417,32 +417,32 @@ def test_quick_action_home_all():
     ctrl.cmd.assert_called_once_with("hmiHome=0")
 
 
-# ── No-polling verification ──────────────────────────────────────────────────
+# -- No-polling verification --------------------------------------------------
 
 
 def test_no_poll_tick_method():
-    """AxesSetupScreen has no _poll_tick — polling was removed."""
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
-    assert not hasattr(AxesSetupScreen, '_poll_tick')
+    """FlatGrindAxesSetupScreen has no _poll_tick -- polling was removed."""
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
+    assert not hasattr(FlatGrindAxesSetupScreen, '_poll_tick')
 
 
 def test_no_selected_axis():
-    """AxesSetupScreen no longer has _selected_axis — all axes visible."""
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
-    screen = AxesSetupScreen()
+    """FlatGrindAxesSetupScreen no longer has _selected_axis -- all axes visible."""
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
+    screen = FlatGrindAxesSetupScreen()
     assert not hasattr(screen, '_selected_axis')
 
 
-# ── Smart enter/exit (Plan 02) ────────────────────────────────────────────────
+# -- Smart enter/exit (Plan 02) -----------------------------------------------
 
 
 def test_enter_setup_skips_fire_when_already_setup():
     """on_pre_enter with dmc_state=STATE_SETUP does NOT fire hmiSetp=0."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
     from dmccodegui.hmi.dmc_vars import STATE_SETUP, HMI_SETP, HMI_TRIGGER_FIRE
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     ctrl.cmd.return_value = "0.0000"
@@ -452,7 +452,7 @@ def test_enter_setup_skips_fire_when_already_setup():
 
     # _enter_setup_if_needed uses base.submit; execute lambdas synchronously
     with patch('dmccodegui.screens.base.submit', side_effect=lambda fn, *a, **kw: fn()):
-        with patch('dmccodegui.screens.axes_setup.Clock'):
+        with patch('dmccodegui.screens.flat_grind.axes_setup.Clock'):
             screen.on_pre_enter()
 
     setp_fire_cmd = f"{HMI_SETP}={HMI_TRIGGER_FIRE}"
@@ -465,10 +465,10 @@ def test_enter_setup_skips_fire_when_already_setup():
 def test_enter_setup_fires_when_not_in_setup():
     """on_pre_enter with dmc_state != STATE_SETUP fires hmiSetp=0."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
     from dmccodegui.hmi.dmc_vars import STATE_IDLE, HMI_SETP, HMI_TRIGGER_FIRE
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     ctrl.cmd.return_value = "0.0000"
@@ -478,7 +478,7 @@ def test_enter_setup_fires_when_not_in_setup():
 
     # _enter_setup_if_needed uses base.submit; execute lambdas synchronously
     with patch('dmccodegui.screens.base.submit', side_effect=lambda fn, *a, **kw: fn()):
-        with patch('dmccodegui.screens.axes_setup.Clock'):
+        with patch('dmccodegui.screens.flat_grind.axes_setup.Clock'):
             screen.on_pre_enter()
 
     setp_fire_cmd = f"{HMI_SETP}={HMI_TRIGGER_FIRE}"
@@ -491,10 +491,10 @@ def test_enter_setup_fires_when_not_in_setup():
 def test_exit_fires_to_non_setup_screen():
     """on_leave when navigating to 'run' screen fires hmiExSt=0."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
     from dmccodegui.hmi.dmc_vars import HMI_EXIT_SETUP, HMI_TRIGGER_FIRE
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     screen.controller = ctrl
@@ -517,10 +517,10 @@ def test_exit_fires_to_non_setup_screen():
 def test_exit_skips_to_sibling_setup_screen():
     """on_leave when navigating to 'parameters' screen does NOT fire hmiExSt=0."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
     from dmccodegui.hmi.dmc_vars import HMI_EXIT_SETUP, HMI_TRIGGER_FIRE
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     screen.controller = ctrl
@@ -540,23 +540,23 @@ def test_exit_skips_to_sibling_setup_screen():
     )
 
 
-# ── HMI trigger quick actions (Plan 02) ──────────────────────────────────────
+# -- HMI trigger quick actions (Plan 02) --------------------------------------
 
 
 def test_home_all_fires_hmi_trigger():
     """home_all() fires hmiHome=0 (not swHomeAll=1)."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
     from dmccodegui.hmi.dmc_vars import HMI_HOME, HMI_TRIGGER_FIRE
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     ctrl.cmd.return_value = ""
     screen.controller = ctrl
 
     submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+    with patch('dmccodegui.screens.flat_grind.axes_setup.jobs') as mock_jobs:
         mock_jobs.submit = lambda fn: submitted_fns.append(fn)
         screen.home_all()
 
@@ -568,17 +568,17 @@ def test_home_all_fires_hmi_trigger():
 def test_go_to_rest_fires_hmi_trigger():
     """go_to_rest_all() fires hmiGoRs=0 (not swGoRest=1)."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
     from dmccodegui.hmi.dmc_vars import HMI_GO_REST, HMI_TRIGGER_FIRE
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     ctrl.cmd.return_value = ""
     screen.controller = ctrl
 
     submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+    with patch('dmccodegui.screens.flat_grind.axes_setup.jobs') as mock_jobs:
         mock_jobs.submit = lambda fn: submitted_fns.append(fn)
         screen.go_to_rest_all()
 
@@ -590,17 +590,17 @@ def test_go_to_rest_fires_hmi_trigger():
 def test_go_to_start_fires_hmi_trigger():
     """go_to_start_all() fires hmiGoSt=0 (not swGoStart=1)."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
     from dmccodegui.hmi.dmc_vars import HMI_GO_START, HMI_TRIGGER_FIRE
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     ctrl.cmd.return_value = ""
     screen.controller = ctrl
 
     submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+    with patch('dmccodegui.screens.flat_grind.axes_setup.jobs') as mock_jobs:
         mock_jobs.submit = lambda fn: submitted_fns.append(fn)
         screen.go_to_start_all()
 
@@ -609,16 +609,16 @@ def test_go_to_start_fires_hmi_trigger():
     ctrl.cmd.assert_called_once_with(f"{HMI_GO_START}={HMI_TRIGGER_FIRE}")
 
 
-# ── Jog gates (Plan 02) ───────────────────────────────────────────────────────
+# -- Jog gates (Plan 02) ------------------------------------------------------
 
 
 def test_jog_blocked_when_not_setup():
     """jog_axis returns without any cmd when dmc_state != STATE_SETUP."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
     from dmccodegui.hmi.dmc_vars import STATE_IDLE
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     ctrl.cmd.return_value = " 0.0000 "
@@ -641,10 +641,10 @@ def test_jog_blocked_when_not_setup():
 def test_jog_blocked_when_in_progress():
     """jog_axis does not send PR/BG when _BG{axis} is nonzero (motion in progress)."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
     from dmccodegui.hmi.dmc_vars import STATE_SETUP
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     # _BG returns nonzero = motion in progress
@@ -673,23 +673,23 @@ def test_jog_blocked_when_in_progress():
     )
 
 
-# ── New Session (Plan 02) ─────────────────────────────────────────────────────
+# -- New Session (Plan 02) ----------------------------------------------------
 
 
 def test_new_session_fires_hmi_news():
     """_fire_new_session() fires hmiNewS=0."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
     from dmccodegui.hmi.dmc_vars import HMI_NEWS, HMI_TRIGGER_FIRE
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     ctrl = MagicMock()
     ctrl.is_connected.return_value = True
     ctrl.cmd.return_value = ""
     screen.controller = ctrl
 
     submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+    with patch('dmccodegui.screens.flat_grind.axes_setup.jobs') as mock_jobs:
         mock_jobs.submit = lambda fn: submitted_fns.append(fn)
         screen._fire_new_session()
 
@@ -701,18 +701,18 @@ def test_new_session_fires_hmi_news():
 def test_new_session_blocked_for_operator():
     """on_new_session() with setup_unlocked=False does not open a Popup."""
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
 
-    screen = AxesSetupScreen()
+    screen = FlatGrindAxesSetupScreen()
     screen.state = MagicMock()
     screen.state.setup_unlocked = False
 
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+    with patch('dmccodegui.screens.flat_grind.axes_setup.jobs') as mock_jobs:
         submitted_fns = []
         mock_jobs.submit = lambda fn: submitted_fns.append(fn)
         screen.on_new_session()
 
-    # No jobs submitted means no trigger fired — operator was blocked
+    # No jobs submitted means no trigger fired -- operator was blocked
     assert len(submitted_fns) == 0, (
         "on_new_session must not submit any job when setup_unlocked=False"
     )

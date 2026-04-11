@@ -7,27 +7,27 @@ def test_run_screen_has_cycle_running_property():
     """RUN-04: RunScreen must expose cycle_running as a Kivy property."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
-    from dmccodegui.screens.run import RunScreen
-    r = RunScreen()
-    assert hasattr(r, 'cycle_running'), "RunScreen missing cycle_running property"
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
+    r = FlatGrindRunScreen()
+    assert hasattr(r, 'cycle_running'), "FlatGrindRunScreen missing cycle_running property"
 
 
 def test_run_screen_has_position_properties():
     """RUN-03: RunScreen must expose pos_a through pos_d."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
-    from dmccodegui.screens.run import RunScreen
-    r = RunScreen()
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
+    r = FlatGrindRunScreen()
     for axis in ('pos_a', 'pos_b', 'pos_c', 'pos_d'):
-        assert hasattr(r, axis), f"RunScreen missing {axis} property"
+        assert hasattr(r, axis), f"FlatGrindRunScreen missing {axis} property"
 
 
 def test_axis_positions_disconnected():
     """RUN-03: When disconnected, axis positions show '---'."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
-    from dmccodegui.screens.run import RunScreen
-    r = RunScreen()
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
+    r = FlatGrindRunScreen()
     # Default (no controller) should show '---'
     assert r.pos_a == '---', f"Expected '---', got '{r.pos_a}'"
     assert r.pos_b == '---', f"Expected '---', got '{r.pos_b}'"
@@ -39,10 +39,10 @@ def test_no_estop_in_run_bar():
     """RUN-02: E-STOP must NOT be in RunScreen — it is in StatusBar only."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
-    from dmccodegui.screens.run import RunScreen
-    r = RunScreen()
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
+    r = FlatGrindRunScreen()
     # RunScreen should not have any e_stop method or property
-    assert not hasattr(r, 'e_stop_button'), "RunScreen should not have e_stop_button"
+    assert not hasattr(r, 'e_stop_button'), "FlatGrindRunScreen should not have e_stop_button"
 
 
 def test_cycle_status_machine_type():
@@ -54,9 +54,9 @@ def test_cycle_status_machine_type():
     """
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
-    from dmccodegui.screens.run import RunScreen
-    r = RunScreen()
-    assert hasattr(r, 'is_serration'), "RunScreen missing is_serration property"
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
+    r = FlatGrindRunScreen()
+    assert hasattr(r, 'is_serration'), "FlatGrindRunScreen missing is_serration property"
     # Default is False — set dynamically in on_pre_enter from mc.is_serration()
     assert r.is_serration is False, f"Expected is_serration default False, got {r.is_serration}"
 
@@ -65,8 +65,8 @@ def test_progress_and_eta():
     """RUN-05: RunScreen exposes cycle_completion_pct and cycle_eta."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
-    from dmccodegui.screens.run import RunScreen
-    r = RunScreen()
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
+    r = FlatGrindRunScreen()
     assert hasattr(r, 'cycle_completion_pct'), "Missing cycle_completion_pct"
     assert hasattr(r, 'cycle_eta'), "Missing cycle_eta"
     assert r.cycle_completion_pct == 0
@@ -77,8 +77,8 @@ def test_delta_c_adjustment():
     """RUN-06: RunScreen has section_count and delta_c_offsets for Knife Grind Adjustment."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
-    from dmccodegui.screens.run import RunScreen
-    r = RunScreen()
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
+    r = FlatGrindRunScreen()
     assert hasattr(r, 'section_count'), "Missing section_count"
     assert hasattr(r, 'delta_c_offsets'), "Missing delta_c_offsets"
 
@@ -91,7 +91,7 @@ def test_plot_hz_constant_exists():
     """RUN-07: PLOT_UPDATE_HZ constant exists and equals 5."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
-    from dmccodegui.screens.run import PLOT_UPDATE_HZ
+    from dmccodegui.screens.flat_grind.run import PLOT_UPDATE_HZ
     assert PLOT_UPDATE_HZ == 5, f"Expected PLOT_UPDATE_HZ == 5, got {PLOT_UPDATE_HZ}"
 
 
@@ -99,7 +99,7 @@ def test_plot_buffer_size_constant_exists():
     """RUN-07: PLOT_BUFFER_SIZE constant exists and is in the valid range 500-1000."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
-    from dmccodegui.screens.run import PLOT_BUFFER_SIZE
+    from dmccodegui.screens.flat_grind.run import PLOT_BUFFER_SIZE
     assert 500 <= PLOT_BUFFER_SIZE <= 1000, (
         f"Expected 500 <= PLOT_BUFFER_SIZE <= 1000, got {PLOT_BUFFER_SIZE}"
     )
@@ -110,10 +110,10 @@ def test_plot_buffer_properties():
     import collections
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
-    from dmccodegui.screens.run import RunScreen, PLOT_BUFFER_SIZE
-    r = RunScreen()
-    assert hasattr(r, '_plot_buf_x'), "RunScreen missing _plot_buf_x"
-    assert hasattr(r, '_plot_buf_y'), "RunScreen missing _plot_buf_y"
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen, PLOT_BUFFER_SIZE
+    r = FlatGrindRunScreen()
+    assert hasattr(r, '_plot_buf_x'), "FlatGrindRunScreen missing _plot_buf_x"
+    assert hasattr(r, '_plot_buf_y'), "FlatGrindRunScreen missing _plot_buf_y"
     assert isinstance(r._plot_buf_x, collections.deque), "_plot_buf_x must be a deque"
     assert isinstance(r._plot_buf_y, collections.deque), "_plot_buf_y must be a deque"
     assert r._plot_buf_x.maxlen == PLOT_BUFFER_SIZE, (
@@ -124,33 +124,28 @@ def test_plot_buffer_properties():
     )
 
 
-def test_plot_buffer_feeds_when_connected():
-    """RUN-07: _apply_state appends to plot buffers when connected (positions from #SHOWPOS)."""
+def test_plot_buffer_not_fed_by_apply_state():
+    """RUN-07: In FlatGrindRunScreen, plot buffers are fed by _tick_pos, not _apply_state.
+
+    _apply_state updates display properties but does NOT feed the plot buffer.
+    Buffer feeding is done in _tick_pos only during STATE_GRINDING for efficiency.
+    """
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
     import sys, os as _os
     sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), '..', 'src'))
-    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
     from dmccodegui.app_state import MachineState
     from dmccodegui.hmi.dmc_vars import STATE_IDLE
 
-    r = RunScreen()
+    r = FlatGrindRunScreen()
 
-    # When connected (any state), buffer should receive entries
+    # _apply_state does NOT feed plot buffers (moved to _tick_pos)
     s = MachineState(connected=True, dmc_state=STATE_IDLE,
                      pos={"A": 100.0, "B": 200.0, "C": 0.0, "D": 0.0})
     r._apply_state(s)
-    assert len(r._plot_buf_x) == 1, f"Expected 1 entry in _plot_buf_x, got {len(r._plot_buf_x)}"
-    assert len(r._plot_buf_y) == 1, f"Expected 1 entry in _plot_buf_y, got {len(r._plot_buf_y)}"
-
-    # When disconnected, buffer should NOT receive entries
-    r._plot_buf_x.clear()
-    r._plot_buf_y.clear()
-    s2 = MachineState(connected=False, dmc_state=STATE_IDLE,
-                      pos={"A": 300.0, "B": 400.0, "C": 0.0, "D": 0.0})
-    r._apply_state(s2)
-    assert len(r._plot_buf_x) == 0, "Buffer should be empty when disconnected"
-    assert len(r._plot_buf_y) == 0, "Buffer should be empty when disconnected"
+    assert len(r._plot_buf_x) == 0, "Plot buffers should not be fed by _apply_state"
+    assert len(r._plot_buf_y) == 0, "Plot buffers should not be fed by _apply_state"
 
 
 def test_trail_clears_on_start():
@@ -158,9 +153,9 @@ def test_trail_clears_on_start():
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
     from dmccodegui.controller import GalilController
-    r = RunScreen()
+    r = FlatGrindRunScreen()
     mock_ctrl = MagicMock(spec=GalilController)
     mock_ctrl.is_connected.return_value = True
     r.controller = mock_ctrl
@@ -171,7 +166,7 @@ def test_trail_clears_on_start():
     r._plot_buf_y.append(20.0)
     assert len(r._plot_buf_x) == 2, "Pre-condition: buffer should have 2 entries"
     # Trigger start
-    with patch('dmccodegui.utils.jobs.submit'):
+    with patch('dmccodegui.utils.jobs.submit_urgent'):
         r.on_start_grind()
     assert len(r._plot_buf_x) == 0, "_plot_buf_x must be cleared on on_start_grind"
     assert len(r._plot_buf_y) == 0, "_plot_buf_y must be cleared on on_start_grind"
@@ -186,10 +181,10 @@ def test_stop_sends_st_only():
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
     from dmccodegui.controller import GalilController
 
-    r = RunScreen()
+    r = FlatGrindRunScreen()
     mock_ctrl = MagicMock(spec=GalilController)
     mock_ctrl.is_connected.return_value = True
     r.controller = mock_ctrl
@@ -214,11 +209,11 @@ def test_motion_gate_grinding():
     """motion_active must be True when dmc_state is STATE_GRINDING."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
-    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
     from dmccodegui.app_state import MachineState
     from dmccodegui.hmi.dmc_vars import STATE_GRINDING
 
-    r = RunScreen()
+    r = FlatGrindRunScreen()
     s = MachineState(connected=True, dmc_state=STATE_GRINDING,
                      pos={"A": 0.0, "B": 0.0, "C": 0.0, "D": 0.0})
     r._apply_state(s)
@@ -230,11 +225,11 @@ def test_motion_gate_homing():
     """motion_active must be True when dmc_state is STATE_HOMING."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
-    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
     from dmccodegui.app_state import MachineState
     from dmccodegui.hmi.dmc_vars import STATE_HOMING
 
-    r = RunScreen()
+    r = FlatGrindRunScreen()
     s = MachineState(connected=True, dmc_state=STATE_HOMING,
                      pos={"A": 0.0, "B": 0.0, "C": 0.0, "D": 0.0})
     r._apply_state(s)
@@ -246,10 +241,10 @@ def test_motion_gate_disconnected():
     """motion_active must be True when disconnected (disables all motion buttons)."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
-    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
     from dmccodegui.app_state import MachineState
 
-    r = RunScreen()
+    r = FlatGrindRunScreen()
     s = MachineState(connected=False)
     r._apply_state(s)
     assert r.motion_active is True, \
@@ -260,11 +255,11 @@ def test_motion_gate_idle():
     """motion_active must be False when dmc_state is STATE_IDLE and connected."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
-    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
     from dmccodegui.app_state import MachineState
     from dmccodegui.hmi.dmc_vars import STATE_IDLE
 
-    r = RunScreen()
+    r = FlatGrindRunScreen()
     s = MachineState(connected=True, dmc_state=STATE_IDLE,
                      pos={"A": 0.0, "B": 0.0, "C": 0.0, "D": 0.0})
     r._apply_state(s)
@@ -276,15 +271,15 @@ def test_stop_visible_during_motion():
     """motion_active=True should drive stop button visibility (property exists and is True)."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
-    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
     from dmccodegui.app_state import MachineState
     from dmccodegui.hmi.dmc_vars import STATE_GRINDING
 
-    r = RunScreen()
+    r = FlatGrindRunScreen()
     s = MachineState(connected=True, dmc_state=STATE_GRINDING,
                      pos={"A": 0.0, "B": 0.0, "C": 0.0, "D": 0.0})
     r._apply_state(s)
-    assert hasattr(r, 'motion_active'), "RunScreen must have motion_active property"
+    assert hasattr(r, 'motion_active'), "FlatGrindRunScreen must have motion_active property"
     assert r.motion_active is True, \
         "Stop button must be visible (motion_active=True) during GRINDING"
 
@@ -298,11 +293,11 @@ def test_start_grind_sends_hmi_trigger():
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
     from dmccodegui.controller import GalilController
     from dmccodegui.hmi.dmc_vars import HMI_GRND, HMI_TRIGGER_FIRE
 
-    r = RunScreen()
+    r = FlatGrindRunScreen()
     mock_ctrl = MagicMock(spec=GalilController)
     mock_ctrl.is_connected.return_value = True
     r.controller = mock_ctrl
@@ -312,10 +307,10 @@ def test_start_grind_sends_hmi_trigger():
     def capture_submit(fn, *a, **kw):
         captured_fn.append(fn)
 
-    with patch('dmccodegui.utils.jobs.submit', side_effect=capture_submit):
+    with patch('dmccodegui.utils.jobs.submit_urgent', side_effect=capture_submit):
         r.on_start_grind()
 
-    assert len(captured_fn) == 1, "on_start_grind must call jobs.submit once"
+    assert len(captured_fn) == 1, "on_start_grind must call jobs.submit_urgent once"
     # Execute the submitted _fire closure
     captured_fn[0]()
     cmd_calls = [c[0][0] for c in mock_ctrl.cmd.call_args_list]
@@ -330,10 +325,10 @@ def test_start_grind_clears_plot_buffers():
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
     from dmccodegui.controller import GalilController
 
-    r = RunScreen()
+    r = FlatGrindRunScreen()
     mock_ctrl = MagicMock(spec=GalilController)
     mock_ctrl.is_connected.return_value = True
     r.controller = mock_ctrl
@@ -344,7 +339,7 @@ def test_start_grind_clears_plot_buffers():
     r._plot_buf_y.append(20.0)
     assert len(r._plot_buf_x) == 2, "Pre-condition: buffer should have 2 entries"
 
-    with patch('dmccodegui.utils.jobs.submit'):
+    with patch('dmccodegui.utils.jobs.submit_urgent'):
         r.on_start_grind()
 
     assert len(r._plot_buf_x) == 0, "_plot_buf_x must be cleared on on_start_grind"
@@ -356,11 +351,11 @@ def test_more_stone_sends_hmi_trigger():
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
     from dmccodegui.controller import GalilController
     from dmccodegui.hmi.dmc_vars import HMI_MORE, HMI_TRIGGER_FIRE, STARTPT_C
 
-    r = RunScreen()
+    r = FlatGrindRunScreen()
     mock_ctrl = MagicMock(spec=GalilController)
     mock_ctrl.is_connected.return_value = True
     mock_ctrl.cmd.return_value = "12345.0\n"
@@ -371,10 +366,10 @@ def test_more_stone_sends_hmi_trigger():
     def capture_submit(fn, *a, **kw):
         captured_fn.append(fn)
 
-    with patch('dmccodegui.utils.jobs.submit', side_effect=capture_submit):
+    with patch('dmccodegui.utils.jobs.submit_urgent', side_effect=capture_submit):
         r.on_more_stone()
 
-    assert len(captured_fn) == 1, "on_more_stone must call jobs.submit once"
+    assert len(captured_fn) == 1, "on_more_stone must call submit_urgent once"
     with patch('time.sleep'):
         captured_fn[0]()
     cmd_calls = [c[0][0] for c in mock_ctrl.cmd.call_args_list]
@@ -387,11 +382,11 @@ def test_less_stone_sends_hmi_trigger():
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
     from dmccodegui.controller import GalilController
     from dmccodegui.hmi.dmc_vars import HMI_LESS, HMI_TRIGGER_FIRE
 
-    r = RunScreen()
+    r = FlatGrindRunScreen()
     mock_ctrl = MagicMock(spec=GalilController)
     mock_ctrl.is_connected.return_value = True
     mock_ctrl.cmd.return_value = "12345.0\n"
@@ -402,10 +397,10 @@ def test_less_stone_sends_hmi_trigger():
     def capture_submit(fn, *a, **kw):
         captured_fn.append(fn)
 
-    with patch('dmccodegui.utils.jobs.submit', side_effect=capture_submit):
+    with patch('dmccodegui.utils.jobs.submit_urgent', side_effect=capture_submit):
         r.on_less_stone()
 
-    assert len(captured_fn) == 1, "on_less_stone must call jobs.submit once"
+    assert len(captured_fn) == 1, "on_less_stone must call submit_urgent once"
     with patch('time.sleep'):
         captured_fn[0]()
     cmd_calls = [c[0][0] for c in mock_ctrl.cmd.call_args_list]
@@ -421,9 +416,9 @@ def test_run_screen_has_start_pt_c():
     """Phase 15: RunScreen must have start_pt_c StringProperty defaulting to '---'."""
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
-    from dmccodegui.screens.run import RunScreen
-    r = RunScreen()
-    assert hasattr(r, 'start_pt_c'), "RunScreen missing start_pt_c property"
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
+    r = FlatGrindRunScreen()
+    assert hasattr(r, 'start_pt_c'), "FlatGrindRunScreen missing start_pt_c property"
     assert r.start_pt_c == '---', f"Expected start_pt_c default '---', got '{r.start_pt_c}'"
 
 
@@ -432,10 +427,10 @@ def test_read_start_pt_c_submits_job():
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
     from unittest.mock import MagicMock, patch
-    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
     from dmccodegui.controller import GalilController
 
-    r = RunScreen()
+    r = FlatGrindRunScreen()
     mock_ctrl = MagicMock(spec=GalilController)
     mock_ctrl.is_connected.return_value = True
     r.controller = mock_ctrl
@@ -450,11 +445,11 @@ def test_more_stone_updates_start_pt_c():
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
     from unittest.mock import MagicMock, patch, call
-    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
     from dmccodegui.controller import GalilController
     from dmccodegui.hmi.dmc_vars import HMI_MORE, HMI_TRIGGER_FIRE, STARTPT_C
 
-    r = RunScreen()
+    r = FlatGrindRunScreen()
     mock_ctrl = MagicMock(spec=GalilController)
     mock_ctrl.is_connected.return_value = True
     # Before-read of startPtC + trigger response + after-read value
@@ -471,10 +466,10 @@ def test_more_stone_updates_start_pt_c():
     def capture_schedule(fn, *a, **kw):
         scheduled_callbacks.append(fn)
 
-    with patch('dmccodegui.utils.jobs.submit', side_effect=capture_submit):
+    with patch('dmccodegui.utils.jobs.submit_urgent', side_effect=capture_submit):
         r.on_more_stone()
 
-    assert len(captured_fn) == 1, "on_more_stone must call jobs.submit once"
+    assert len(captured_fn) == 1, "on_more_stone must call submit_urgent once"
 
     with patch('time.sleep'), \
          patch('kivy.clock.Clock.schedule_once', side_effect=capture_schedule):
@@ -493,11 +488,11 @@ def test_less_stone_updates_start_pt_c():
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
     from unittest.mock import MagicMock, patch, call
-    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
     from dmccodegui.controller import GalilController
     from dmccodegui.hmi.dmc_vars import HMI_LESS, HMI_TRIGGER_FIRE, STARTPT_C
 
-    r = RunScreen()
+    r = FlatGrindRunScreen()
     mock_ctrl = MagicMock(spec=GalilController)
     mock_ctrl.is_connected.return_value = True
     # Before-read of startPtC + trigger response + after-read value
@@ -514,10 +509,10 @@ def test_less_stone_updates_start_pt_c():
     def capture_schedule(fn, *a, **kw):
         scheduled_callbacks.append(fn)
 
-    with patch('dmccodegui.utils.jobs.submit', side_effect=capture_submit):
+    with patch('dmccodegui.utils.jobs.submit_urgent', side_effect=capture_submit):
         r.on_less_stone()
 
-    assert len(captured_fn) == 1, "on_less_stone must call jobs.submit once"
+    assert len(captured_fn) == 1, "on_less_stone must call submit_urgent once"
 
     with patch('time.sleep'), \
          patch('kivy.clock.Clock.schedule_once', side_effect=capture_schedule):
@@ -536,14 +531,14 @@ def test_more_stone_reads_startptc_before_and_after():
     os.environ.setdefault('KIVY_NO_ENV_CONFIG', '1')
     os.environ.setdefault('KIVY_LOG_LEVEL', 'critical')
     from unittest.mock import MagicMock, patch, call
-    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.flat_grind.run import FlatGrindRunScreen
     from dmccodegui.controller import GalilController
     from dmccodegui.hmi.dmc_vars import HMI_MORE, HMI_TRIGGER_FIRE, STARTPT_C
 
-    r = RunScreen()
+    r = FlatGrindRunScreen()
     mock_ctrl = MagicMock(spec=GalilController)
     mock_ctrl.is_connected.return_value = True
-    # Sequence: before read → "1000.0", trigger → "", after read → "1001.0"
+    # Sequence: before read -> "1000.0", trigger -> "", after read -> "1001.0"
     mock_ctrl.cmd.side_effect = ["1000.0\n", "\n", "1001.0\n"]
     r.controller = mock_ctrl
 
@@ -552,10 +547,10 @@ def test_more_stone_reads_startptc_before_and_after():
     def capture_submit(fn, *a, **kw):
         captured_fn.append(fn)
 
-    with patch('dmccodegui.utils.jobs.submit', side_effect=capture_submit):
+    with patch('dmccodegui.utils.jobs.submit_urgent', side_effect=capture_submit):
         r.on_more_stone()
 
-    assert len(captured_fn) == 1, "on_more_stone must call jobs.submit once"
+    assert len(captured_fn) == 1, "on_more_stone must call submit_urgent once"
     with patch('time.sleep'):
         captured_fn[0]()
 

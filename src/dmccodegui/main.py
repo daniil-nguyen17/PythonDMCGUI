@@ -104,6 +104,11 @@ class DMCApp(App):
         from kivy.resources import resource_add_path
         resource_add_path(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', 'images'))
 
+        # Load Flat Grind KV files before the general KV_FILES loop.
+        # This must happen before Factory.RootLayout() instantiates screens.
+        from .screens.flat_grind import load_kv as _load_flat_grind_kv
+        _load_flat_grind_kv()
+
         for kv in KV_FILES:
             Builder.load_file(os.path.join(os.path.dirname(__file__), kv))
 

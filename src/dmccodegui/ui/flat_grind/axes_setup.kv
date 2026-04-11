@@ -1,0 +1,781 @@
+#:import theme dmccodegui.theme_manager.theme
+#:import dp kivy.metrics.dp
+
+# ──────────────────────────────────────────────────────────────────────────────
+# FlatGrindAxesSetupScreen — All axes visible, mode toggle, save button
+#
+# Layout: vertical stack
+#   Top row  — Mode toggle (Set Rest / Set Start) + Quick action buttons
+#   Step row — Step size toggles (10 / 5 / 1)
+#   Axis rows — One row per axis: label, saved value, << pos >> jog controls
+#   Bottom   — Save button (text/color changes with mode)
+# ──────────────────────────────────────────────────────────────────────────────
+
+<FlatGrindAxesSetupScreen>:
+    canvas.before:
+        Color:
+            rgba: theme.bg_dark
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    BoxLayout:
+        orientation: 'vertical'
+        spacing: 0
+        padding: 0
+
+        # ── Top bar: mode toggle + quick actions ─────────────────────────────
+        BoxLayout:
+            orientation: 'horizontal'
+            size_hint_y: None
+            height: '64dp'
+            padding: '16dp', '10dp', '16dp', '10dp'
+            spacing: '12dp'
+            canvas.before:
+                Color:
+                    rgba: theme.bg_dark
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+                Color:
+                    rgba: theme.border
+                Rectangle:
+                    pos: self.x, self.y
+                    size: self.width, dp(1)
+
+            # Mode toggle group
+            BoxLayout:
+                orientation: 'horizontal'
+                size_hint_x: None
+                width: '600dp'
+                spacing: 0
+
+                ToggleButton:
+                    id: mode_rest_btn
+                    text: 'CAI VI TRI NGHI'
+                    group: 'mode_sel'
+                    state: 'normal'
+                    font_size: '18sp'
+                    bold: True
+                    size_hint_x: 0.5
+                    on_release: root.set_mode('rest')
+                    background_normal: ''
+                    background_down: ''
+                    background_color: (0.031, 0.314, 0.471, 1) if self.state == 'down' else theme.bg_panel
+                    color: theme.text_main if self.state == 'down' else theme.text_mid
+
+                ToggleButton:
+                    id: mode_start_btn
+                    text: 'CAI VI TRI BAT DAU'
+                    group: 'mode_sel'
+                    font_size: '18sp'
+                    bold: True
+                    size_hint_x: 0.5
+                    on_release: root.set_mode('start')
+                    background_normal: ''
+                    background_down: ''
+                    background_color: (0.031, 0.471, 0.188, 1) if self.state == 'down' else theme.bg_panel
+                    color: theme.text_main if self.state == 'down' else theme.text_mid
+
+            Widget:
+                # Spacer
+
+            # Quick actions
+            Label:
+                text: 'Quick:'
+                font_size: '13sp'
+                color: theme.text_dim
+                size_hint_x: None
+                width: '46dp'
+                halign: 'right'
+                valign: 'middle'
+                text_size: self.size
+
+            Button:
+                text: 'DI DEN VI TRI NGHI'
+                font_size: '15sp'
+                bold: True
+                size_hint_x: None
+                width: '160dp'
+                background_color: theme.bg_row
+                color: theme.text_mid
+                on_release: root.go_to_rest_all()
+
+            Button:
+                text: 'DI DEN VI TRI BAT DAU'
+                font_size: '15sp'
+                bold: True
+                size_hint_x: None
+                width: '160dp'
+                background_color: theme.bg_row
+                color: theme.text_mid
+                on_release: root.go_to_start_all()
+
+            Button:
+                text: 'DI VE VI TRI GOC'
+                font_size: '15sp'
+                bold: True
+                size_hint_x: None
+                width: '145dp'
+                background_color: theme.bg_row
+                color: theme.text_mid
+                on_release: root.home_all()
+
+        # ── Step size row ────────────────────────────────────────────────────
+        BoxLayout:
+            orientation: 'horizontal'
+            size_hint_y: None
+            height: '48dp'
+            padding: '16dp', '6dp', '16dp', '6dp'
+            spacing: '8dp'
+            canvas.before:
+                Color:
+                    rgba: (0.039, 0.059, 0.102, 1)
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+                Color:
+                    rgba: theme.border
+                Rectangle:
+                    pos: self.x, self.y
+                    size: self.width, dp(1)
+
+            Widget:
+                # Left spacer
+
+            Label:
+                text: 'BUOC DI CHUYEN'
+                font_size: '14sp'
+                color: theme.text_dim
+                size_hint_x: None
+                width: '70dp'
+                halign: 'right'
+                valign: 'middle'
+                text_size: self.size
+
+            ToggleButton:
+                id: step_10
+                text: '10'
+                group: 'step_sel'
+                state: 'down'
+                font_size: '16sp'
+                bold: True
+                size_hint_x: None
+                width: '60dp'
+                on_release: root.set_step(10.0)
+
+            ToggleButton:
+                id: step_5
+                text: '5'
+                group: 'step_sel'
+                font_size: '16sp'
+                bold: True
+                size_hint_x: None
+                width: '60dp'
+                on_release: root.set_step(5.0)
+
+            ToggleButton:
+                id: step_1
+                text: '1'
+                group: 'step_sel'
+                font_size: '16sp'
+                bold: True
+                size_hint_x: None
+                width: '60dp'
+                on_release: root.set_step(1.0)
+
+            Label:
+                text: 'MM'
+                font_size: '14sp'
+                color: theme.text_dim
+                size_hint_x: None
+                width: '30dp'
+                halign: 'left'
+                valign: 'middle'
+                text_size: self.size
+
+            Widget:
+                # Right spacer
+
+        # ── Axis rows ────────────────────────────────────────────────────────
+        BoxLayout:
+            orientation: 'vertical'
+            padding: '16dp', '12dp', '16dp', '8dp'
+            spacing: '10dp'
+
+            # ── Axis A ───────────────────────────────────────────────────────
+            BoxLayout:
+                id: axis_row_a
+                orientation: 'horizontal'
+                size_hint_y: None
+                height: '80dp'
+                spacing: '12dp'
+                padding: '12dp', '8dp'
+                canvas.before:
+                    Color:
+                        rgba: theme.bg_panel
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [8,]
+                    Color:
+                        rgba: (0.980, 0.569, 0.043, 0.35)
+                    Line:
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                        width: 1.2
+
+                # Color indicator bar
+                Widget:
+                    size_hint: None, None
+                    size: dp(5), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    canvas:
+                        Color:
+                            rgba: (0.980, 0.569, 0.043, 1)
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [3,]
+
+                # Axis label
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '160dp'
+                    Label:
+                        text: 'A'
+                        font_size: '24sp'
+                        bold: True
+                        color: (0.980, 0.569, 0.043, 1)
+                        halign: 'left'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.6
+                    Label:
+                        text: 'CHIEU DAI DAO'
+                        font_size: '13sp'
+                        color: theme.text_dim
+                        halign: 'left'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.4
+
+                # Saved value column
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '140dp'
+                    Label:
+                        id: saved_label_a
+                        text: '---'
+                        font_size: '11sp'
+                        color: theme.text_dim
+                        halign: 'center'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.35
+                    Label:
+                        id: saved_val_a
+                        text: '---'
+                        font_size: '26sp'
+                        bold: True
+                        color: (0.980, 0.569, 0.043, 1)
+                        halign: 'center'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.65
+
+                # Jog controls
+                Widget:
+                    size_hint_x: 0.03
+
+                Button:
+                    text: '<<'
+                    font_size: '26sp'
+                    bold: True
+                    size_hint: None, None
+                    size: dp(72), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    background_color: theme.bg_row
+                    color: theme.text_mid
+                    on_release: root.jog_axis('A', -1)
+
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '160dp'
+                    Label:
+                        text: 'VI TRI HIEN TAI'
+                        font_size: '9sp'
+                        color: theme.text_dim
+                        halign: 'center'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.3
+                    Label:
+                        id: pos_a
+                        text: '---'
+                        font_size: '32sp'
+                        bold: True
+                        color: (0.133, 0.773, 0.369, 1)
+                        halign: 'center'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.7
+
+                Button:
+                    text: '>>'
+                    font_size: '26sp'
+                    bold: True
+                    size_hint: None, None
+                    size: dp(72), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    background_color: theme.bg_row
+                    color: theme.text_mid
+                    on_release: root.jog_axis('A', 1)
+
+                Widget:
+                    size_hint_x: 0.03
+
+            # ── Axis B ───────────────────────────────────────────────────────
+            BoxLayout:
+                id: axis_row_b
+                orientation: 'horizontal'
+                size_hint_y: None
+                height: '80dp'
+                spacing: '12dp'
+                padding: '12dp', '8dp'
+                canvas.before:
+                    Color:
+                        rgba: theme.bg_panel
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [8,]
+                    Color:
+                        rgba: (0.659, 0.333, 0.965, 0.35)
+                    Line:
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                        width: 1.2
+
+                Widget:
+                    size_hint: None, None
+                    size: dp(5), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    canvas:
+                        Color:
+                            rgba: (0.659, 0.333, 0.965, 1)
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [3,]
+
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '160dp'
+                    Label:
+                        text: 'B'
+                        font_size: '24sp'
+                        bold: True
+                        color: (0.659, 0.333, 0.965, 1)
+                        halign: 'left'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.6
+                    Label:
+                        text: 'VONG CUNG DAO'
+                        font_size: '13sp'
+                        color: theme.text_dim
+                        halign: 'left'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.4
+
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '140dp'
+                    Label:
+                        id: saved_label_b
+                        text: '---'
+                        font_size: '11sp'
+                        color: theme.text_dim
+                        halign: 'center'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.35
+                    Label:
+                        id: saved_val_b
+                        text: '---'
+                        font_size: '26sp'
+                        bold: True
+                        color: (0.659, 0.333, 0.965, 1)
+                        halign: 'center'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.65
+
+                Widget:
+                    size_hint_x: 0.03
+
+                Button:
+                    text: '<<'
+                    font_size: '26sp'
+                    bold: True
+                    size_hint: None, None
+                    size: dp(72), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    background_color: theme.bg_row
+                    color: theme.text_mid
+                    on_release: root.jog_axis('B', -1)
+
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '160dp'
+                    Label:
+                        text: 'VI TRI HIEN TAI'
+                        font_size: '9sp'
+                        color: theme.text_dim
+                        halign: 'center'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.3
+                    Label:
+                        id: pos_b
+                        text: '---'
+                        font_size: '32sp'
+                        bold: True
+                        color: (0.133, 0.773, 0.369, 1)
+                        halign: 'center'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.7
+
+                Button:
+                    text: '>>'
+                    font_size: '26sp'
+                    bold: True
+                    size_hint: None, None
+                    size: dp(72), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    background_color: theme.bg_row
+                    color: theme.text_mid
+                    on_release: root.jog_axis('B', 1)
+
+                Widget:
+                    size_hint_x: 0.03
+
+            # ── Axis C ───────────────────────────────────────────────────────
+            BoxLayout:
+                id: axis_row_c
+                orientation: 'horizontal'
+                size_hint_y: None
+                height: '80dp'
+                spacing: '12dp'
+                padding: '12dp', '8dp'
+                canvas.before:
+                    Color:
+                        rgba: theme.bg_panel
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [8,]
+                    Color:
+                        rgba: (0.024, 0.714, 0.831, 0.35)
+                    Line:
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                        width: 1.2
+
+                Widget:
+                    size_hint: None, None
+                    size: dp(5), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    canvas:
+                        Color:
+                            rgba: (0.024, 0.714, 0.831, 1)
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [3,]
+
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '160dp'
+                    Label:
+                        text: 'C'
+                        font_size: '24sp'
+                        bold: True
+                        color: (0.024, 0.714, 0.831, 1)
+                        halign: 'left'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.6
+                    Label:
+                        text: 'DA MAI DI LEN XUONG'
+                        font_size: '13sp'
+                        color: theme.text_dim
+                        halign: 'left'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.4
+
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '140dp'
+                    Label:
+                        id: saved_label_c
+                        text: '---'
+                        font_size: '11sp'
+                        color: theme.text_dim
+                        halign: 'center'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.35
+                    Label:
+                        id: saved_val_c
+                        text: '---'
+                        font_size: '26sp'
+                        bold: True
+                        color: (0.024, 0.714, 0.831, 1)
+                        halign: 'center'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.65
+
+                Widget:
+                    size_hint_x: 0.03
+
+                Button:
+                    text: '<<'
+                    font_size: '26sp'
+                    bold: True
+                    size_hint: None, None
+                    size: dp(72), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    background_color: theme.bg_row
+                    color: theme.text_mid
+                    on_release: root.jog_axis('C', -1)
+
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '160dp'
+                    Label:
+                        text: 'VI TRI HIEN TAI'
+                        font_size: '9sp'
+                        color: theme.text_dim
+                        halign: 'center'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.3
+                    Label:
+                        id: pos_c
+                        text: '---'
+                        font_size: '32sp'
+                        bold: True
+                        color: (0.133, 0.773, 0.369, 1)
+                        halign: 'center'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.7
+
+                Button:
+                    text: '>>'
+                    font_size: '26sp'
+                    bold: True
+                    size_hint: None, None
+                    size: dp(72), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    background_color: theme.bg_row
+                    color: theme.text_mid
+                    on_release: root.jog_axis('C', 1)
+
+                Widget:
+                    size_hint_x: 0.03
+
+            # ── Axis D ───────────────────────────────────────────────────────
+            BoxLayout:
+                id: axis_row_d
+                orientation: 'horizontal'
+                size_hint_y: None
+                height: '80dp'
+                spacing: '12dp'
+                padding: '12dp', '8dp'
+                canvas.before:
+                    Color:
+                        rgba: theme.bg_panel
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [8,]
+                    Color:
+                        rgba: (0.980, 0.749, 0.043, 0.35)
+                    Line:
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                        width: 1.2
+
+                Widget:
+                    size_hint: None, None
+                    size: dp(5), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    canvas:
+                        Color:
+                            rgba: (0.980, 0.749, 0.043, 1)
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [3,]
+
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '160dp'
+                    Label:
+                        text: 'D'
+                        font_size: '24sp'
+                        bold: True
+                        color: (0.980, 0.749, 0.043, 1)
+                        halign: 'left'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.6
+                    Label:
+                        text: 'GOC MAI CUA DAO'
+                        font_size: '13sp'
+                        color: theme.text_dim
+                        halign: 'left'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.4
+
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '140dp'
+                    Label:
+                        id: saved_label_d
+                        text: '---'
+                        font_size: '11sp'
+                        color: theme.text_dim
+                        halign: 'center'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.35
+                    Label:
+                        id: saved_val_d
+                        text: '---'
+                        font_size: '26sp'
+                        bold: True
+                        color: (0.980, 0.749, 0.043, 1)
+                        halign: 'center'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.65
+
+                Widget:
+                    size_hint_x: 0.03
+
+                Button:
+                    text: '<<'
+                    font_size: '26sp'
+                    bold: True
+                    size_hint: None, None
+                    size: dp(72), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    background_color: theme.bg_row
+                    color: theme.text_mid
+                    on_release: root.jog_axis('D', -1)
+
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_x: None
+                    width: '160dp'
+                    Label:
+                        text: 'VI TRI HIEN TAI'
+                        font_size: '9sp'
+                        color: theme.text_dim
+                        halign: 'center'
+                        valign: 'bottom'
+                        text_size: self.size
+                        size_hint_y: 0.3
+                    Label:
+                        id: pos_d
+                        text: '---'
+                        font_size: '32sp'
+                        bold: True
+                        color: (0.133, 0.773, 0.369, 1)
+                        halign: 'center'
+                        valign: 'top'
+                        text_size: self.size
+                        size_hint_y: 0.7
+
+                Button:
+                    text: '>>'
+                    font_size: '26sp'
+                    bold: True
+                    size_hint: None, None
+                    size: dp(72), dp(56)
+                    pos_hint: {'center_y': 0.5}
+                    background_color: theme.bg_row
+                    color: theme.text_mid
+                    on_release: root.jog_axis('D', 1)
+
+                Widget:
+                    size_hint_x: 0.03
+
+            # Command response log
+            BoxLayout:
+                size_hint_y: None
+                height: '60dp'
+                padding: '4dp'
+                canvas.before:
+                    Color:
+                        rgba: 0.05, 0.07, 0.10, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [6,]
+
+                ScrollView:
+                    id: setup_log_scroll
+                    do_scroll_x: False
+
+                    Label:
+                        id: setup_log_label
+                        text: root.cmd_log_text
+                        font_size: '10sp'
+                        font_name: 'Roboto'
+                        color: 0.4, 0.9, 0.4, 1
+                        halign: 'left'
+                        valign: 'bottom'
+                        text_size: self.width, None
+                        size_hint_y: None
+                        height: max(self.texture_size[1], setup_log_scroll.height)
+
+        # ── Save button ──────────────────────────────────────────────────────
+        BoxLayout:
+            orientation: 'horizontal'
+            size_hint_y: None
+            height: '72dp'
+            padding: '20dp', '8dp', '20dp', '14dp'
+
+            Widget:
+                # Left spacer
+
+            Button:
+                id: save_btn
+                text: 'LUU VI TRI'
+                font_size: '20sp'
+                bold: True
+                size_hint_x: None
+                width: '320dp'
+                background_color: (0.031, 0.314, 0.471, 1)
+                color: theme.text_main
+                on_release: root.save_points()
+
+            Widget:
+                # Right spacer

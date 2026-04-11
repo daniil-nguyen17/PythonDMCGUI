@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Multi-Machine
 status: unknown
-stopped_at: Completed 20-screen-registry-and-loader 20-02-PLAN.md
-last_updated: "2026-04-11T15:51:43.499Z"
+stopped_at: Phase 21 context gathered
+last_updated: "2026-04-11T16:22:32.655Z"
 last_activity: 2026-04-11 — Phase 20 Plan 02 complete; registry-driven screen loader wired, base.kv purged of hard-coded machine screens, cleanup delegation, machType mismatch detection added
 progress:
   total_phases: 16
@@ -102,7 +102,7 @@ Decisions affecting current work (v3.0):
 
 ## Session Continuity
 
-Last session: 2026-04-11T15:50:36.413Z
-Stopped at: Completed 20-screen-registry-and-loader 20-02-PLAN.md
-Resume file: None
+Last session: 2026-04-11T16:22:32.652Z
+Stopped at: Phase 21 context gathered
+Resume file: .planning/phases/21-serration-screen-set/21-CONTEXT.md
 Next action: Plan Phase 20 — Screen Registry and Loader

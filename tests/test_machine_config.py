@@ -182,3 +182,69 @@ def test_machine_state_notify_on_type_change():
 
     assert len(received) == 1
     assert received[0].machine_type == "4-Axes Flat Grind"
+
+
+# ---------------------------------------------------------------------------
+# Registry screen_classes and load_kv tests (Phase 20 Plan 01)
+# ---------------------------------------------------------------------------
+
+
+def test_registry_flat_grind_has_screen_classes_key():
+    """_REGISTRY['4-Axes Flat Grind'] has 'screen_classes' key with run/axes_setup/parameters."""
+    entry = mc._REGISTRY["4-Axes Flat Grind"]
+    assert "screen_classes" in entry, "Missing 'screen_classes' key in Flat Grind registry entry"
+    sc = entry["screen_classes"]
+    assert "run" in sc, "screen_classes missing 'run'"
+    assert "axes_setup" in sc, "screen_classes missing 'axes_setup'"
+    assert "parameters" in sc, "screen_classes missing 'parameters'"
+
+
+def test_registry_flat_grind_screen_classes_values():
+    """Flat Grind screen_classes dotted paths are correct."""
+    sc = mc._REGISTRY["4-Axes Flat Grind"]["screen_classes"]
+    assert sc["run"] == "dmccodegui.screens.flat_grind.FlatGrindRunScreen"
+    assert sc["axes_setup"] == "dmccodegui.screens.flat_grind.FlatGrindAxesSetupScreen"
+    assert sc["parameters"] == "dmccodegui.screens.flat_grind.FlatGrindParametersScreen"
+
+
+def test_registry_flat_grind_has_load_kv_key():
+    """_REGISTRY['4-Axes Flat Grind'] has 'load_kv' key."""
+    entry = mc._REGISTRY["4-Axes Flat Grind"]
+    assert "load_kv" in entry, "Missing 'load_kv' key in Flat Grind registry entry"
+    assert entry["load_kv"] == "dmccodegui.screens.flat_grind.load_kv"
+
+
+def test_registry_all_types_have_screen_classes_and_load_kv():
+    """All three machine types in _REGISTRY have screen_classes and load_kv keys."""
+    for mtype in mc.MACHINE_TYPES:
+        entry = mc._REGISTRY[mtype]
+        assert "screen_classes" in entry, f"{mtype}: missing 'screen_classes'"
+        assert "load_kv" in entry, f"{mtype}: missing 'load_kv'"
+        sc = entry["screen_classes"]
+        for key in ("run", "axes_setup", "parameters"):
+            assert key in sc, f"{mtype}: screen_classes missing '{key}'"
+
+
+def test_registry_load_kv_paths_resolve():
+    """Each load_kv path resolves to a callable via importlib."""
+    import importlib
+    for mtype in mc.MACHINE_TYPES:
+        path = mc._REGISTRY[mtype]["load_kv"]
+        module_path, attr = path.rsplit(".", 1)
+        mod = importlib.import_module(module_path)
+        obj = getattr(mod, attr)
+        assert callable(obj), f"{mtype}: load_kv path {path!r} is not callable"
+
+
+def test_registry_screen_classes_paths_resolve():
+    """Each screen_classes dotted path resolves to a class via importlib."""
+    import importlib
+    for mtype in mc.MACHINE_TYPES:
+        sc = mc._REGISTRY[mtype]["screen_classes"]
+        for role, path in sc.items():
+            module_path, attr = path.rsplit(".", 1)
+            mod = importlib.import_module(module_path)
+            cls = getattr(mod, attr)
+            assert isinstance(cls, type), (
+                f"{mtype}.screen_classes[{role!r}] path {path!r} did not resolve to a class"
+            )

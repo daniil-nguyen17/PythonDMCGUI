@@ -82,16 +82,36 @@ _REGISTRY: Dict[str, Dict] = {
         "axes": ["A", "B", "C", "D"],
         "has_bcomp": False,
         "param_defs": _FLAT_PARAM_DEFS,
+        "load_kv": "dmccodegui.screens.flat_grind.load_kv",
+        "screen_classes": {
+            "run":        "dmccodegui.screens.flat_grind.FlatGrindRunScreen",
+            "axes_setup": "dmccodegui.screens.flat_grind.FlatGrindAxesSetupScreen",
+            "parameters": "dmccodegui.screens.flat_grind.FlatGrindParametersScreen",
+        },
     },
     "4-Axes Convex Grind": {
         "axes": ["A", "B", "C", "D"],
         "has_bcomp": False,
         "param_defs": _CONVEX_PARAM_DEFS,
+        # TODO: Phase 22 will replace with real Convex screen classes.
+        "load_kv": "dmccodegui.screens.flat_grind.load_kv",
+        "screen_classes": {
+            "run":        "dmccodegui.screens.flat_grind.FlatGrindRunScreen",
+            "axes_setup": "dmccodegui.screens.flat_grind.FlatGrindAxesSetupScreen",
+            "parameters": "dmccodegui.screens.flat_grind.FlatGrindParametersScreen",
+        },
     },
     "3-Axes Serration Grind": {
         "axes": ["A", "B", "C"],
         "has_bcomp": True,
         "param_defs": _SERRATION_PARAM_DEFS,
+        # TODO: Phase 21 will replace with real Serration screen classes.
+        "load_kv": "dmccodegui.screens.flat_grind.load_kv",
+        "screen_classes": {
+            "run":        "dmccodegui.screens.flat_grind.FlatGrindRunScreen",
+            "axes_setup": "dmccodegui.screens.flat_grind.FlatGrindAxesSetupScreen",
+            "parameters": "dmccodegui.screens.flat_grind.FlatGrindParametersScreen",
+        },
     },
 }
 

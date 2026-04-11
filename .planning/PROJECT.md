@@ -28,22 +28,20 @@ An operator walks up, taps their PIN, runs parts while watching a live A/B posit
 
 ### Active
 
-- [ ] HMI-controller integration for 4-Axes Flat Grind machine — all buttons wired to DMC state machine
-- [ ] DMC code modified with HMI trigger variables (one-shot pattern) alongside physical inputs
-- [ ] RUN page buttons (Start Grind, Go To Rest, Go To Start) send correct gclib commands
-- [ ] Setup flow integration — entering Setup/Axes/Parameters triggers DMC setup mode
-- [ ] More/Less Stone compensation buttons wired to controller
-- [ ] New Session (stone change) flow from HMI
-- [ ] Live position tracking connected to controller ring buffers
-- [ ] State synchronization — HMI reflects controller state (main loop, grinding, setup)
+- [ ] Refactor screens into per-machine-type classes (Flat Grind, Serration, Convex) each with own .kv file
+- [ ] Shared controller communication layer preserved (gclib, JobThread, poll, dmc_vars)
+- [ ] Each machine type gets dedicated Run, Axes Setup, and Parameters screens
+- [ ] Machine detection on connect (controller variable + local config) loads correct screen set
+- [ ] Same tab bar, navigation behavior, and auth flow across all machine types
+- [ ] Existing Flat Grind functionality preserved as-is (90% complete, fine-tuning only)
+- [ ] Serration Grind screens created from Flat Grind base, tuned independently
+- [ ] Convex Grind screens created from Flat Grind base, tuned independently
 
 ### Future
 
 - [ ] Raspberry Pi kiosk mode (deferred from v1.0, pending hardware validation)
 - [ ] Windows deployment support alongside Pi
 - [ ] Easy SD card deployment
-- [ ] Serration Grind machine integration (after Flat Grind complete)
-- [ ] Convex Grind machine integration (after Serration complete)
 
 ### Out of Scope
 
@@ -55,24 +53,22 @@ An operator walks up, taps their PIN, runs parts while watching a live A/B posit
 - Undo/redo for parameter edits (controller is source of truth; "Read from Controller" is the real undo)
 - Animated screen transitions (adds latency on industrial tool)
 
-## Current Milestone: v2.0 Flat Grind Integration
+## Current Milestone: v3.0 Multi-Machine
 
-**Goal:** Make the HMI fully operational with the DMC controller on the 4-Axes Flat Grind machine — every button triggers real machine actions, the controller state machine stays in sync, and an operator can run a complete grind cycle from the touchscreen.
+**Goal:** Refactor the HMI into per-machine-type screen sets so each machine (Flat Grind, Serration, Convex) has its own dedicated Run, Axes Setup, and Parameters screens with independent .kv files — enabling independent fine-tuning per machine without breaking the others.
 
 **Target features:**
-- DMC code modified with HMI one-shot trigger variables (hmiGrnd, hmiSetp, hmiMore, hmiLess, hmiNewS, hmiHome, hmiJog, hmiCalc)
-- RUN page: Start Grind, Go To Rest, Go To Start wired to #GRIND, #GOREST, #GOSTR
-- Setup page: triggers DMC #SETUP mode, jog controls, save points, parameter recalc
-- More/Less Stone: compensation adjustments via #MOREGRI/#LESSGRI
-- New Session: stone change flow via #NEWSESS
-- Live position plot connected to controller axis positions
-- State sync: HMI knows if controller is in main loop, grinding, setup, etc.
-
-**Machine order:** Flat Grind first → Serration → Convex Grind
+- Per-machine screen classes: FlatGrindRunScreen, SerrationRunScreen, ConvexRunScreen (+ Axes Setup, Parameters for each)
+- Per-machine .kv files for full layout independence
+- Shared base layer: controller comms (gclib, JobThread, poll), auth, tab bar, navigation
+- Machine detection on connect: reads controller variable or local config, loads correct screen set
+- Screen registry/loader that swaps screen set based on detected machine type
+- Existing Flat Grind screens preserved as-is — becomes the reference implementation
+- Serration and Convex screens created from Flat Grind base, tuned independently
 
 ## Context
 
-- **Current state:** v2.0 started — v1.0 shipped (13,412 LOC, 160 commits), now wiring HMI to real DMC controller
+- **Current state:** v3.0 started — v2.0 shipped (Flat Grind integration complete), now refactoring into per-machine screen sets
 - **DMC code:** `4 Axis Stainless grind.dmc` — state machine: #AUTO → #CONFIG → #PARAMS → #COMPED → #HOME → #MAIN → polling loop. Physical buttons on @IN[] pins, adding HMI variables as OR conditions
 - **HMI variable pattern:** Named vars with `hmi` prefix (8-char DMC limit), default=1, HMI sends var=0 to trigger, DMC resets to 1 after entering the block
 - **Tech stack:** Python 3.10+, Kivy 2.2+, gclib, matplotlib, kivy_matplotlib_widget
@@ -109,4 +105,4 @@ An operator walks up, taps their PIN, runs parts while watching a live A/B posit
 | Config.set before all Kivy imports | Kivy config is frozen on first Window import; kiosk fullscreen must be set in main.py top block | ✓ Good — pattern established, Pi kiosk config will extend it |
 
 ---
-*Last updated: 2026-04-06 after v2.0 milestone start*
+*Last updated: 2026-04-11 after v3.0 milestone start*

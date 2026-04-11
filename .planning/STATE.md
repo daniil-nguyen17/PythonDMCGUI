@@ -4,8 +4,8 @@ milestone: v3.0
 milestone_name: Multi-Machine
 status: unknown
 stopped_at: Completed 20-screen-registry-and-loader 20-02-PLAN.md
-last_updated: "2026-04-11T15:50:45.885Z"
-last_activity: 2026-04-11 — Phase 20 Plan 02 complete; registry-driven screen loader wired, base.kv purged, cleanup delegation, machType mismatch detection added
+last_updated: "2026-04-11T15:51:43.499Z"
+last_activity: 2026-04-11 — Phase 20 Plan 02 complete; registry-driven screen loader wired, base.kv purged of hard-coded machine screens, cleanup delegation, machType mismatch detection added
 progress:
   total_phases: 16
   completed_phases: 12

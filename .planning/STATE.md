@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Multi-Machine
 status: unknown
-stopped_at: Phase 18 context gathered
-last_updated: "2026-04-11T11:32:50.011Z"
+stopped_at: Completed 18-01-PLAN.md
+last_updated: "2026-04-11T13:09:17.090Z"
 last_activity: 2026-04-11 — Roadmap defined, 6 phases, 26/26 requirements mapped
 progress:
   total_phases: 16
   completed_phases: 9
-  total_plans: 17
-  completed_plans: 17
+  total_plans: 19
+  completed_plans: 18
 ---
 
 # Project State
@@ -62,6 +62,8 @@ Decisions affecting current work (v3.0):
 - Machine detection via controller variable + local config; switching requires restart (hot-swap deferred to v3.x)
 - All lifecycle hooks in Python base classes only — never in .kv files (Kivy GitHub #2565: on_pre_enter silently skips for first screen added via kv)
 - Builder.unload_file() rejected — does not affect instantiated widgets; swap uses sm.add_widget/remove_widget
+- [Phase 18-base-class-extraction]: BaseRunScreen thin: no jog, no matplotlib, no setup mode. SetupScreenMixin has no __init__ to preserve cooperative MRO.
+- [Phase 18-base-class-extraction]: BCompBarChart stays in run.py — Serration-specific, deferred to Phase 21.
 
 ### Critical Pitfalls (from research)
 
@@ -90,7 +92,7 @@ Decisions affecting current work (v3.0):
 
 ## Session Continuity
 
-Last session: 2026-04-11T11:32:49.999Z
-Stopped at: Phase 18 context gathered
-Resume file: .planning/phases/18-base-class-extraction/18-CONTEXT.md
+Last session: 2026-04-11T13:09:17.087Z
+Stopped at: Completed 18-01-PLAN.md
+Resume file: None
 Next action: `/gsd:plan-phase 18`

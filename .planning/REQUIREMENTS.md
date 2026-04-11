@@ -9,10 +9,10 @@ Requirements for multi-machine screen architecture and controller communication 
 
 ### Screen Architecture
 
-- [ ] **ARCH-01**: Base classes extracted (BaseRunScreen, BaseAxesSetupScreen, BaseParametersScreen) with shared controller wiring, poll subscription, and lifecycle hooks
-- [ ] **ARCH-02**: Base class enforces subscribe-on-enter / unsubscribe-on-leave for state listeners
+- [x] **ARCH-01**: Base classes extracted (BaseRunScreen, BaseAxesSetupScreen, BaseParametersScreen) with shared controller wiring, poll subscription, and lifecycle hooks
+- [x] **ARCH-02**: Base class enforces subscribe-on-enter / unsubscribe-on-leave for state listeners
 - [ ] **ARCH-03**: Per-machine screen classes created (3 types x 3 screens = 9 classes) each with own .kv file
-- [ ] **ARCH-04**: All lifecycle hooks (on_pre_enter, on_enter, on_leave) defined in Python base classes, not in .kv files
+- [x] **ARCH-04**: All lifecycle hooks (on_pre_enter, on_enter, on_leave) defined in Python base classes, not in .kv files
 
 ### Screen Loading
 
@@ -77,10 +77,10 @@ Requirements for multi-machine screen architecture and controller communication 
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ARCH-01 | Phase 18 | Pending |
-| ARCH-02 | Phase 18 | Pending |
+| ARCH-01 | Phase 18 | Complete |
+| ARCH-02 | Phase 18 | Complete |
 | ARCH-03 | Phase 18 | Pending |
-| ARCH-04 | Phase 18 | Pending |
+| ARCH-04 | Phase 18 | Complete |
 | LOAD-01 | Phase 20 | Pending |
 | LOAD-02 | Phase 20 | Pending |
 | LOAD-03 | Phase 20 | Pending |

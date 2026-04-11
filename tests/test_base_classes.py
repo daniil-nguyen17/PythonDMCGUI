@@ -266,3 +266,164 @@ def test_on_state_change_dispatches_to_subclass():
 
     # Cleanup
     screen.on_leave()
+
+
+# ---------------------------------------------------------------------------
+# Plan 18-02 regression tests: wired subclasses
+# ---------------------------------------------------------------------------
+
+def test_run_screen_inherits_base():
+    """18-02: RunScreen is a subclass of BaseRunScreen."""
+    from dmccodegui.screens.run import RunScreen
+    from dmccodegui.screens.base import BaseRunScreen
+
+    assert issubclass(RunScreen, BaseRunScreen), \
+        "RunScreen must inherit from BaseRunScreen"
+
+
+def test_axes_setup_inherits_base():
+    """18-02: AxesSetupScreen is a subclass of BaseAxesSetupScreen."""
+    from dmccodegui.screens.axes_setup import AxesSetupScreen
+    from dmccodegui.screens.base import BaseAxesSetupScreen
+
+    assert issubclass(AxesSetupScreen, BaseAxesSetupScreen), \
+        "AxesSetupScreen must inherit from BaseAxesSetupScreen"
+
+
+def test_parameters_inherits_base():
+    """18-02: ParametersScreen is a subclass of BaseParametersScreen."""
+    from dmccodegui.screens.parameters import ParametersScreen
+    from dmccodegui.screens.base import BaseParametersScreen
+
+    assert issubclass(ParametersScreen, BaseParametersScreen), \
+        "ParametersScreen must inherit from BaseParametersScreen"
+
+
+def test_no_duplicate_setup_screens_frozenset():
+    """18-02: _SETUP_SCREENS is NOT defined in axes_setup.py or parameters.py.
+
+    It must exist only in SetupScreenMixin (base.py).
+    """
+    import ast
+    import pathlib
+
+    src_root = pathlib.Path(__file__).parent.parent / "src" / "dmccodegui" / "screens"
+
+    for filename in ("axes_setup.py", "parameters.py"):
+        src = (src_root / filename).read_text(encoding="utf-8")
+        tree = ast.parse(src)
+
+        # Walk the AST looking for an assignment with name '_SETUP_SCREENS'
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                targets = getattr(node, 'targets', []) or [getattr(node, 'target', None)]
+                for t in targets:
+                    if isinstance(t, ast.Name) and t.id == "_SETUP_SCREENS":
+                        raise AssertionError(
+                            f"_SETUP_SCREENS is defined in {filename} — must only exist in base.py"
+                        )
+
+
+def test_run_screen_no_inline_object_properties():
+    """18-02: RunScreen does not directly declare controller or state ObjectProperty.
+
+    Both properties must be inherited from BaseRunScreen.
+    """
+    import ast
+    import pathlib
+
+    src = (pathlib.Path(__file__).parent.parent / "src" / "dmccodegui" / "screens" / "run.py").read_text(encoding="utf-8")
+    tree = ast.parse(src)
+
+    # Find the RunScreen class node
+    run_screen_node = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and node.name == "RunScreen":
+            run_screen_node = node
+            break
+
+    assert run_screen_node is not None, "RunScreen class not found in run.py"
+
+    # Look for top-level class body assignments named 'controller' or 'state'
+    for item in run_screen_node.body:
+        if isinstance(item, ast.Assign):
+            for t in item.targets:
+                if isinstance(t, ast.Name) and t.id in ("controller", "state"):
+                    raise AssertionError(
+                        f"RunScreen directly declares '{t.id}' ObjectProperty — "
+                        "must be inherited from BaseRunScreen"
+                    )
+
+
+def test_two_enter_leave_cycles_no_leak_run():
+    """18-02: RunScreen — two enter/leave cycles produce zero leaked subscriptions."""
+    from unittest.mock import patch
+    from dmccodegui.screens.run import RunScreen
+
+    state = _MockMachineState()
+    screen = RunScreen()
+    screen.state = state
+
+    for _ in range(2):
+        with patch('dmccodegui.screens.base.submit'):
+            with patch.object(screen, '_start_pos_poll', create=True, return_value=None):
+                with patch.object(screen, '_stop_pos_poll', create=True, return_value=None):
+                    try:
+                        screen.on_pre_enter()
+                    except Exception:
+                        pass
+                    try:
+                        screen.on_leave()
+                    except Exception:
+                        pass
+
+    assert len(state._listeners) == 0, \
+        f"RunScreen leaked {len(state._listeners)} subscription(s) after two enter/leave cycles"
+
+
+def test_two_enter_leave_cycles_no_leak_axes():
+    """18-02: AxesSetupScreen — two enter/leave cycles produce zero leaked subscriptions."""
+    from unittest.mock import patch
+    from dmccodegui.screens.axes_setup import AxesSetupScreen
+
+    state = _MockMachineState()
+    screen = AxesSetupScreen()
+    screen.state = state
+
+    for _ in range(2):
+        with patch('dmccodegui.screens.base.submit'):
+            try:
+                screen.on_pre_enter()
+            except Exception:
+                pass
+            try:
+                screen.on_leave()
+            except Exception:
+                pass
+
+    assert len(state._listeners) == 0, \
+        f"AxesSetupScreen leaked {len(state._listeners)} subscription(s) after two enter/leave cycles"
+
+
+def test_two_enter_leave_cycles_no_leak_params():
+    """18-02: ParametersScreen — two enter/leave cycles produce zero leaked subscriptions."""
+    from unittest.mock import patch
+    from dmccodegui.screens.parameters import ParametersScreen
+
+    state = _MockMachineState()
+    screen = ParametersScreen()
+    screen.state = state
+
+    for _ in range(2):
+        with patch('dmccodegui.screens.base.submit'):
+            try:
+                screen.on_pre_enter()
+            except Exception:
+                pass
+            try:
+                screen.on_leave()
+            except Exception:
+                pass
+
+    assert len(state._listeners) == 0, \
+        f"ParametersScreen leaked {len(state._listeners)} subscription(s) after two enter/leave cycles"

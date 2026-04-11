@@ -67,9 +67,7 @@ KV_FILES = [
     "ui/status_bar.kv",    # StatusBar widget
     "ui/tab_bar.kv",       # TabBar widget
     "ui/setup.kv",         # SetupScreen (connection)
-    "ui/run.kv",           # RunScreen placeholder
-    "ui/axes_setup.kv",    # AxesSetupScreen placeholder
-    "ui/parameters.kv",    # ParametersScreen placeholder
+    # Flat Grind KV loaded by screens.flat_grind.__init__
     "ui/profiles.kv",      # ProfilesScreen (CSV import/export)
     "ui/diagnostics.kv",   # DiagnosticsScreen placeholder
     "ui/users.kv",         # UsersScreen (Admin)

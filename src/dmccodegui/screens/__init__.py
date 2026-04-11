@@ -3,9 +3,10 @@
 from .setup import SetupScreen
 from .status_bar import StatusBar
 from .tab_bar import TabBar
-from .run import RunScreen
-from .axes_setup import AxesSetupScreen
-from .parameters import ParametersScreen
+from .flat_grind import FlatGrindRunScreen, FlatGrindAxesSetupScreen, FlatGrindParametersScreen
+from .run import RunScreen  # backward-compat alias
+from .axes_setup import AxesSetupScreen  # backward-compat alias
+from .parameters import ParametersScreen  # backward-compat alias
 from .profiles import ProfilesScreen
 from .diagnostics import DiagnosticsScreen
 from .pin_overlay import PINOverlay
@@ -17,6 +18,9 @@ __all__ = [
     "SetupScreen",
     "StatusBar",
     "TabBar",
+    "FlatGrindRunScreen",
+    "FlatGrindAxesSetupScreen",
+    "FlatGrindParametersScreen",
     "RunScreen",
     "AxesSetupScreen",
     "ParametersScreen",

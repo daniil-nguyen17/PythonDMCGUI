@@ -427,3 +427,211 @@ def test_two_enter_leave_cycles_no_leak_params():
 
     assert len(state._listeners) == 0, \
         f"ParametersScreen leaked {len(state._listeners)} subscription(s) after two enter/leave cycles"
+
+
+# ---------------------------------------------------------------------------
+# Phase 20-01: cleanup() method tests
+# ---------------------------------------------------------------------------
+
+class _MockEvent:
+    """Minimal threading.Event mock."""
+    def __init__(self):
+        self.set_called = False
+
+    def set(self):
+        self.set_called = True
+
+
+class _MockFig:
+    """Minimal matplotlib Figure stand-in."""
+    pass
+
+
+def test_cleanup_base_run_screen_calls_stop_pos_poll():
+    """BaseRunScreen.cleanup() calls _stop_pos_poll if the method exists."""
+    from unittest.mock import MagicMock
+    from dmccodegui.screens.base import BaseRunScreen
+
+    screen = BaseRunScreen()
+    screen._stop_pos_poll = MagicMock()
+
+    screen.cleanup()
+
+    screen._stop_pos_poll.assert_called_once()
+
+
+def test_cleanup_base_run_screen_sets_mg_stop_event():
+    """BaseRunScreen.cleanup() calls _mg_stop_event.set() if event exists — non-blocking."""
+    from dmccodegui.screens.base import BaseRunScreen
+
+    screen = BaseRunScreen()
+    event = _MockEvent()
+    screen._mg_stop_event = event
+    screen._mg_thread = object()  # something truthy
+
+    screen.cleanup()
+
+    assert event.set_called, "_mg_stop_event.set() must be called during cleanup()"
+
+
+def test_cleanup_base_run_screen_clears_mg_thread_reference():
+    """BaseRunScreen.cleanup() sets _mg_thread to None (does not join)."""
+    from dmccodegui.screens.base import BaseRunScreen
+
+    screen = BaseRunScreen()
+    screen._mg_stop_event = _MockEvent()
+    screen._mg_thread = object()
+
+    screen.cleanup()
+
+    assert screen._mg_thread is None, "_mg_thread must be cleared to None (no join)"
+
+
+def test_cleanup_base_run_screen_closes_fig():
+    """BaseRunScreen.cleanup() calls plt.close(_fig) if _fig is not None, then clears it."""
+    from unittest.mock import patch
+    from dmccodegui.screens.base import BaseRunScreen
+
+    screen = BaseRunScreen()
+    fig = _MockFig()
+    screen._fig = fig
+
+    with patch("dmccodegui.screens.base.plt") as mock_plt:
+        screen.cleanup()
+
+    mock_plt.close.assert_called_once_with(fig)
+    assert screen._fig is None, "_fig must be set to None after close"
+
+
+def test_cleanup_base_run_screen_closes_fig_skipped_when_none():
+    """BaseRunScreen.cleanup() skips plt.close if _fig is None."""
+    from unittest.mock import patch
+    from dmccodegui.screens.base import BaseRunScreen
+
+    screen = BaseRunScreen()
+    screen._fig = None
+
+    with patch("dmccodegui.screens.base.plt") as mock_plt:
+        screen.cleanup()
+
+    mock_plt.close.assert_not_called()
+
+
+def test_cleanup_base_run_screen_unsubscribes_state():
+    """BaseRunScreen.cleanup() calls _state_unsub() and sets it to None."""
+    from dmccodegui.screens.base import BaseRunScreen
+
+    unsub_called = []
+
+    def _unsub():
+        unsub_called.append(True)
+
+    screen = BaseRunScreen()
+    screen._state_unsub = _unsub
+
+    screen.cleanup()
+
+    assert len(unsub_called) == 1, "_state_unsub() must be called exactly once"
+    assert screen._state_unsub is None, "_state_unsub must be set to None after calling"
+
+
+def test_cleanup_base_run_screen_idempotent():
+    """BaseRunScreen.cleanup() is idempotent — second call does not error."""
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.base import BaseRunScreen
+
+    screen = BaseRunScreen()
+    screen._stop_pos_poll = MagicMock()
+    screen._mg_stop_event = _MockEvent()
+    screen._mg_thread = object()
+    screen._fig = _MockFig()
+
+    unsub_called = []
+
+    def _unsub():
+        unsub_called.append(True)
+
+    screen._state_unsub = _unsub
+
+    with patch("dmccodegui.screens.base.plt"):
+        screen.cleanup()  # first call
+        screen.cleanup()  # second call — must not raise
+
+    # _stop_pos_poll called only once (idempotent on second call too if attr gone)
+    # The key thing: no exception raised
+
+
+def test_cleanup_base_run_screen_logs_info(caplog):
+    """BaseRunScreen.cleanup() logs at INFO level for each step."""
+    import logging
+    from unittest.mock import MagicMock, patch
+    from dmccodegui.screens.base import BaseRunScreen
+
+    screen = BaseRunScreen()
+    screen._stop_pos_poll = MagicMock()
+    screen._mg_stop_event = _MockEvent()
+    screen._mg_thread = object()
+    screen._fig = _MockFig()
+    screen._state_unsub = MagicMock()
+
+    with caplog.at_level(logging.INFO, logger="dmccodegui.screens.base"):
+        with patch("dmccodegui.screens.base.plt"):
+            screen.cleanup()
+
+    assert len(caplog.records) > 0, "cleanup() must produce at least one INFO log record"
+
+
+def test_cleanup_base_axes_setup_unsubscribes():
+    """BaseAxesSetupScreen.cleanup() calls _state_unsub() and sets it to None."""
+    from dmccodegui.screens.base import BaseAxesSetupScreen
+
+    unsub_called = []
+
+    def _unsub():
+        unsub_called.append(True)
+
+    screen = BaseAxesSetupScreen()
+    screen._state_unsub = _unsub
+
+    screen.cleanup()
+
+    assert len(unsub_called) == 1
+    assert screen._state_unsub is None
+
+
+def test_cleanup_base_axes_setup_idempotent():
+    """BaseAxesSetupScreen.cleanup() is idempotent."""
+    from dmccodegui.screens.base import BaseAxesSetupScreen
+
+    screen = BaseAxesSetupScreen()
+    screen._state_unsub = None  # already unsubscribed
+
+    screen.cleanup()  # must not raise
+
+
+def test_cleanup_base_parameters_unsubscribes():
+    """BaseParametersScreen.cleanup() calls _state_unsub() and sets it to None."""
+    from dmccodegui.screens.base import BaseParametersScreen
+
+    unsub_called = []
+
+    def _unsub():
+        unsub_called.append(True)
+
+    screen = BaseParametersScreen()
+    screen._state_unsub = _unsub
+
+    screen.cleanup()
+
+    assert len(unsub_called) == 1
+    assert screen._state_unsub is None
+
+
+def test_cleanup_base_parameters_idempotent():
+    """BaseParametersScreen.cleanup() is idempotent."""
+    from dmccodegui.screens.base import BaseParametersScreen
+
+    screen = BaseParametersScreen()
+    screen._state_unsub = None
+
+    screen.cleanup()  # must not raise

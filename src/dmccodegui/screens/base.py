@@ -44,6 +44,11 @@ from kivy.clock import Clock
 from kivy.properties import ObjectProperty
 from kivy.uix.screenmanager import Screen
 
+try:
+    import matplotlib.pyplot as plt  # noqa: F401 — used in BaseRunScreen.cleanup()
+except ImportError:  # pragma: no cover
+    plt = None  # type: ignore[assignment]
+
 import dmccodegui.machine_config as mc
 from dmccodegui.utils.jobs import submit  # noqa: F401 — re-exported for test patching
 
@@ -160,6 +165,43 @@ class BaseRunScreen(Screen):
         """Called on every MachineState update. Override in subclasses."""
         pass
 
+    def cleanup(self) -> None:
+        """Tear down all resources owned by this run screen. Non-blocking and idempotent.
+
+        Teardown order (locked):
+        1. Stop position poll (cancel Clock interval).
+        2. Signal mg_reader thread to stop — set event only, do NOT join.
+        3. Close matplotlib figure.
+        4. Unsubscribe from MachineState.
+
+        Called by the screen loader on programmatic screen removal (Phase 20 swap).
+        The existing _stop_mg_reader() on on_leave keeps its join for normal navigation.
+        """
+        # 1. Stop position poll
+        if hasattr(self, '_stop_pos_poll'):
+            logger.info("[%s] cleanup: stopping pos_poll", self.__class__.__name__)
+            self._stop_pos_poll()
+
+        # 2. Signal mg_reader thread — set event, clear reference, do NOT join
+        if getattr(self, '_mg_stop_event', None) is not None:
+            logger.info("[%s] cleanup: signalling mg_stop_event", self.__class__.__name__)
+            self._mg_stop_event.set()
+        self._mg_thread = None  # type: ignore[attr-defined]
+
+        # 3. Close matplotlib figure
+        fig = getattr(self, '_fig', None)
+        if fig is not None:
+            logger.info("[%s] cleanup: closing matplotlib figure", self.__class__.__name__)
+            if plt is not None:
+                plt.close(fig)
+            self._fig = None  # type: ignore[attr-defined]
+
+        # 4. Unsubscribe from MachineState
+        if self._state_unsub is not None:
+            logger.info("[%s] cleanup: unsubscribing state listener", self.__class__.__name__)
+            self._state_unsub()
+            self._state_unsub = None
+
 
 # ---------------------------------------------------------------------------
 # BaseAxesSetupScreen
@@ -217,6 +259,17 @@ class BaseAxesSetupScreen(Screen, SetupScreenMixin):
     def _on_state_change(self, state) -> None:
         """Called on every MachineState update. Override in subclasses."""
         pass
+
+    def cleanup(self) -> None:
+        """Tear down resources owned by this axes-setup screen. Idempotent.
+
+        Unsubscribes the MachineState listener. Called by the screen loader
+        on programmatic screen removal (Phase 20 swap).
+        """
+        if self._state_unsub is not None:
+            logger.info("[%s] cleanup: unsubscribing state listener", self.__class__.__name__)
+            self._state_unsub()
+            self._state_unsub = None
 
     # ------------------------------------------------------------------
     # Jog infrastructure
@@ -460,6 +513,17 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
     def _on_state_change(self, state) -> None:
         """Called on every MachineState update. Override in subclasses."""
         pass
+
+    def cleanup(self) -> None:
+        """Tear down resources owned by this parameters screen. Idempotent.
+
+        Unsubscribes the MachineState listener. Called by the screen loader
+        on programmatic screen removal (Phase 20 swap).
+        """
+        if self._state_unsub is not None:
+            logger.info("[%s] cleanup: unsubscribing state listener", self.__class__.__name__)
+            self._state_unsub()
+            self._state_unsub = None
 
     # ------------------------------------------------------------------
     # Dirty tracking

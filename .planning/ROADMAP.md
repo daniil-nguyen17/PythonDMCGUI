@@ -210,7 +210,10 @@ Plans:
   2. Navigating away from any screen unsubscribes all state listeners; navigating back re-subscribes — verified by adding a log line that shows zero duplicate callbacks after two enter/leave cycles
   3. All lifecycle hooks (on_pre_enter, on_enter, on_leave) are defined only in Python base class files, not in any .kv file
   4. A new machine screen subclass that calls super() on all lifecycle hooks inherits poll subscription and controller wiring with no additional code
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 18-01-PLAN.md — Create base classes (BaseRunScreen, BaseAxesSetupScreen, BaseParametersScreen, SetupScreenMixin) and extract Flat Grind widgets
+- [ ] 18-02-PLAN.md — Wire existing screens to inherit from base classes, full regression verification
 
 ### Phase 19: Flat Grind Rename and KV Split
 **Goal**: The existing screens are renamed to FlatGrindRunScreen, FlatGrindAxesSetupScreen, and FlatGrindParametersScreen with independent .kv files in ui/flat_grind/ — establishing the reference implementation and naming convention before the screen loader is wired
@@ -291,7 +294,7 @@ Plans:
 | 15. Run Page Missing Controls | v2.0 | 1/1 | Complete | 2026-04-06 |
 | 16. ProfilesScreen Setup Loop Fix | v2.0 | 1/1 | Complete | 2026-04-07 |
 | 17. Poll Reset and Cold-Start Fix | v2.0 | 1/1 | Complete | 2026-04-07 |
-| 18. Base Class Extraction | v3.0 | 0/TBD | Not started | - |
+| 18. Base Class Extraction | v3.0 | 0/2 | Planning | - |
 | 19. Flat Grind Rename and KV Split | v3.0 | 0/TBD | Not started | - |
 | 20. Screen Registry and Loader | v3.0 | 0/TBD | Not started | - |
 | 21. Serration Screen Set | v3.0 | 0/TBD | Not started | - |

@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Multi-Machine
-status: in-progress
-stopped_at: Phase 19 Plan 01 complete
-last_updated: "2026-04-11T14:29:20Z"
-last_activity: 2026-04-11 — Phase 19 Plan 01 complete; FlatGrind* screen package and KV files created
+status: unknown
+stopped_at: Completed 19-02-PLAN.md
+last_updated: "2026-04-11T16:00:00.000Z"
+last_activity: 2026-04-11 — Phase 19 Plan 02 complete; application wired to FlatGrind* classes with deferred KV loading
 progress:
   total_phases: 16
-  completed_phases: 10
-  total_plans: 19
-  completed_plans: 20
+  completed_phases: 11
+  total_plans: 21
+  completed_plans: 21
 ---
 
 # Project State
@@ -27,19 +27,19 @@ See: .planning/PROJECT.md (updated 2026-04-11)
 ```
 Milestone : v3.0 Multi-Machine
 Phase     : 19 — Flat Grind Rename and KV Split
-Plan      : 01/02 complete
-Status    : In progress
-Progress  : [█·········] 17% (1/6 phases)
+Plan      : 02/02 complete
+Status    : Phase 19 complete
+Progress  : [███·······] 33% (2/6 phases)
 ```
 
-Last activity: 2026-04-11 — Phase 19 Plan 01 complete; FlatGrind* screen package and KV files created
+Last activity: 2026-04-11 — Phase 19 Plan 02 complete; application wired to FlatGrind* classes with deferred KV loading
 
 ## v3.0 Phase Map
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 18 | Base Class Extraction | ARCH-01, ARCH-02, ARCH-03, ARCH-04 | Complete (2/2 plans) |
-| 19 | Flat Grind Rename and KV Split | FLAT-01, FLAT-02, FLAT-03, FLAT-04 | In progress (1/2 plans) |
+| 19 | Flat Grind Rename and KV Split | FLAT-01, FLAT-02, FLAT-03, FLAT-04 | Complete (2/2 plans) |
 | 20 | Screen Registry and Loader | LOAD-01, LOAD-02, LOAD-03, LOAD-04 | Not started |
 | 21 | Serration Screen Set | SERR-01, SERR-02, SERR-03, SERR-04 | Not started |
 | 22 | Convex Screen Set | CONV-01, CONV-02, CONV-03, CONV-04 | Not started |
@@ -67,6 +67,8 @@ Decisions affecting current work (v3.0):
 - [Phase 18-02]: base.py uses module-level submit import so all jobs.submit() calls are patchable at dmccodegui.screens.base.submit — single patch target for all screen I/O in tests.
 - [Phase 19-01]: Per-machine screen package pattern: screens/{machine}/__init__.py loads KV via Builder.load_file() before class imports, exports all screen classes.
 - [Phase 19-01]: BCompBarChart and bComp methods removed from FlatGrindRunScreen — Serration-specific, deferred to Phase 21.
+- [Phase 19-02]: Deferred KV loading: flat_grind/__init__.py exposes load_kv() instead of eager Builder.load_file() at import time. Called from main.py build() before Factory instantiation.
+- [Phase 19-02]: Added STATE_SETUP gate to BaseAxesSetupScreen.jog_axis — documented in docstring but was missing from implementation.
 
 ### Critical Pitfalls (from research)
 
@@ -95,7 +97,7 @@ Decisions affecting current work (v3.0):
 
 ## Session Continuity
 
-Last session: 2026-04-11T14:29:20Z
-Stopped at: Completed 19-01-PLAN.md
-Resume file: .planning/phases/19-flat-grind-rename-and-kv-split/19-01-SUMMARY.md
-Next action: Execute 19-02-PLAN.md — Wiring (main.py, base.kv, test imports)
+Last session: 2026-04-11T16:00:00Z
+Stopped at: Completed 19-02-PLAN.md
+Resume file: .planning/phases/19-flat-grind-rename-and-kv-split/19-02-SUMMARY.md
+Next action: Plan Phase 20 — Screen Registry and Loader

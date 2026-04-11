@@ -53,7 +53,7 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
 ### 🚧 v3.0 Multi-Machine (Phases 18-23)
 
 - [x] **Phase 18: Base Class Extraction** — Extract BaseRunScreen, BaseAxesSetupScreen, BaseParametersScreen with shared controller wiring and subscription lifecycle (2/2 plans, completed 2026-04-11)
-- [ ] **Phase 19: Flat Grind Rename and KV Split** — Rename existing screens to FlatGrind* classes with per-machine kv files in ui/flat_grind/
+- [x] **Phase 19: Flat Grind Rename and KV Split** — Rename existing screens to FlatGrind* classes with per-machine kv files in ui/flat_grind/ (completed 2026-04-11)
 - [ ] **Phase 20: Screen Registry and Loader** — machine_config screen_classes mapping, _load_machine_screens() swap function, machine detection on connect
 - [ ] **Phase 21: Serration Screen Set** — SerrationRunScreen, SerrationAxesSetupScreen, SerrationParametersScreen with 3-axis layout and bComp stub
 - [ ] **Phase 22: Convex Screen Set** — ConvexRunScreen, ConvexAxesSetupScreen, ConvexParametersScreen with convex-specific layout
@@ -224,7 +224,7 @@ Plans:
   2. Each Flat Grind screen has its own .kv file that contains only that screen's layout — no shared kv file references Flat Grind layout rules
   3. No kv rule name collision exists: grep for duplicate `<ClassName>:` headers across all kv files returns zero matches
   4. A hardware-equivalent smoke test (simulated or real controller) confirms the Run page cycle, jog, teach, and parameter write all function correctly under the new class names
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 19-01-PLAN.md — Create screens/flat_grind/ package and ui/flat_grind/ KV files with FlatGrind* classes
 - [ ] 19-02-PLAN.md — Wire app to FlatGrind* classes: re-export wrappers, main.py, base.kv, test imports
@@ -310,7 +310,7 @@ Plans:
 | 16. ProfilesScreen Setup Loop Fix | v2.0 | 1/1 | Complete | 2026-04-07 |
 | 17. Poll Reset and Cold-Start Fix | v2.0 | 1/1 | Complete | 2026-04-07 |
 | 18. Base Class Extraction | 1/2 | Complete    | 2026-04-11 | - |
-| 19. Flat Grind Rename and KV Split | 1/2 | In Progress|  | - |
+| 19. Flat Grind Rename and KV Split | 2/2 | Complete   | 2026-04-11 | - |
 | 20. Screen Registry and Loader | v3.0 | 0/TBD | Not started | - |
 | 21. Serration Screen Set | v3.0 | 0/TBD | Not started | - |
 | 22. Convex Screen Set | v3.0 | 0/TBD | Not started | - |

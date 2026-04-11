@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Multi-Machine
-status: unknown
-stopped_at: Phase 19 context gathered
-last_updated: "2026-04-11T14:02:09.140Z"
-last_activity: 2026-04-11 — Phase 18 Plan 02 complete; RunScreen, AxesSetupScreen, ParametersScreen all inherit from base classes
+status: in-progress
+stopped_at: Phase 19 Plan 01 complete
+last_updated: "2026-04-11T14:29:20Z"
+last_activity: 2026-04-11 — Phase 19 Plan 01 complete; FlatGrind* screen package and KV files created
 progress:
   total_phases: 16
   completed_phases: 10
   total_plans: 19
-  completed_plans: 19
+  completed_plans: 20
 ---
 
 # Project State
@@ -26,20 +26,20 @@ See: .planning/PROJECT.md (updated 2026-04-11)
 
 ```
 Milestone : v3.0 Multi-Machine
-Phase     : 18 — Base Class Extraction
-Plan      : 02/02 complete
-Status    : Phase 18 complete
+Phase     : 19 — Flat Grind Rename and KV Split
+Plan      : 01/02 complete
+Status    : In progress
 Progress  : [█·········] 17% (1/6 phases)
 ```
 
-Last activity: 2026-04-11 — Phase 18 Plan 02 complete; RunScreen, AxesSetupScreen, ParametersScreen all inherit from base classes
+Last activity: 2026-04-11 — Phase 19 Plan 01 complete; FlatGrind* screen package and KV files created
 
 ## v3.0 Phase Map
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 18 | Base Class Extraction | ARCH-01, ARCH-02, ARCH-03, ARCH-04 | Complete (2/2 plans) |
-| 19 | Flat Grind Rename and KV Split | FLAT-01, FLAT-02, FLAT-03, FLAT-04 | Not started |
+| 19 | Flat Grind Rename and KV Split | FLAT-01, FLAT-02, FLAT-03, FLAT-04 | In progress (1/2 plans) |
 | 20 | Screen Registry and Loader | LOAD-01, LOAD-02, LOAD-03, LOAD-04 | Not started |
 | 21 | Serration Screen Set | SERR-01, SERR-02, SERR-03, SERR-04 | Not started |
 | 22 | Convex Screen Set | CONV-01, CONV-02, CONV-03, CONV-04 | Not started |
@@ -65,6 +65,8 @@ Decisions affecting current work (v3.0):
 - [Phase 18-base-class-extraction]: BaseRunScreen thin: no jog, no matplotlib, no setup mode. SetupScreenMixin has no __init__ to preserve cooperative MRO.
 - [Phase 18-base-class-extraction]: BCompBarChart stays in run.py — Serration-specific, deferred to Phase 21.
 - [Phase 18-02]: base.py uses module-level submit import so all jobs.submit() calls are patchable at dmccodegui.screens.base.submit — single patch target for all screen I/O in tests.
+- [Phase 19-01]: Per-machine screen package pattern: screens/{machine}/__init__.py loads KV via Builder.load_file() before class imports, exports all screen classes.
+- [Phase 19-01]: BCompBarChart and bComp methods removed from FlatGrindRunScreen — Serration-specific, deferred to Phase 21.
 
 ### Critical Pitfalls (from research)
 
@@ -93,7 +95,7 @@ Decisions affecting current work (v3.0):
 
 ## Session Continuity
 
-Last session: 2026-04-11T14:02:09.137Z
-Stopped at: Phase 19 context gathered
-Resume file: .planning/phases/19-flat-grind-rename-and-kv-split/19-CONTEXT.md
-Next action: `/gsd:plan-phase 19` — Flat Grind Rename and KV Split
+Last session: 2026-04-11T14:29:20Z
+Stopped at: Completed 19-01-PLAN.md
+Resume file: .planning/phases/19-flat-grind-rename-and-kv-split/19-01-SUMMARY.md
+Next action: Execute 19-02-PLAN.md — Wiring (main.py, base.kv, test imports)

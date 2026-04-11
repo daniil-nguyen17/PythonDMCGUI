@@ -1,400 +1,406 @@
-# Technology Stack
+# Stack Research
 
-**Project:** DMC Grinding GUI — v2.0 HMI-Controller Integration
-**Researched:** 2026-04-06
-**Confidence:** HIGH for gclib command patterns (verified against official docs + existing codebase).
-MEDIUM for thread-safety claim in gclib 2.4.x (release note language is ambiguous — see Threading section).
-
----
-
-## Existing Stack (Unchanged — Do Not Re-Research)
-
-| Technology | Pin | Role |
-|------------|-----|------|
-| Python | >=3.10 | Runtime |
-| Kivy | >=2.2.0 | UI framework |
-| gclib | system install (2.4.1 current) | Galil controller comms |
-| matplotlib + kivy_matplotlib_widget | existing | Live A/B position plot |
-| `threading` / `kivy.clock.Clock` | stdlib | Off-thread I/O, UI result delivery |
-| KV language | Kivy built-in | Declarative layouts |
-
-**No new libraries are required for v2.0.** Everything in this document is
-about how to use the existing gclib library correctly for the new HMI integration work.
+**Domain:** Per-machine-type Kivy screen management (v3.0 Multi-Machine HMI refactor)
+**Researched:** 2026-04-11
+**Confidence:** HIGH — Kivy internals verified from Builder source (`kivy/lang/builder.py`); ScreenManager API verified from official 2.3.1 docs; on_pre_enter bug confirmed from GitHub issue tracker (November 2023).
 
 ---
 
-## New Stack Additions for v2.0
+## Scope: What This Research Covers
 
-None. The v2.0 work is entirely gclib command patterns, DMC variable protocol, and threading discipline
-within the already-established `jobs.submit` / `Clock.schedule_once` model.
+The existing validated stack (Python 3.10+, Kivy 2.2+, gclib, matplotlib, kivy_matplotlib_widget, JobThread, MachineState, machine_config.py, auth, tab bar) does NOT change. This document covers only the patterns needed to refactor the single-screen-set into per-machine-type screen sets.
+
+**Do not change:** Controller comms, auth flow, tab bar, status bar, machine_config.py registry, CSV profiles, poll architecture, theme, gclib threading discipline.
 
 ---
 
-## gclib Command Reference — HMI Integration Patterns
+## Core Pattern Decision: Static Load, Python-Side Type Routing
 
-### Variable Read
+**Recommended approach: load ALL machine-type kv files at startup, instantiate all screen classes at startup, swap which screens are registered in the ScreenManager when machine type changes.**
 
-```python
-# Read a named DMC variable
-raw = controller.cmd("MG varName")        # returns "  1.0000\r\n" — strip and float()
-val = float(raw.strip())
+This is the only approach that works reliably in Kivy. Do NOT attempt runtime `Builder.unload_file()` + reload to hot-swap kv rules when machine type changes.
 
-# Read multiple variables in one round-trip (semicolon-separated MG)
-raw = controller.cmd("MG hmiGrnd; MG hmiSetp; MG hmiMore")
-# Response is space-separated: "  1.0000   1.0000   0.0000\r\n"
-# Parse by splitting on whitespace after strip()
+Why unload/reload fails:
+- `Builder.unload_file()` is documented explicitly: *"This will not remove rules or templates already applied/used on current widgets. It will only effect the next widgets creation or template invocation."* Already-instantiated screens keep their existing layout regardless of unloading.
+- The `_match_name_cache` is cleared by `unload_file()`, which invalidates style lookups for currently rendered widgets — causing visual inconsistencies on Pi where repaint is slower.
+- Machine type changes are infrequent (once per physical deployment, or once per Setup session). Holding all three screen sets in memory is trivial (a few hundred widgets) versus the complexity of dynamic kv swapping.
 
-# Read an axis position (encoder counts)
-raw = controller.cmd("MG _TPA")           # reference operand — prefixed with underscore
-# Alternatives: _TPB, _TPC, _TPD (Tell Position)
-#               _TDA, _TDB, _TDC, _TDD (Tell Dual [position + position error])
-# Existing code uses _TP{axis} for run screen polling, _TD{axis} for setup screen
+---
 
-# Read program execution state (is DMC program running?)
-raw = controller.cmd("MG _XQ")            # returns thread 0 execution state; 0 = idle, 1..n = label
-# Returns 0 when no thread running, non-zero when #AUTO / #MAIN loop is active
+## Recommended Stack (new patterns only)
+
+### Core Technologies
+
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| `kivy.uix.screenmanager.ScreenManager` | Kivy 2.2+ (existing) | Holds the active machine's screen set | `add_widget` / `remove_widget` are safe at runtime; `has_screen` guards against duplicate-name exceptions; `screens` list is the source of truth |
+| Python base class inheritance (`base_screens.py`) | Python 3.10+ (existing) | Shared controller-wiring logic, lifecycle hooks, jog logic | Avoids copy-pasting 80% identical behavior across three machine types; kv handles layout per-type, Python base class handles behavior |
+| `Builder.load_file()` — one call per machine kv file | Kivy 2.2+ (existing API) | Load all machine-type kv layouts at startup | All nine machine kv files loaded once in `KV_FILES`; each file defines a distinct class name (`<FlatGrindRunScreen>:` etc.); no collision possible |
+
+### Supporting Patterns
+
+| Pattern | Purpose | When to Use |
+|---------|---------|-------------|
+| `sm.add_widget(screen)` | Register a screen with the ScreenManager | Called once per screen instance at startup or on machine type swap |
+| `sm.remove_widget(screen)` | De-register a screen from the ScreenManager | Called during machine type swap, before adding new set |
+| `sm.has_screen(name)` | Guard before `add_widget` | Always check before adding — `add_widget` raises `ScreenManagerException` on duplicate name |
+| `sm.get_screen(name)` | Access a specific screen instance | Used during dependency injection (controller, state) after screen set is added |
+| `on_pre_enter` defined in Python base class (not kv) | Refresh positions/params when tab is entered | Avoids the Kivy first-screen bug (see Pitfalls / Version Compatibility) |
+| Screen name resolver function | Translate logical tab name ('run') to active machine screen name ('flat_run') | Tab bar uses logical names; resolver bridges to actual ScreenManager names |
+
+---
+
+## Directory Layout
+
 ```
-
-**Confidence: HIGH** — `MG varName` is the standard DMC variable read pattern used throughout the
-existing codebase (`run.py`, `axes_setup.py`, `parameters.py`) and confirmed by Galil docs.
-
-### Variable Write (HMI One-Shot Trigger)
-
-The DMC code uses a one-shot trigger pattern: HMI variables are declared with default=1.
-The HMI sets them to 0 to trigger an action; the DMC program branch executes and resets to 1.
-
-```python
-# Trigger pattern — send var=0 to fire the one-shot
-controller.cmd("hmiGrnd=0")    # Trigger Start Grind  → controller branches to #GRIND
-controller.cmd("hmiSetp=0")    # Trigger Setup mode   → controller branches to #SETUP
-controller.cmd("hmiMore=0")    # Trigger More Stone   → controller calls #MOREGRI
-controller.cmd("hmiLess=0")    # Trigger Less Stone   → controller calls #LESSGRI
-controller.cmd("hmiNewS=0")    # Trigger New Session  → controller calls #NEWSESS
-controller.cmd("hmiHome=0")    # Trigger Home all     → controller calls #HOME
-controller.cmd("hmiJog=0")     # Trigger Jog mode
-controller.cmd("hmiCalc=0")    # Trigger #VARCALC recalculation
-
-# Write a named scalar variable (parameter update)
-controller.cmd("fdA=50")                  # Set feedrate A to 50
-controller.cmd("knfThk=1.3")              # Set knife thickness
-controller.cmd("fdA=50;fdB=40;fdCup=25")  # Batch writes — semicolon-separated in one command
-
-# Burn to NV memory after writes that must survive power cycle
-controller.cmd("BV")                      # CAUTION: BV takes ~2 seconds — always off-thread
-```
-
-**HMI variable naming constraint:** DMC variable names are max 8 characters (hard limit). The names
-`hmiGrnd`, `hmiSetp`, `hmiMore`, `hmiLess`, `hmiNewS`, `hmiHome`, `hmiJog`, `hmiCalc` are all within
-limit. Verify with `len("hmiGrnd") == 7` before finalizing. Do not exceed 8 chars.
-
-**Confidence: HIGH** — `varName=value` assignment syntax is confirmed by DMC command reference and
-used in `axes_setup.py` (`ctrl.cmd(write_cmd)` pattern) and `run.py` (`ctrl.cmd(f"bComp[{i}]={int(val)}")`).
-
-### Array Read
-
-```python
-# Read a single array element
-raw = controller.cmd("MG deltaC[5]")
-val = float(raw.strip())
-
-# Read all elements of a known-size array (existing GArrayUpload pattern)
-values = controller.upload_array("deltaC", 0, 99)   # returns List[float], len=100
-
-# For arrays declared with DM in #COMPED (aBuf, bBuf, deltaA, etc.)
-# Use GArrayUpload when available (fast path), MG fallback otherwise
-# controller.upload_array() handles both paths — already implemented
-```
-
-### Array Write
-
-```python
-# Write a single array element
-controller.cmd("deltaC[5]=150.0")
-
-# Write a full array (existing GArrayDownload pattern)
-controller.download_array("deltaC", 0, values)  # values: List[float], 100 elements
-
-# For the HMI integration pattern — write directly via cmd() for individual elements:
-# This is what run.py already does for bComp
-for i, val in enumerate(offsets_snapshot):
-    ctrl.cmd(f"bComp[{i}]={int(val)}")
-```
-
-### Program / Subroutine Execution
-
-```python
-# Start a named subroutine (non-blocking — controller runs it, returns immediately)
-controller.cmd("XQ #GRIND")    # Start grind cycle
-controller.cmd("XQ #GOREST")   # Go to rest position
-controller.cmd("XQ #GOSTR")    # Go to start position
-controller.cmd("XQ #HOME")     # Home all axes
-controller.cmd("XQ #NEWSESS")  # New session / stone change
-controller.cmd("XQ #VARCALC")  # Recalculate derived values
-
-# Halt program execution
-controller.cmd("HX")           # Halt all threads (existing in run.py for pause)
-controller.cmd("ST ABCD")      # Stop motion on specified axes
-```
-
-**IMPORTANT:** In the current DMC code (`4 Axis Stainless grind.dmc`), the main poll loop is `#WtAtRt`
-running inside `#MAIN`. The HMI one-shot variable pattern (setting `hmiGrnd=0` etc.) is the correct
-approach — it does NOT require `XQ #GRIND` from the HMI. The DMC program itself polls the variables
-and calls `JS #GRIND` internally.
-
-The `XQ #CYCLE` call in the current `run.py` (`on_start_pause_toggle`) is a placeholder and must be
-replaced with the one-shot variable write (`hmiGrnd=0`) once the DMC code is updated.
-
-### State Query — Controller-Side State Machine
-
-```python
-# Determine if the DMC program's main loop is running
-raw = controller.cmd("MG _XQ")
-is_running = float(raw.strip()) != 0
-
-# Check if specific axes are in motion
-raw = controller.cmd("MG _BGA")    # 1 = Axis A motion in progress, 0 = stopped
-raw = controller.cmd("MG _BGS")    # 1 = vector (coordinated) motion in progress
-
-# Read HMI variable state — poll these to confirm trigger was reset by DMC
-raw = controller.cmd("MG hmiGrnd")   # Should return 1.0 when reset (idle), 0.0 briefly during trigger
+src/dmccodegui/
+  screens/
+    base_screens.py           # BaseRunScreen, BaseAxesSetupScreen, BaseParametersScreen
+    flat_grind/
+      __init__.py
+      run.py                  # FlatGrindRunScreen(BaseRunScreen)
+      axes_setup.py           # FlatGrindAxesSetupScreen(BaseAxesSetupScreen)
+      parameters.py           # FlatGrindParametersScreen(BaseParametersScreen)
+    serration/
+      __init__.py
+      run.py                  # SerrationRunScreen(BaseRunScreen)
+      axes_setup.py           # SerrationAxesSetupScreen(BaseAxesSetupScreen)
+      parameters.py           # SerrationParametersScreen(BaseParametersScreen)
+    convex/
+      __init__.py
+      run.py                  # ConvexRunScreen(BaseRunScreen)
+      axes_setup.py           # ConvexAxesSetupScreen(BaseAxesSetupScreen)
+      parameters.py           # ConvexParametersScreen(BaseParametersScreen)
+  ui/
+    flat_grind/
+      run.kv                  # <FlatGrindRunScreen>: layout
+      axes_setup.kv           # <FlatGrindAxesSetupScreen>: layout
+      parameters.kv           # <FlatGrindParametersScreen>: layout
+    serration/
+      run.kv                  # <SerrationRunScreen>: layout
+      axes_setup.kv
+      parameters.kv
+    convex/
+      run.kv                  # <ConvexRunScreen>: layout
+      axes_setup.kv
+      parameters.kv
+    # Shared kv files stay at ui/ root (unchanged):
+    theme.kv, pin_overlay.kv, status_bar.kv, tab_bar.kv,
+    setup.kv, profiles.kv, diagnostics.kv, users.kv, base.kv
 ```
 
 ---
 
-## Threading Model — Critical Rules
+## Screen Name Convention
 
-### The Single-Handle Constraint
-
-**gclib versions before 2.4.0:** A single `GCon` handle (one `gclib.py()` instance) is NOT thread-safe.
-Concurrent `GCommand()` calls from multiple threads on the same handle will corrupt responses.
-
-**gclib 2.4.0+ (released 2025, current is 2.4.1 as of March 2026):** Release notes state "gclib is now
-thread safe." However, the threading documentation (which may not have been updated) still states that
-"it is not safe to call GCommand() in multiple threads to the same physical connection." Treat the 2.4.x
-thread-safety claim as LOW confidence until verified against the installed version's release notes.
-
-**Safe approach regardless of gclib version:** Route ALL `GCommand` calls through the single `jobs.submit`
-background thread. This is already the established pattern in the codebase. Do NOT change this pattern
-to allow concurrent gclib calls until you can confirm the installed gclib version is 2.4.0+ and the
-thread-safety applies to same-handle concurrent use.
-
-**Confidence: MEDIUM** — the 2.4.0 "thread safe" claim is from the release notes fetched 2026-04-06.
-The installed gclib may be an older version. Check with `pip show gclib` or by running
-`gclib.py().GVersion()` on startup.
-
-### Established Pattern (use exactly this)
+Each machine type's screens use namespaced name strings in the ScreenManager:
 
 ```python
-# In any Kivy screen — trigger controller action from button press
-def on_some_button(self):
-    if not self.controller or not self.controller.is_connected():
-        return
+# Flat Grind
+FlatGrindRunScreen(name='flat_run')
+FlatGrindAxesSetupScreen(name='flat_axes')
+FlatGrindParametersScreen(name='flat_params')
 
-    ctrl = self.controller  # capture ref before thread
+# Serration
+SerrationRunScreen(name='serration_run')
+SerrationAxesSetupScreen(name='serration_axes')
+SerrationParametersScreen(name='serration_params')
 
-    def _do_action():
-        try:
-            ctrl.cmd("hmiGrnd=0")               # one-shot trigger
-        except Exception as e:
-            Clock.schedule_once(lambda *_: self._alert(str(e)))
-
-    jobs.submit(_do_action)
-
-
-# In any Kivy screen — poll state at a fixed Hz
-def _on_poll_tick(self, dt):
-    if not self.controller or not self.controller.is_connected():
-        return
-    jobs.submit(self._do_poll)
-
-def _do_poll(self):
-    try:
-        raw = self.controller.cmd("MG _TPA")
-        pos_a = float(raw.strip())
-        Clock.schedule_once(lambda *_: self._apply_result(pos_a))
-    except Exception:
-        pass   # swallow poll errors silently; disconnect detection handled elsewhere
+# Convex
+ConvexRunScreen(name='convex_run')
+ConvexAxesSetupScreen(name='convex_axes')
+ConvexParametersScreen(name='convex_params')
 ```
 
-### Polling Frequencies
-
-| Screen | Current Rate | Recommended Rate | Rationale |
-|--------|-------------|-----------------|-----------|
-| RunScreen position poll | 10 Hz | **10 Hz** | Current rate is correct. Submits one `_do_poll` job per tick. Jobs queue naturally absorbs latency spikes — if a poll takes > 100ms, the next tick skips it (queue has backlog). |
-| RunScreen plot redraw | 5 Hz | **5 Hz** | Correct. Decoupled from poll clock to protect E-STOP button latency. |
-| AxesSetup position poll | 3 Hz | **3 Hz** | Correct for setup — operator watching position, not time-critical. |
-| State sync (HMI variables) | not yet implemented | **5 Hz** | Poll `_XQ`, `hmiGrnd` to detect controller state changes. Separate poll from position poll — simpler to manage independently. |
-| Parameters screen | on-demand | **on-demand** | Read on enter, write on apply. No continuous poll needed. |
-
-**10 Hz poll with 4 axes:** Each poll submits 4 `MG _TP{axis}` calls. At 10 Hz that is 40 GCommand
-round-trips per second. Typical gclib round-trip on Ethernet is 1-3ms, so 40 calls = ~40-120ms per
-second of controller bandwidth. This is safe for the Galil DMC. Do not poll faster than 10 Hz unless
-profiling shows the controller is not bottlenecked.
-
-**BV (burn NV) must never be in the poll loop.** BV takes ~2 seconds. Only call it on explicit user
-actions (teach, apply parameters). This is already correct in the existing code.
-
----
-
-## HMI Variable Protocol — DMC Code Side
-
-The DMC program must be modified to add HMI variable checks as OR conditions alongside physical `@IN[]`
-checks. Declared once in `#PARAMS`:
-
-```dmc
-' In #PARAMS — declare HMI trigger variables with default=1 (inactive state)
-hmiGrnd = 1     ' Start Grind     (send 0 from HMI to trigger)
-hmiSetp = 1     ' Enter Setup mode
-hmiMore = 1     ' More Stone (compensation)
-hmiLess = 1     ' Less Stone (compensation)
-hmiNewS = 1     ' New Session (stone change)
-hmiHome = 1     ' Home all axes
-```
-
-```dmc
-' In #WtAtRt polling loop — add HMI OR conditions
-IF (@IN[29] = 0) | (hmiGrnd = 0)   ' GO GRIND button OR HMI trigger
-  hmiGrnd = 1                       ' Reset immediately after branch
-  SB 1
-  JS #GRIND
-  JP #WtAtRt
-ENDIF
-```
-
-**Variable naming:** `hmiGrnd` = 7 chars, `hmiSetp` = 7 chars, `hmiMore` = 7 chars,
-`hmiLess` = 7 chars, `hmiNewS` = 7 chars, `hmiHome` = 7 chars. All within the 8-char DMC limit.
-
-The existing `DM hmiBtn[40]` array in `#PARAMS` can be repurposed or replaced by the individual
-scalar variables above. Individual scalars are simpler to read and write from Python than array elements
-and make the DMC code easier to read.
-
----
-
-## State Synchronization Model
-
-The recommended pattern for HMI state sync is **polling DMC variables**, not interrupts.
-
-**Why polling, not GInterrupt/GMessage:**
-- GMessage requires subscribing with `GOpen('address --subscribe MG')` — changes the connection string
-  used at startup, requires architectural change to the existing `GOpen` call.
-- GInterrupt requires EI/UI commands in the DMC program — adds DMC complexity.
-- Polling `_XQ` and named state variables at 5 Hz is sufficient for an industrial HMI that is
-  inherently human-speed. E-STOP is not a state-sync concern — it is a hardware interlock.
-- The existing codebase is poll-only; adding interrupt handling would require a second connection
-  handle and a dedicated GMessage reader thread, which adds complexity for marginal benefit.
-
-**State variables to poll:**
+Tab bar continues to use logical names ('run', 'axes_setup', 'parameters'). A screen resolver in DMCApp translates logical name to the active machine's screen name:
 
 ```python
-# Recommended state sync poll (5 Hz, background thread)
-state_vars = "MG _XQ; MG hmiGrnd; MG _BGA; MG _BGB"
-raw = controller.cmd(state_vars)
-# Parse space-separated floats
-vals = [float(v) for v in raw.strip().split()]
-xq, hmi_grnd, bg_a, bg_b = vals
+_SCREEN_MAP = {
+    "4-Axes Flat Grind":      {"run": "flat_run",       "axes_setup": "flat_axes",       "parameters": "flat_params"},
+    "3-Axes Serration Grind": {"run": "serration_run",  "axes_setup": "serration_axes",  "parameters": "serration_params"},
+    "4-Axes Convex Grind":    {"run": "convex_run",     "axes_setup": "convex_axes",     "parameters": "convex_params"},
+}
+
+def resolve_screen(logical_name: str) -> str:
+    mtype = mc.get_active_type()
+    return _SCREEN_MAP.get(mtype, {}).get(logical_name, logical_name)
 ```
 
-**Controller state machine states:**
-- `_XQ = 0` — no program running (idle, after HX or program error)
-- `_XQ != 0` — program running (in `#MAIN` / `#WtAtRt` loop)
-- `_BGA = 1` or `_BGB = 1` — motion in progress (don't re-trigger)
-- `hmiGrnd = 0` — trigger is pending (briefly, normally resets to 1)
-
-**HMI should reflect:** connected, idle, grinding, setup, at-rest, at-start, error states.
-These are inferred from the combination of `_XQ`, `_BGA/_BGB`, and optional named state variables.
-The DMC program can set a named variable like `machSt` (machine state) if explicit state values
-are needed:
-
-```dmc
-machSt = 1    ' in #MAIN (idle)
-machSt = 2    ' grinding active
-machSt = 3    ' setup mode
-machSt = 4    ' going to rest
-machSt = 5    ' going to start
-```
-
----
-
-## Error Handling Pattern
+The tab bar's `bind(current_tab=...)` lambda passes through `resolve_screen()` before setting `sm.current`:
 
 ```python
-def _do_command(self, cmd_str: str) -> None:
-    """Background thread: send a command; surface TC1 error to UI on failure."""
-    try:
-        self.controller.cmd(cmd_str)
-    except RuntimeError as e:
-        # controller.cmd() already calls TC1 and embeds the error text in the exception
-        Clock.schedule_once(lambda *_: self._alert(str(e)))
+tab_bar.bind(current_tab=lambda inst, val: setattr(sm, 'current', resolve_screen(val)))
 ```
-
-The existing `GalilController.cmd()` already calls `TC1` on failure and includes the error text in
-the `RuntimeError` message. Do not duplicate TC1 calls in screen code.
 
 ---
 
-## What NOT to Add
+## KV Loading Pattern
 
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| Any new communication library (pyserial, modbus, etc.) | gclib is the Galil API; alternatives are unsupported for DMC | gclib only |
-| GInterrupt-based state sync | Requires `--subscribe EI` in GOpen address string, a dedicated reader thread, DMC EI/UI command changes | Poll `_XQ` + named state vars at 5 Hz |
-| GMessage-based unsolicited message reading | Same architectural cost as GInterrupt; messages are debug strings not structured state | Structured variable polling |
-| gcaps (Galil Controller Asynchronous Proxy Server) | Adds an external service dependency for a single-client embedded system | Single handle with serialized access via `jobs` queue |
-| Second `gclib.py()` handle for a "fast" command path | Two handles to the same controller = two TCP connections + coordination overhead + concurrency risk | Single handle, all calls via `jobs.submit` |
-| Polling faster than 10 Hz from the HMI | 40 GCommand calls/sec already saturates practical Ethernet bandwidth for a 4-axis status poll; no user benefit above 10 Hz | 10 Hz for position, 5 Hz for state |
-| `GMotionComplete()` blocking calls | Blocks the background thread for the full motion duration; the Kivy clock tick is unaffected but the jobs queue cannot service other requests during the block | Poll `_BGA/_BGB` until zero in a loop with `time.sleep(0.05)`, or use `AM` in the DMC program |
-| Updating Kivy widgets directly from the background thread | Kivy's canvas drawing is not thread-safe; widget property assignments may work but are not guaranteed | `Clock.schedule_once(lambda *_: self._apply_ui(...))` always |
+### Updated KV_FILES list in main.py
+
+```python
+KV_FILES = [
+    # Shared styles — always first
+    "ui/theme.kv",
+    "ui/pin_overlay.kv",
+    "ui/status_bar.kv",
+    "ui/tab_bar.kv",
+    "ui/setup.kv",
+    "ui/profiles.kv",
+    "ui/diagnostics.kv",
+    "ui/users.kv",
+
+    # Per-machine layouts — all loaded at startup (distinct class names, no collision)
+    "ui/flat_grind/run.kv",
+    "ui/flat_grind/axes_setup.kv",
+    "ui/flat_grind/parameters.kv",
+
+    "ui/serration/run.kv",
+    "ui/serration/axes_setup.kv",
+    "ui/serration/parameters.kv",
+
+    "ui/convex/run.kv",
+    "ui/convex/axes_setup.kv",
+    "ui/convex/parameters.kv",
+
+    # Root layout — always last
+    "ui/base.kv",
+]
+```
+
+### Why all at startup, not lazy
+
+`Builder.load_file()` must run on the UI thread and is not safe to call from a jobs worker thread. Lazy loading (triggered by machine type selection after controller connect) would require `Clock.schedule_once()` chaining to defer navigation until kv is loaded, and creates a window where the user can navigate to a screen before its rules are applied. Loading all nine machine kv files at startup avoids this entirely. Parse time for nine small kv files is under 100ms on Pi 4.
+
+### Duplicate class name behavior — verified from Builder source
+
+`Builder.match_rule_name()` collects all matching rules in load order from its internal `self.rules` list via `rules.extend(parser.rules)`. If two kv files both define `<RunScreen>:`, both rule sets are applied to every `RunScreen` instance — additive, not replacement. This is why each machine type's screen must use a **distinct class name** (`FlatGrindRunScreen`, `SerrationRunScreen`, `ConvexRunScreen`). Do not reuse the name `RunScreen` across machine kv files.
 
 ---
 
-## Installation
+## Base Class Pattern
 
-No changes required. gclib is already installed as a system package.
+### base_screens.py (Python)
 
-```bash
-# Verify installed gclib version (important for thread-safety question)
-python -c "import gclib; g = gclib.py(); print(g.GVersion())"
-# Expected output: version string like "gclib v2.4.1"
+```python
+from kivy.uix.screenmanager import Screen
+from kivy.properties import ObjectProperty
+
+class BaseRunScreen(Screen):
+    """Shared controller wiring and lifecycle for all Run screen variants."""
+    controller = ObjectProperty(None, allownone=True)
+    state      = ObjectProperty(None, allownone=True)
+
+    # Defined in Python — NOT in kv — to avoid Kivy first-screen on_pre_enter bug
+    def on_pre_enter(self, *args):
+        if self.state:
+            self._refresh_from_state(self.state)
+
+    def on_pre_leave(self, *args):
+        self._stop_pos_poll()
+        self._stop_mg_reader()
+
+    def _refresh_from_state(self, state): pass  # override in subclass
+    def _stop_pos_poll(self): pass               # override in subclass
+    def _stop_mg_reader(self): pass              # override in subclass
+
+
+class BaseAxesSetupScreen(Screen):
+    controller = ObjectProperty(None, allownone=True)
+    state      = ObjectProperty(None, allownone=True)
+
+    def on_pre_enter(self, *args):
+        self._rebuild_axis_rows()
+        self._read_positions()
+
+    def _rebuild_axis_rows(self): pass
+    def _read_positions(self): pass
+
+
+class BaseParametersScreen(Screen):
+    controller = ObjectProperty(None, allownone=True)
+    state      = ObjectProperty(None, allownone=True)
+
+    def on_pre_enter(self, *args):
+        self._load_param_defs()
+
+    def _load_param_defs(self): pass
 ```
 
-If the installed version is below 2.4.0, the single-connection-handle serialization via `jobs` queue
-is mandatory. If 2.4.0+, per the release notes it may be safe to submit gclib calls from parallel
-background threads — but the single-queue model already works and should not be changed without
-profiling evidence of a bottleneck.
+### Machine-specific subclass (Python)
+
+```python
+# screens/flat_grind/run.py
+from ..base_screens import BaseRunScreen
+
+class FlatGrindRunScreen(BaseRunScreen):
+    # All Flat Grind run logic here — lifted from existing RunScreen
+    # IDs come from ui/flat_grind/run.kv <FlatGrindRunScreen>: block
+
+    def _refresh_from_state(self, state):
+        # Flat-grind-specific state sync (4 axes, delta-C bar chart, etc.)
+        ...
+
+    def _stop_pos_poll(self):
+        # Cancel the 10 Hz poll clock event
+        ...
+```
+
+### Machine-specific kv (layout only)
+
+```kv
+# ui/flat_grind/run.kv
+<FlatGrindRunScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        # Full Flat Grind run layout
+        # id: references used by Python code defined here
+```
+
+**Rule:** Do NOT define `on_pre_enter:` handlers in kv files. Define lifecycle hooks in Python only. (See Version Compatibility for the bug reference.)
+
+---
+
+## Updated base.kv — Remove Inline Machine Screens
+
+Machine screens are no longer declared in the ScreenManager kv block. They are injected by `DMCApp.build()` via `_load_screen_set()`. The shared non-machine screens (setup, profiles, diagnostics, users) can remain in kv.
+
+```kv
+# base.kv (updated)
+<RootLayout@BoxLayout>:
+    ...
+    ScreenManager:
+        id: sm
+        transition: NoTransition()
+        SetupScreen:
+            name: 'setup'
+        ProfilesScreen:
+            name: 'profiles'
+        DiagnosticsScreen:
+            name: 'diagnostics'
+        UsersScreen:
+            name: 'users'
+        # Machine screens added by DMCApp.build() via _load_screen_set()
+```
+
+---
+
+## DMCApp Screen Loader Pattern
+
+```python
+# In DMCApp — pre-instantiate all screen sets at build time
+def _build_all_screens(self):
+    """Instantiate all machine screen sets. Called once in build()."""
+    from .screens.flat_grind.run import FlatGrindRunScreen
+    from .screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
+    from .screens.flat_grind.parameters import FlatGrindParametersScreen
+    from .screens.serration.run import SerrationRunScreen
+    # ... etc.
+
+    self._screen_sets = {
+        "4-Axes Flat Grind": {
+            "run":        FlatGrindRunScreen(name='flat_run'),
+            "axes_setup": FlatGrindAxesSetupScreen(name='flat_axes'),
+            "parameters": FlatGrindParametersScreen(name='flat_params'),
+        },
+        "3-Axes Serration Grind": {
+            "run":        SerrationRunScreen(name='serration_run'),
+            "axes_setup": SerrationAxesSetupScreen(name='serration_axes'),
+            "parameters": SerrationParametersScreen(name='serration_params'),
+        },
+        "4-Axes Convex Grind": {
+            "run":        ConvexRunScreen(name='convex_run'),
+            "axes_setup": ConvexAxesSetupScreen(name='convex_axes'),
+            "parameters": ConvexParametersScreen(name='convex_params'),
+        },
+    }
+
+def _load_screen_set(self, sm, mtype):
+    """Add the screen set for mtype to sm and inject dependencies."""
+    for screen in self._screen_sets[mtype].values():
+        if not sm.has_screen(screen.name):
+            sm.add_widget(screen)
+        screen.controller = self.controller
+        screen.state = self.state
+
+def _swap_screen_set(self, sm, old_mtype, new_mtype):
+    """Remove old machine screens, add new set. Called on machine type change."""
+    # Navigate away from machine screens before removal
+    if sm.current not in ('setup', 'profiles', 'diagnostics', 'users'):
+        sm.current = 'setup'
+    # Remove old machine screens
+    for screen in self._screen_sets[old_mtype].values():
+        if sm.has_screen(screen.name):
+            sm.remove_widget(screen)
+    # Add new machine screens
+    self._load_screen_set(sm, new_mtype)
+```
 
 ---
 
 ## Alternatives Considered
 
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| Variable trigger mechanism | One-shot scalar (default=1, send 0) | XQ #label from HMI | `XQ` starts a new thread on the controller; if #MAIN is already polling, this can conflict with the existing loop. One-shot variables let the DMC loop handle routing — simpler and matches the existing physical button pattern. |
-| State detection | Poll `_XQ` + named vars at 5 Hz | GInterrupt subscription | Interrupt requires architectural changes to GOpen call and a dedicated reader thread. Too much complexity for a single-machine system. |
-| Multi-variable reads | Semicolon-batched single `MG` command | Separate `cmd()` call per variable | One round-trip vs N round-trips. At 10 Hz, batching 4-axis position read saves ~3 round-trips per tick = ~30-90ms saved per second. |
-| NV burn | `BV` on explicit user action | `BV` after every write | BV takes ~2 seconds. Calling it after every parameter change during a rapid-fire session would make the UI feel frozen. Batch at end of session. |
+| Recommended | Alternative | Why Not |
+|-------------|-------------|---------|
+| Distinct Python class per machine type (`FlatGrindRunScreen`) | Single `RunScreen` class with runtime widget add/remove inside the screen | Single class fighting Kivy's widget tree; IDs break when children are added/removed dynamically; worse than the problem being solved |
+| All kv files loaded at startup | Lazy-load kv on first machine type selection | Requires thread-safe deferred loading; first-navigation delay on Pi; `Clock.schedule_once` chaining adds complexity for negligible memory saving |
+| `on_pre_enter` in Python base class | `on_pre_enter` in kv per screen | Kivy bug #2565 (unresolved as of 2.2.1, November 2023): first screen silently skips `on_pre_enter`/`on_enter` when defined in kv |
+| `sm.add_widget` / `sm.remove_widget` for screen set swap | `Builder.unload_file()` + reload to hot-swap kv rules | `unload_file` explicitly documented as not affecting already-instantiated widgets; kv rules on live screens are baked in at instantiation time; no visual effect on the running app |
+| Tab bar logical name + resolver function | Tab bar uses machine-specific names directly | Tab bar is shared infrastructure; coupling it to machine type knowledge breaks the clean separation already established |
+| `sm.has_screen()` guard before `add_widget` | Unchecked `sm.add_widget()` | `add_widget` raises `ScreenManagerException` on duplicate name — the guard is mandatory |
+| Pre-instantiate all screen sets at build() time | Instantiate on-demand when machine type is first selected | On-demand instantiation happens after kv is loaded but `Factory.RootLayout()` already rendered; timing is tricky. Pre-instantiation at build() is deterministic. |
+
+---
+
+## What NOT to Change
+
+| Do Not Touch | Why |
+|--------------|-----|
+| `KV_FILES` load order (theme.kv first, base.kv last) | Theme rules must precede widget rules; base.kv must be last because `RootLayout` references all screen class names that must be registered by the time it is parsed |
+| `jobs.submit()` for all gclib I/O | Must stay in all new screen subclasses — no direct controller calls on the UI thread |
+| `Clock.schedule_once()` for all UI updates from background threads | Required in all new screen subclasses — Kivy widget mutations are not thread-safe |
+| `MachineState.subscribe()` / `state.notify()` observer pattern | All screens hook here for state updates; new screens must follow the same pattern |
+| `machine_config.py` registry | Tempting to add screen class names here, but wrong — screen management belongs in DMCApp, not in the data registry |
+| `LabelBase.register('Roboto', ...)` + `Config.set` before all Kivy imports | Must stay at top of main.py; new screen modules must never import Kivy at module level in a way that runs before main.py initializes |
+| `NoTransition()` on ScreenManager | Animated transitions add latency on Pi and are listed as Out of Scope in PROJECT.md |
 
 ---
 
 ## Version Compatibility
 
-| Library | Version Requirement | Notes |
-|---------|---------------------|-------|
-| gclib Python wrapper | system install (2.4.1 current) | Not a pip package; installed by Galil installer. `GArrayUpload`/`GArrayDownload` are available in all versions supported by the codebase. |
-| Python | 3.10+ | Already pinned in pyproject.toml. No change. |
-| Kivy | 2.2+ | Already pinned. `Clock.schedule_once` used for all UI updates from background thread. No change. |
+| Package | Version | Notes |
+|---------|---------|-------|
+| Kivy | 2.2+ | `ScreenManager.add_widget` signature: the parameter was renamed from `screen` to `widget` in 2.1.0. Use positional argument to stay compatible across versions. |
+| Kivy | 2.2+ | `Builder.unload_file()` clears `_match_name_cache` — safe to call but only affects future widget instantiations, not existing ones. Confirmed from builder source. |
+| Kivy | 2.2 through 2.3.1 | `on_pre_enter` and `on_enter` defined in kv do not fire for the first screen added to a ScreenManager (GitHub issue #2565, confirmed unresolved November 2023). Define all lifecycle hooks in Python. |
+| Python | 3.10+ | No change. |
+
+---
+
+## Installation
+
+No new packages required. All patterns use existing Kivy 2.2+ API and stdlib Python.
+
+```bash
+# Verify Kivy version
+python -c "import kivy; print(kivy.__version__)"
+# Expected: 2.2.x or higher
+
+# No pip installs needed for this milestone
+```
 
 ---
 
 ## Sources
 
-- Official gclib Python class reference: https://www.galil.com/sw/pub/all/doc/gclib/html/classgclib_1_1py.html — confirmed GCommand, GArrayUpload, GArrayDownload, GMessage, GInterrupt signatures (HIGH confidence)
-- gclib thread safety documentation: https://accserv.lepp.cornell.edu/svn/packages/gclib/doc/html/threading_8md_source.html — single-handle constraint confirmed (HIGH confidence)
-- gclib release notes: https://www.galil.com/sw/pub/all/rn/gclib.html — version 2.4.1 current as of March 2026, "thread safe" added in 2.4.0 (MEDIUM confidence — claim language is ambiguous regarding same-handle use)
-- Galil forums variable read example: https://www.galil.com/forums/host-programming/how-read-variable-python — `MG _TTA` pattern confirmed (HIGH confidence)
-- DMC command reference (Keck/DEIMOS copy): https://www2.keck.hawaii.edu/inst/deimos/com40x0.pdf — variable assignment, BV, XQ, HX, MG syntax (HIGH confidence)
-- Existing codebase: `controller.py`, `run.py`, `axes_setup.py`, `parameters.py` — patterns confirmed working in v1.0 (HIGH confidence)
-- DMC program: `4 Axis Stainless grind.dmc` — state machine structure, variable names, array declarations, HMI button array (HIGH confidence)
+- [Kivy ScreenManager API — 2.3.1](https://kivy.org/doc/stable/api-kivy.uix.screenmanager.html) — `add_widget`, `remove_widget`, `has_screen`, `get_screen`, `screen_names`, `screens`, lifecycle events (HIGH confidence)
+- [Kivy Builder source — 2.3.1](https://kivy.org/doc/stable/_modules/kivy/lang/builder.html) — `match_rule_name` implementation (rules additive across files), `unload_file` implementation and documented limitation (HIGH confidence — read from source)
+- [Kivy Builder API — 2.3.1](https://kivy.org/doc/stable/api-kivy.lang.builder.html) — `load_file`, `unload_file`, `rulesonly` parameter documentation (HIGH confidence)
+- [GitHub Issue #2565 — on_pre_enter not fired for kv-declared first screen](https://github.com/kivy/kivy/issues/2565) — confirmed unresolved in Kivy 2.2.1, November 2023; Python-side definition is the established workaround (HIGH confidence)
+- [Kivy kv language guide — 2.3.1](https://kivy.org/doc/stable/guide/lang.html) — dynamic class inheritance `<ClassName@BaseClass>:`, multi-class shared rules `<A,B>:` syntax (HIGH confidence)
+- Existing codebase `main.py`, `screens/__init__.py`, `ui/base.kv`, `machine_config.py` — current patterns confirmed from direct inspection (HIGH confidence)
 
 ---
-*Stack research for: DMC Grinding GUI v2.0 HMI-Controller Integration*
-*Researched: 2026-04-06*
+
+*Stack research for: DMC Grinding GUI — v3.0 Multi-Machine screen architecture*
+*Researched: 2026-04-11*

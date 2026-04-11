@@ -54,7 +54,7 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
 
 - [x] **Phase 18: Base Class Extraction** — Extract BaseRunScreen, BaseAxesSetupScreen, BaseParametersScreen with shared controller wiring and subscription lifecycle (2/2 plans, completed 2026-04-11)
 - [x] **Phase 19: Flat Grind Rename and KV Split** — Rename existing screens to FlatGrind* classes with per-machine kv files in ui/flat_grind/ (completed 2026-04-11)
-- [ ] **Phase 20: Screen Registry and Loader** — machine_config screen_classes mapping, _load_machine_screens() swap function, machine detection on connect
+- [x] **Phase 20: Screen Registry and Loader** — machine_config screen_classes mapping, _load_machine_screens() swap function, machine detection on connect (completed 2026-04-11)
 - [ ] **Phase 21: Serration Screen Set** — SerrationRunScreen, SerrationAxesSetupScreen, SerrationParametersScreen with 3-axis layout and bComp stub
 - [ ] **Phase 22: Convex Screen Set** — ConvexRunScreen, ConvexAxesSetupScreen, ConvexParametersScreen with convex-specific layout
 - [ ] **Phase 23: Controller Communication Optimization** — GRecord poll replacement, MG variable batching, structured state messages, MG reader thread, direct connection flag, explicit timeouts
@@ -238,7 +238,7 @@ Plans:
   2. Connecting to a controller that reports machine type "flat_grind" causes the app to load FlatGrind* screens; connecting to "serration" loads Serration* screens — verified by inspecting the ScreenManager widget tree
   3. Calling _load_machine_screens() stops the position poll thread and closes the matplotlib figure before removing the outgoing screens — no background thread or figure handle leak after the swap
   4. After a machine type switch and restart, navigating to Run, Axes Setup, and Parameters each shows the correct screen for the active machine type
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 20-01-PLAN.md — Extend _REGISTRY with screen_classes/load_kv and add cleanup() to base classes
 - [ ] 20-02-PLAN.md — Wire _load_machine_screens() loader, update build()/on_stop()/base.kv, add machType mismatch detection
@@ -302,7 +302,7 @@ Plans:
 | 17. Poll Reset and Cold-Start Fix | v2.0 | 1/1 | Complete | 2026-04-07 |
 | 18. Base Class Extraction | v3.0 | 2/2 | Complete | 2026-04-11 |
 | 19. Flat Grind Rename and KV Split | v3.0 | 2/2 | Complete | 2026-04-11 |
-| 20. Screen Registry and Loader | 1/2 | In Progress|  | - |
+| 20. Screen Registry and Loader | 2/2 | Complete   | 2026-04-11 | - |
 | 21. Serration Screen Set | v3.0 | 0/TBD | Not started | - |
 | 22. Convex Screen Set | v3.0 | 0/TBD | Not started | - |
 | 23. Controller Communication Optimization | v3.0 | 0/TBD | Not started | - |

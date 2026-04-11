@@ -17,9 +17,9 @@ Requirements for multi-machine screen architecture and controller communication 
 ### Screen Loading
 
 - [x] **LOAD-01**: machine_config._REGISTRY includes screen_classes mapping machine type to its screen class names
-- [ ] **LOAD-02**: main.py _load_machine_screens() dynamically adds/removes machine-specific screens under canonical names ("run", "axes_setup", "parameters")
+- [x] **LOAD-02**: main.py _load_machine_screens() dynamically adds/removes machine-specific screens under canonical names ("run", "axes_setup", "parameters")
 - [x] **LOAD-03**: Screen swap stops background threads (_stop_pos_poll, _stop_mg_reader) and closes matplotlib figure before removing outgoing screens
-- [ ] **LOAD-04**: App detects machine type on connect (controller variable + local config) and loads correct screen set
+- [x] **LOAD-04**: App detects machine type on connect (controller variable + local config) and loads correct screen set
 
 ### Flat Grind
 
@@ -82,9 +82,9 @@ Requirements for multi-machine screen architecture and controller communication 
 | ARCH-03 | Phase 18 | Pending |
 | ARCH-04 | Phase 18 | Complete |
 | LOAD-01 | Phase 20 | Complete |
-| LOAD-02 | Phase 20 | Pending |
+| LOAD-02 | Phase 20 | Complete |
 | LOAD-03 | Phase 20 | Complete |
-| LOAD-04 | Phase 20 | Pending |
+| LOAD-04 | Phase 20 | Complete |
 | FLAT-01 | Phase 19 | Complete |
 | FLAT-02 | Phase 19 | Complete |
 | FLAT-03 | Phase 19 | Complete |

@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Multi-Machine
-status: unknown
-stopped_at: Completed 18-01-PLAN.md
-last_updated: "2026-04-11T13:09:17.090Z"
-last_activity: 2026-04-11 — Roadmap defined, 6 phases, 26/26 requirements mapped
+status: in-progress
+stopped_at: Completed 18-02-PLAN.md
+last_updated: "2026-04-11T00:00:00.000Z"
+last_activity: 2026-04-11 — Phase 18 Plan 02 complete; all three screens wired to base classes
 progress:
   total_phases: 16
   completed_phases: 9
   total_plans: 19
-  completed_plans: 18
+  completed_plans: 19
 ---
 
 # Project State
@@ -27,18 +27,18 @@ See: .planning/PROJECT.md (updated 2026-04-11)
 ```
 Milestone : v3.0 Multi-Machine
 Phase     : 18 — Base Class Extraction
-Plan      : Not started
-Status    : Roadmapped, awaiting plan
-Progress  : [··········] 0% (0/6 phases)
+Plan      : 02/02 complete
+Status    : Phase 18 complete
+Progress  : [█·········] 17% (1/6 phases)
 ```
 
-Last activity: 2026-04-11 — Roadmap defined, 6 phases, 26/26 requirements mapped
+Last activity: 2026-04-11 — Phase 18 Plan 02 complete; RunScreen, AxesSetupScreen, ParametersScreen all inherit from base classes
 
 ## v3.0 Phase Map
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 18 | Base Class Extraction | ARCH-01, ARCH-02, ARCH-03, ARCH-04 | Not started |
+| 18 | Base Class Extraction | ARCH-01, ARCH-02, ARCH-03, ARCH-04 | Complete (2/2 plans) |
 | 19 | Flat Grind Rename and KV Split | FLAT-01, FLAT-02, FLAT-03, FLAT-04 | Not started |
 | 20 | Screen Registry and Loader | LOAD-01, LOAD-02, LOAD-03, LOAD-04 | Not started |
 | 21 | Serration Screen Set | SERR-01, SERR-02, SERR-03, SERR-04 | Not started |
@@ -64,6 +64,7 @@ Decisions affecting current work (v3.0):
 - Builder.unload_file() rejected — does not affect instantiated widgets; swap uses sm.add_widget/remove_widget
 - [Phase 18-base-class-extraction]: BaseRunScreen thin: no jog, no matplotlib, no setup mode. SetupScreenMixin has no __init__ to preserve cooperative MRO.
 - [Phase 18-base-class-extraction]: BCompBarChart stays in run.py — Serration-specific, deferred to Phase 21.
+- [Phase 18-02]: base.py uses module-level submit import so all jobs.submit() calls are patchable at dmccodegui.screens.base.submit — single patch target for all screen I/O in tests.
 
 ### Critical Pitfalls (from research)
 
@@ -92,7 +93,7 @@ Decisions affecting current work (v3.0):
 
 ## Session Continuity
 
-Last session: 2026-04-11T13:09:17.087Z
-Stopped at: Completed 18-01-PLAN.md
+Last session: 2026-04-11T00:00:00.000Z
+Stopped at: Completed 18-02-PLAN.md
 Resume file: None
-Next action: `/gsd:plan-phase 18`
+Next action: `/gsd:plan-phase 19` — Flat Grind Rename and KV Split

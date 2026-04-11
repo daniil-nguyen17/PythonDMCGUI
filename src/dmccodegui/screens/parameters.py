@@ -9,26 +9,11 @@ Replaces the old placeholder grid with:
 """
 from __future__ import annotations
 
-from typing import Dict, Optional
-
 from kivy.clock import Clock
-from kivy.properties import BooleanProperty, NumericProperty, ObjectProperty
-from kivy.uix.screenmanager import Screen
+from kivy.properties import BooleanProperty, NumericProperty
 
-import time
-
-from dmccodegui.utils.jobs import submit
-from dmccodegui.hmi.dmc_vars import (
-    HMI_SETP,
-    HMI_CALC,
-    HMI_EXIT_SETUP,
-    HMI_TRIGGER_FIRE,
-    HMI_TRIGGER_DEFAULT,
-    STATE_SETUP,
-    STATE_GRINDING,
-    STATE_HOMING,
-)
 import dmccodegui.machine_config as mc
+from .base import BaseParametersScreen
 
 # ---------------------------------------------------------------------------
 # Backward-compatible PARAM_DEFS re-export
@@ -41,13 +26,8 @@ import dmccodegui.machine_config as mc
 from dmccodegui.machine_config import _FLAT_PARAM_DEFS as PARAM_DEFS  # noqa: F401
 
 # ---------------------------------------------------------------------------
-# Validation constants
+# Validation constants kept as module-level names for backward compatibility
 # ---------------------------------------------------------------------------
-
-# Setup-loop sibling screens — navigating between these does NOT trigger exit-setup
-_SETUP_SCREENS: frozenset = frozenset({
-    "axes_setup", "parameters", "profiles", "users", "diagnostics",
-})
 
 # Groups that reject zero values (calibration params)
 _ZERO_REJECT_GROUPS = {"Calibration"}
@@ -69,186 +49,29 @@ GROUP_COLORS: dict[str, list[float]] = {
 }
 
 
-class ParametersScreen(Screen):
-    """Parameters screen with grouped cards, dirty tracking, validation, and batch apply."""
+class ParametersScreen(BaseParametersScreen):
+    """Parameters screen with grouped cards, dirty tracking, validation, and batch apply.
 
-    controller = ObjectProperty(None, allownone=True)
-    state = ObjectProperty(None, allownone=True)
+    Inherits controller/state ObjectProperties, build_param_cards, validate_field,
+    dirty tracking, apply_to_controller, read_from_controller, and setup-mode lifecycle
+    from BaseParametersScreen.
+    """
 
-    # Kivy properties for KV bindings
+    # Screen-specific KV properties
     pending_count = NumericProperty(0)
     _loading = BooleanProperty(False)
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # Param defs dict -- keyed by var name.
-        # Initialized to Flat Grind defaults so validation works immediately
-        # (e.g. in tests that create ParametersScreen() without calling on_pre_enter).
-        # _rebuild_for_machine_type() rebuilds this from mc.get_param_defs() on
-        # every screen entry, picking up the active machine type.
-        self._param_defs: Dict[str, dict] = {p["var"]: p for p in PARAM_DEFS}
-        # Last known controller values {var_name: float}
-        self._controller_vals: Dict[str, float] = {}
-        # User-edited strings not yet applied {var_name: str}
-        self._dirty: Dict[str, str] = {}
-        # Widget refs for border color updates {var_name: widget_ref}
-        self._field_widgets: Dict[str, object] = {}
-        # Unsubscribe callback for state subscription (live apply button gating)
-        self._state_unsub = None
-
     # ---------------------------------------------------------------------------
-    # Validation
-    # ---------------------------------------------------------------------------
-
-    def validate_field(self, var_name: str, text: str) -> str:
-        """Validate a text entry for the named parameter.
-
-        Returns:
-            'error'    -- non-numeric, out of range, or special rule violation
-            'modified' -- valid numeric value that differs from controller value
-            'valid'    -- valid numeric value matching controller value
-        """
-        param = self._param_defs.get(var_name)
-        if param is None:
-            return 'error'
-
-        # Must be numeric
-        try:
-            value = float(text)
-        except (ValueError, TypeError):
-            return 'error'
-
-        # Calibration: reject zero
-        if param['group'] in _ZERO_REJECT_GROUPS and value == 0.0:
-            return 'error'
-
-        # Feedrates/Calibration/Safety: reject negative
-        if param['group'] in _NEGATIVE_REJECT_GROUPS and value < 0:
-            return 'error'
-
-        # Range check
-        if not (param['min'] <= value <= param['max']):
-            return 'error'
-
-        # Compare to controller value
-        ctrl_val = self._controller_vals.get(var_name)
-        if ctrl_val is not None and abs(value - ctrl_val) < 1e-9:
-            return 'valid'
-
-        return 'modified'
-
-    # ---------------------------------------------------------------------------
-    # Field change handler
+    # Field change handler — override base to update pending_count
     # ---------------------------------------------------------------------------
 
     def on_field_text_change(self, var_name: str, text: str) -> None:
-        """Called by KV on_text bindings when a field value changes."""
-        if self._loading:
-            return
+        """Called by KV on_text bindings when a field value changes.
 
-        state = self.validate_field(var_name, text)
-        widget = self._field_widgets.get(var_name)
-        if widget is not None:
-            self._set_field_state(widget, state)
-
-        if state == 'modified':
-            self._dirty[var_name] = text
-        else:
-            # 'valid' (reverted) or 'error' -- remove from dirty
-            self._dirty.pop(var_name, None)
-
+        Extends base class to also update pending_count (KV-bound dirty counter).
+        """
+        super().on_field_text_change(var_name, text)
         self.pending_count = len(self._dirty)
-
-    def _set_field_state(self, widget, state: str) -> None:
-        """Update the border color of a TextInput widget based on validation state."""
-        try:
-            if state == 'error':
-                color = BORDER_RED
-            elif state == 'modified':
-                color = BORDER_AMBER
-            else:
-                color = BORDER_NORMAL
-
-            # Update canvas instruction if present (KV-drawn border)
-            if hasattr(widget, '_border_color_instruction'):
-                widget._border_color_instruction.rgba = color
-            # Also store for programmatic access
-            widget._param_state = state
-        except Exception:
-            pass
-
-    # ---------------------------------------------------------------------------
-    # Apply to controller
-    # ---------------------------------------------------------------------------
-
-    def apply_to_controller(self) -> None:
-        """Send all dirty parameters to controller, read back, then burn NV."""
-        if not self._dirty:
-            return
-        if self.controller is None or not self.controller.is_connected():
-            return
-        if self.state is not None:
-            from dmccodegui.hmi.dmc_vars import STATE_GRINDING, STATE_HOMING
-            motion_active = (
-                not self.state.connected
-                or self.state.dmc_state in (STATE_GRINDING, STATE_HOMING)
-            )
-            if motion_active:
-                return
-
-        # Snapshot dirty dict and param defs before background job
-        dirty_snapshot = dict(self._dirty)
-        param_defs_snapshot = mc.get_param_defs()
-
-        def _job():
-            ctrl = self.controller
-            if ctrl is None:
-                return
-
-            # Write each dirty param
-            for var_name, text in dirty_snapshot.items():
-                try:
-                    ctrl.cmd(f"{var_name}={text}")
-                except Exception:
-                    pass
-
-            # Fire varcalc trigger — DMC recalculates derived positions
-            try:
-                ctrl.cmd(f"{HMI_CALC}={HMI_TRIGGER_FIRE}")
-            except Exception:
-                pass
-
-            # Wait for #VARCALC to complete on controller
-            time.sleep(0.5)
-
-            # Read back all params for active machine type
-            new_vals: Dict[str, float] = {}
-            for p in param_defs_snapshot:
-                var = p['var']
-                try:
-                    raw = ctrl.cmd(f"MG {var}")
-                    new_vals[var] = float(raw.strip())
-                except Exception:
-                    pass
-
-            # Burn NV memory
-            try:
-                ctrl.cmd("BV")
-            except Exception:
-                pass
-
-            # Post UI updates to the main thread via Clock
-            def _update_ui(*_args):
-                self._controller_vals.update(new_vals)
-                self._dirty.clear()
-                self.pending_count = 0
-                # Reset all field borders to normal
-                for var_name, widget in self._field_widgets.items():
-                    self._set_field_state(widget, 'valid')
-
-            Clock.schedule_once(_update_ui)
-
-        submit(_job)
 
     # ---------------------------------------------------------------------------
     # Apply button visual gate
@@ -277,61 +100,6 @@ class ParametersScreen(Screen):
         if not (self.state is not None and not self.state.setup_unlocked):
             apply_btn.disabled = motion_active
             apply_btn.opacity = 0.4 if motion_active else 1.0
-
-    # ---------------------------------------------------------------------------
-    # Read from controller
-    # ---------------------------------------------------------------------------
-
-    def read_from_controller(self) -> None:
-        """Refresh all parameter values from the controller.
-
-        Reads only the vars defined for the active machine type.
-        """
-        if self.controller is None:
-            return
-
-        if not mc.is_configured():
-            return
-
-        # Snapshot current param defs for the background job
-        param_defs_snapshot = mc.get_param_defs()
-
-        def _job():
-            ctrl = self.controller
-            if ctrl is None:
-                return
-
-            new_vals: Dict[str, float] = {}
-            for p in param_defs_snapshot:
-                var = p['var']
-                try:
-                    raw = ctrl.cmd(f"MG {var}")
-                    new_vals[var] = float(raw.strip())
-                except Exception:
-                    pass
-
-            # Post UI updates to the main thread via Clock
-            def _update_ui(*_args):
-                self._loading = True
-                try:
-                    self._controller_vals.update(new_vals)
-                    # Update field widgets
-                    for var_name, widget in self._field_widgets.items():
-                        val = new_vals.get(var_name)
-                        if val is not None and hasattr(widget, 'text'):
-                            widget.text = str(val)
-                    # Clear dirty state
-                    self._dirty.clear()
-                    self.pending_count = 0
-                    # Reset all borders
-                    for var_name, widget in self._field_widgets.items():
-                        self._set_field_state(widget, 'valid')
-                finally:
-                    self._loading = False
-
-            Clock.schedule_once(_update_ui)
-
-        submit(_job)
 
     # ---------------------------------------------------------------------------
     # Role-based readonly
@@ -364,68 +132,44 @@ class ParametersScreen(Screen):
         return readonly
 
     # ---------------------------------------------------------------------------
-    # Machine type rebuild
+    # Machine type rebuild — override to reset pending_count
     # ---------------------------------------------------------------------------
 
     def _rebuild_for_machine_type(self) -> None:
-        """Rebuild parameter cards for the current active machine type.
-
-        Clears and rebuilds all state that depends on PARAM_DEFS so that
-        hot-swapping machine type and entering this screen shows the correct
-        parameters.
-
-        Called at the START of on_pre_enter, before _apply_role_mode and
-        read_from_controller.
-        """
-        # Rebuild instance-level param dict from machine_config
-        try:
-            param_defs = mc.get_param_defs()
-        except ValueError:
-            # machine_config not configured — keep existing state
-            return
-
-        self._param_defs = {p["var"]: p for p in param_defs}
-
-        # Reset dirty tracking and field widgets (cards will be rebuilt)
-        self._field_widgets.clear()
-        self._dirty.clear()
+        """Rebuild parameter cards. Extends base to reset pending_count."""
+        super()._rebuild_for_machine_type()
         self.pending_count = 0
-
-        # Rebuild the card UI
-        self.build_param_cards()
 
     # ---------------------------------------------------------------------------
     # Screen lifecycle
     # ---------------------------------------------------------------------------
 
     def on_pre_enter(self, *args):
-        """Rebuild cards for active machine type, apply role mode, then refresh values."""
-        # Rebuild first — must run before role mode and controller read
-        self._rebuild_for_machine_type()
+        """Rebuild cards, apply role mode, subscribe to state, then refresh values.
 
+        BaseParametersScreen.on_pre_enter handles:
+          - _rebuild_for_machine_type() (which we extend to reset pending_count)
+          - MachineState subscription (_on_state_change)
+          - _enter_setup_if_needed() (hmiSetp=0)
+
+        ParametersScreen adds:
+          - _apply_role_mode() for role-based readonly
+          - Additional subscription for apply button gating (stored in _btn_unsub)
+          - read_from_controller()
+        """
+        # Base handles: rebuild, subscribe, enter_setup_if_needed
+        super().on_pre_enter(*args)
+
+        # Apply role-based readonly
         setup_unlocked = True
         if self.state is not None:
             setup_unlocked = self.state.setup_unlocked
         self._apply_role_mode(setup_unlocked)
 
-        # Guard: do NOT send hmiSetp while controller is in motion
-        if (self.state is not None
-                and self.state.dmc_state in (STATE_GRINDING, STATE_HOMING)):
-            pass  # Skip setup entry — controller is busy
-        else:
-            # Fire hmiSetp only if not already in setup — avoids spurious re-enter
-            # when switching between sibling setup screens (axes_setup <-> parameters)
-            already_in_setup = (
-                self.state is not None and self.state.dmc_state == STATE_SETUP
-            )
-            if self.controller is not None and self.controller.is_connected():
-                if not already_in_setup:
-                    ctrl = self.controller
-                    submit(lambda: ctrl.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}"))
-
-        # Subscribe to state changes for live apply button gating
+        # Subscribe separately for apply button gating (stored in _btn_unsub to
+        # allow clean unsubscribe in on_leave — base owns _state_unsub exclusively)
         if self.state is not None:
-            self._state_unsub = self.state.subscribe(
+            self._btn_unsub = self.state.subscribe(
                 lambda s: Clock.schedule_once(lambda *_: self._update_apply_button())
             )
         self._update_apply_button()
@@ -433,175 +177,18 @@ class ParametersScreen(Screen):
         self.read_from_controller()
 
     def on_leave(self, *args):
-        """Fire hmiExSt=0 only when leaving to a non-setup screen.
-
-        Tab switches between axes_setup and parameters (sibling setup screens)
-        do NOT fire exit-setup — this avoids spurious setup exit/re-enter cycles.
-        """
-        # Unsubscribe from state changes
-        if self._state_unsub is not None:
-            self._state_unsub()
-            self._state_unsub = None
-
-        next_screen = ""
-        if self.manager:
-            next_screen = self.manager.current
-        if next_screen not in _SETUP_SCREENS:
-            if self.controller is not None and self.controller.is_connected():
-                ctrl = self.controller
-                submit(lambda: ctrl.cmd(f"{HMI_EXIT_SETUP}={HMI_TRIGGER_FIRE}"))
+        """Unsubscribe apply button listener, then delegate to base class."""
+        # Unsubscribe the apply button gating listener (separate from base's _state_unsub)
+        btn_unsub = getattr(self, '_btn_unsub', None)
+        if btn_unsub is not None:
+            btn_unsub()
+            self._btn_unsub = None
+        # BaseParametersScreen.on_leave fires _exit_setup_if_needed() and unsubscribes
+        super().on_leave(*args)
 
     def on_kv_post(self, base_widget):
         """Build parameter cards after KV post (initial load only)."""
         super().on_kv_post(base_widget)
         self.build_param_cards()
 
-    def build_param_cards(self) -> None:
-        """Build grouped parameter cards dynamically in the cards_container.
-
-        Reads from mc.get_param_defs() to get the current machine type's params.
-        Clears the container before rebuilding to handle hot-swap without duplicates.
-        """
-        from collections import OrderedDict
-
-        try:
-            container = self.ids.get('cards_container')
-        except Exception:
-            container = None
-
-        if container is None:
-            return
-
-        # Get param defs for active machine type
-        try:
-            param_defs = mc.get_param_defs()
-        except ValueError:
-            # machine_config not configured yet — use empty list (no cards)
-            param_defs = []
-
-        from kivy.graphics import Color, RoundedRectangle, Rectangle
-        from kivy.uix.boxlayout import BoxLayout
-        from kivy.uix.label import Label
-        from kivy.uix.textinput import TextInput
-        from kivy.uix.widget import Widget
-
-        # Group params preserving order
-        groups: OrderedDict[str, list] = OrderedDict()
-        for p in param_defs:
-            groups.setdefault(p['group'], []).append(p)
-
-        # Clear existing cards (handles rebuild on hot-swap)
-        container.clear_widgets()
-
-        # Also clear field widget refs since we're rebuilding
-        self._field_widgets.clear()
-
-        for group_name, params in groups.items():
-            accent = GROUP_COLORS.get(group_name, [0.5, 0.5, 0.5, 1])
-
-            # Card wrapper with left color stripe
-            card_wrapper = BoxLayout(
-                orientation='horizontal',
-                size_hint_y=None,
-                spacing=0,
-            )
-            card_wrapper.bind(minimum_height=card_wrapper.setter('height'))
-
-            # Left accent stripe
-            stripe = Widget(size_hint_x=None, width=6, size_hint_y=1)
-            with stripe.canvas.before:
-                Color(rgba=accent)
-                _rect = RoundedRectangle(pos=stripe.pos, size=stripe.size, radius=[3, 0, 0, 3])
-            stripe.bind(pos=lambda w, v, r=_rect: setattr(r, 'pos', v))
-            stripe.bind(size=lambda w, v, r=_rect: setattr(r, 'size', v))
-            card_wrapper.add_widget(stripe)
-
-            # Card body
-            card = BoxLayout(
-                orientation='vertical',
-                padding=[12, 12, 12, 12],
-                spacing=6,
-                size_hint_y=None,
-            )
-            card.bind(minimum_height=card.setter('height'))
-
-            # Card background
-            with card.canvas.before:
-                Color(rgba=[0.051, 0.071, 0.102, 1])
-                _bg = Rectangle(pos=card.pos, size=card.size)
-            card.bind(pos=lambda w, v, r=_bg: setattr(r, 'pos', v))
-            card.bind(size=lambda w, v, r=_bg: setattr(r, 'size', v))
-
-            # Group header with accent color
-            header = Label(
-                text=group_name,
-                font_size='22sp',
-                bold=True,
-                size_hint_y=None,
-                height=40,
-                halign='left',
-                valign='middle',
-                color=accent,
-            )
-            header.bind(size=header.setter('text_size'))
-            card.add_widget(header)
-
-            for p in params:
-                row = BoxLayout(
-                    orientation='horizontal',
-                    size_hint_y=None,
-                    height=48,
-                    spacing=4,
-                )
-
-                # Column 1: human-readable label
-                lbl = Label(
-                    text=p['label'],
-                    font_size='18sp',
-                    size_hint_x=0.35,
-                    halign='left',
-                    valign='middle',
-                )
-                lbl.bind(size=lbl.setter('text_size'))
-                row.add_widget(lbl)
-
-                # Column 2: DMC variable code
-                var_lbl = Label(
-                    text=p['var'],
-                    font_size='16sp',
-                    size_hint_x=0.15,
-                    halign='center',
-                    valign='middle',
-                    color=[accent[0], accent[1], accent[2], 0.6],
-                )
-                var_lbl.bind(size=var_lbl.setter('text_size'))
-                row.add_widget(var_lbl)
-
-                # Column 3: TextInput
-                ti = TextInput(
-                    text='',
-                    multiline=False,
-                    size_hint_x=0.35,
-                    font_size='18sp',
-                    halign='center',
-                )
-                var_name = p['var']
-                ti.bind(text=lambda widget, text, v=var_name: self.on_field_text_change(v, text))
-                self._field_widgets[var_name] = ti
-                row.add_widget(ti)
-
-                # Column 4: unit label
-                unit_lbl = Label(
-                    text=p['unit'],
-                    font_size='16sp',
-                    size_hint_x=0.15,
-                    halign='right',
-                    valign='middle',
-                )
-                unit_lbl.bind(size=unit_lbl.setter('text_size'))
-                row.add_widget(unit_lbl)
-
-                card.add_widget(row)
-
-            card_wrapper.add_widget(card)
-            container.add_widget(card_wrapper)
+    # build_param_cards is inherited from BaseParametersScreen

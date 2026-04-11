@@ -54,9 +54,7 @@ KV FILE: ui/axes_setup.kv
 """
 from __future__ import annotations
 
-from kivy.uix.screenmanager import Screen
 from kivy.properties import (
-    ObjectProperty,
     StringProperty,
     NumericProperty,
     BooleanProperty,
@@ -68,17 +66,12 @@ from ..app_state import MachineState
 from ..controller import GalilController
 from ..utils import jobs
 from ..hmi.dmc_vars import (
-    HMI_SETP, HMI_TRIGGER_FIRE, HMI_TRIGGER_DEFAULT,
-    HMI_GO_REST, HMI_GO_START, HMI_EXIT_SETUP, HMI_HOME, HMI_NEWS,
-    STATE_SETUP, STATE_GRINDING, STATE_HOMING,
+    HMI_TRIGGER_FIRE,
+    HMI_GO_REST, HMI_GO_START, HMI_HOME, HMI_NEWS,
+    STATE_GRINDING, STATE_HOMING,
 )
 import dmccodegui.machine_config as mc
-
-# Screens that are siblings within the setup flow.
-# Navigating between these does NOT trigger the exit-setup HMI command.
-_SETUP_SCREENS: frozenset[str] = frozenset({
-    "axes_setup", "parameters", "profiles", "users", "diagnostics",
-})
+from .base import BaseAxesSetupScreen
 
 # Default CPM values per axis. Read from controller on enter; fall back if read fails.
 AXIS_CPM_DEFAULTS: dict[str, float] = {
@@ -113,12 +106,12 @@ _AXIS_ROW_IDS: dict[str, str] = {
 }
 
 
-class AxesSetupScreen(Screen):
-    """All-axes setup screen with mode toggle, jog per axis, and save button."""
+class AxesSetupScreen(BaseAxesSetupScreen):
+    """All-axes setup screen with mode toggle, jog per axis, and save button.
 
-    # Injected by main.py after ScreenManager is built
-    controller: GalilController = ObjectProperty(None, allownone=True)  # type: ignore
-    state: MachineState = ObjectProperty(None, allownone=True)          # type: ignore
+    Inherits controller/state ObjectProperties, jog infrastructure, CPM read pattern,
+    and setup-mode lifecycle from BaseAxesSetupScreen.
+    """
 
     # Current mode: "" (no selection), "rest", or "start"
     _mode = StringProperty("")
@@ -143,19 +136,10 @@ class AxesSetupScreen(Screen):
     # Suppress UI callbacks during programmatic updates
     _loading = BooleanProperty(False)
 
-    # True once CPM values have been read from the controller.
-    # Jog is blocked until this is True to prevent moves with wrong CPM.
-    _cpm_ready = BooleanProperty(False)
-
-    # CPM cache — empty until read from controller (no defaults used for jog)
-    _axis_cpm: dict[str, float]
+    # NOTE: _cpm_ready, _axis_cpm, and _current_step_mm are owned by
+    # BaseAxesSetupScreen.__init__. Do not shadow them here.
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._axis_cpm = {}
-        self._cpm_ready = False
 
     def on_pre_enter(self, *args):
         """One-time read of all positions and CPM on tab entry.
@@ -167,6 +151,10 @@ class AxesSetupScreen(Screen):
         Smart enter: if dmc_state is already STATE_SETUP (e.g. navigating from
         a sibling setup screen), skip hmiSetp=0 and just refresh values.
         """
+        # BaseAxesSetupScreen.on_pre_enter subscribes to MachineState and
+        # fires _enter_setup_if_needed() (hmiSetp=0 if not already in setup).
+        super().on_pre_enter(*args)
+
         # Clear CPM so stale values from a previous visit can't be used
         self._axis_cpm = {}
         self._cpm_ready = False
@@ -188,37 +176,21 @@ class AxesSetupScreen(Screen):
         self._update_saved_labels()
         self._update_save_button()
 
-        # Guard: do NOT send hmiSetp while controller is in motion
+        # Guard: do NOT read values while controller is in motion
         if (self.state is not None
                 and self.state.dmc_state in (STATE_GRINDING, STATE_HOMING)):
             return
 
-        # Fire hmiSetp only if we are NOT already in setup mode.
-        # When dmc_state is already STATE_SETUP (e.g. navigating between setup
-        # sibling screens), skip the trigger and just refresh values.
+        # Read initial positions/CPM — setup entry was already handled by super()
         if self.controller and self.controller.is_connected():
-            already_in_setup = (
-                self.state is not None and self.state.dmc_state == STATE_SETUP
-            )
-            if already_in_setup:
-                jobs.submit(self._read_initial_values)
-            else:
-                jobs.submit(self._enter_setup_and_read)
+            jobs.submit(self._read_initial_values)
 
     def on_leave(self, *args):
-        """Fire hmiExSt=0 only when leaving to a non-setup screen.
-
-        Navigating between setup siblings (axes_setup, parameters) does NOT
-        trigger exit-setup — the controller stays in STATE_SETUP the whole time.
-        """
+        """Clear CPM state, then delegate exit-setup and unsubscribe to base class."""
+        # Clear CPM state before leaving
         self._cpm_ready = False
-        next_screen = ""
-        if self.manager:
-            next_screen = self.manager.current
-        if next_screen not in _SETUP_SCREENS:
-            if self.controller and self.controller.is_connected():
-                ctrl = self.controller
-                jobs.submit(lambda: ctrl.cmd(f"{HMI_EXIT_SETUP}={HMI_TRIGGER_FIRE}"))
+        # BaseAxesSetupScreen.on_leave fires _exit_setup_if_needed() and unsubscribes
+        super().on_leave(*args)
 
     # ── Axis row visibility ──────────────────────────────────────────────────
 
@@ -326,91 +298,15 @@ class AxesSetupScreen(Screen):
         """Set the jog step size. Called from KV ToggleButton on_release."""
         self._current_step_mm = mm
 
-    # ── Jog ───────────────────────────────────────────────────────────────────
+    # ── Jog log overrides ─────────────────────────────────────────────────────
 
-    def jog_axis(self, axis: str, direction: int) -> None:
-        """
-        Jog the given axis by (direction * _current_step_mm * cpm) counts.
+    def _log_jog(self, axis: str, counts: int, final_pos: str) -> None:
+        """Override base to surface jog result in the cmd log widget."""
+        self._log_cmd(f"JOG {axis}: {counts:+d} cts -> {final_pos}")
 
-        Uses PR (Position Relative) + BG per axis so only the target axis moves.
-        Commands: "PR{axis}={counts}" then "BG{axis}".
-        Both commands are sent in one background job to keep them sequential.
-
-        Gates (in order):
-          1. Controller connected
-          2. dmc_state == STATE_SETUP (not in idle/grinding)
-          3. _cpm_ready (CPM read from controller)
-          4. cpm > 0 for the axis
-          5. _BG{axis} == 0 (no jog in progress) — checked inside do_jog()
-        """
-        if not self.controller or not self.controller.is_connected():
-            print(f"[AxesSetup] Jog {axis} blocked — controller not connected (controller={self.controller})")
-            return
-
-        if not self._cpm_ready:
-            print(f"[AxesSetup] Jog blocked — CPM not yet read from controller")
-            return
-
-        cpm = self._axis_cpm.get(axis, 0.0)
-        if cpm <= 0:
-            print(f"[AxesSetup] Jog blocked — no CPM value for axis {axis}, _axis_cpm={self._axis_cpm}")
-            return
-
-        counts = int(direction * self._current_step_mm * cpm)
-        print(f"[AxesSetup] Jog {axis}: step={self._current_step_mm} * cpm={cpm} = {counts} counts")
-        ctrl = self.controller
-
-        lbl_id = f"pos_{axis.lower()}"
-
-        def _push_pos(val_str):
-            """Push a position string to the single axis label on the main thread."""
-            def _update(*_):
-                self.pos_current[axis] = val_str
-                lbl = self.ids.get(lbl_id)
-                if lbl:
-                    lbl.text = val_str
-            Clock.schedule_once(_update)
-
-        def do_jog():
-            try:
-                # In-progress gate: skip if previous jog still running
-                try:
-                    raw = ctrl.cmd(f"MG _BG{axis}").strip()
-                    if float(raw) != 0:
-                        return
-                except Exception:
-                    return
-
-                ctrl.cmd(f"PR{axis}={counts}")
-                ctrl.cmd(f"BG{axis}")
-                # Poll position live while axis is moving, update label each tick
-                import time
-                for _ in range(60):  # up to 6 seconds max
-                    time.sleep(0.1)
-                    try:
-                        raw = ctrl.cmd(f"MG _TD{axis}").strip()
-                        _push_pos(f"{float(raw):.1f}")
-                    except Exception:
-                        pass
-                    try:
-                        bg_raw = ctrl.cmd(f"MG _BG{axis}").strip()
-                        if float(bg_raw) == 0:
-                            break  # motion complete
-                    except Exception:
-                        break
-                # Final position read after motion stopped
-                raw = ctrl.cmd(f"MG _TD{axis}").strip()
-                final_val = f"{float(raw):.1f}"
-                _push_pos(final_val)
-                Clock.schedule_once(
-                    lambda *_, a=axis, c=counts, v=final_val: self._log_cmd(
-                        f"JOG {a}: {c:+d} cts -> {v}"
-                    )
-                )
-            except Exception as e:
-                Clock.schedule_once(lambda *_, err=e: self._log_cmd(f"JOG ERROR: {err}"))
-
-        jobs.submit(do_jog)
+    def _log_jog_error(self, exc: Exception) -> None:
+        """Override base to surface jog errors in the cmd log widget."""
+        self._log_cmd(f"JOG ERROR: {exc}")
 
     # ── Save ─────────────────────────────────────────────────────────────────
 
@@ -627,18 +523,6 @@ class AxesSetupScreen(Screen):
         self._fire_hmi_trigger(HMI_NEWS, "New Session")
 
     # ── Initial load ──────────────────────────────────────────────────────────
-
-    def _enter_setup_and_read(self) -> None:
-        """Fire hmiSetp=0 to enter setup mode, then read all initial values."""
-        ctrl = self.controller
-        if not ctrl or not ctrl.is_connected():
-            return
-        try:
-            ctrl.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}")
-            print(f"[AxesSetup] Fired {HMI_SETP}={HMI_TRIGGER_FIRE}")
-        except Exception as e:
-            print(f"[AxesSetup] Failed to fire hmiSetp: {e}")
-        self._read_initial_values()
 
     @staticmethod
     def _read_one(ctrl, command: str) -> str | None:

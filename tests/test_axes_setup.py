@@ -137,8 +137,8 @@ def test_jog_counts_calculation():
     screen._current_step_mm = 10.0
 
     submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
-        mock_jobs.submit = lambda fn: submitted_fns.append(fn)
+    # jog_axis is defined in BaseAxesSetupScreen (base.py), so patch base.submit
+    with patch('dmccodegui.screens.base.submit', side_effect=lambda fn: submitted_fns.append(fn)):
         screen.jog_axis("A", 1)
 
     assert len(submitted_fns) == 1
@@ -170,8 +170,8 @@ def test_jog_counts_negative():
     screen._current_step_mm = 5.0
 
     submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
-        mock_jobs.submit = lambda fn: submitted_fns.append(fn)
+    # jog_axis is defined in BaseAxesSetupScreen (base.py), so patch base.submit
+    with patch('dmccodegui.screens.base.submit', side_effect=lambda fn: submitted_fns.append(fn)):
         screen.jog_axis("A", -1)
 
     assert len(submitted_fns) == 1
@@ -197,8 +197,8 @@ def test_jog_blocked_before_cpm_read():
     assert screen._cpm_ready is False
 
     submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
-        mock_jobs.submit = lambda fn: submitted_fns.append(fn)
+    # jog_axis is in BaseAxesSetupScreen (base.py), so patch base.submit
+    with patch('dmccodegui.screens.base.submit', side_effect=lambda fn: submitted_fns.append(fn)):
         screen.jog_axis("A", 1)
 
     assert len(submitted_fns) == 0
@@ -213,8 +213,8 @@ def test_jog_no_controller():
     screen.controller = None
 
     submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
-        mock_jobs.submit = lambda fn: submitted_fns.append(fn)
+    # jog_axis is in BaseAxesSetupScreen (base.py), so patch base.submit
+    with patch('dmccodegui.screens.base.submit', side_effect=lambda fn: submitted_fns.append(fn)):
         screen.jog_axis("A", 1)
 
     assert len(submitted_fns) == 0
@@ -231,8 +231,8 @@ def test_jog_disconnected():
     screen.controller = ctrl
 
     submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
-        mock_jobs.submit = lambda fn: submitted_fns.append(fn)
+    # jog_axis is in BaseAxesSetupScreen (base.py), so patch base.submit
+    with patch('dmccodegui.screens.base.submit', side_effect=lambda fn: submitted_fns.append(fn)):
         screen.jog_axis("A", 1)
 
     assert len(submitted_fns) == 0
@@ -450,15 +450,10 @@ def test_enter_setup_skips_fire_when_already_setup():
     screen.state = MagicMock()
     screen.state.dmc_state = STATE_SETUP  # already in setup
 
-    submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+    # _enter_setup_if_needed uses base.submit; execute lambdas synchronously
+    with patch('dmccodegui.screens.base.submit', side_effect=lambda fn, *a, **kw: fn()):
         with patch('dmccodegui.screens.axes_setup.Clock'):
-            mock_jobs.submit = lambda fn: submitted_fns.append(fn)
             screen.on_pre_enter()
-
-    # Execute the submitted background job(s)
-    for fn in submitted_fns:
-        fn()
 
     setp_fire_cmd = f"{HMI_SETP}={HMI_TRIGGER_FIRE}"
     all_cmds = [c[0][0] for c in ctrl.cmd.call_args_list]
@@ -481,14 +476,10 @@ def test_enter_setup_fires_when_not_in_setup():
     screen.state = MagicMock()
     screen.state.dmc_state = STATE_IDLE  # not in setup
 
-    submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
+    # _enter_setup_if_needed uses base.submit; execute lambdas synchronously
+    with patch('dmccodegui.screens.base.submit', side_effect=lambda fn, *a, **kw: fn()):
         with patch('dmccodegui.screens.axes_setup.Clock'):
-            mock_jobs.submit = lambda fn: submitted_fns.append(fn)
             screen.on_pre_enter()
-
-    for fn in submitted_fns:
-        fn()
 
     setp_fire_cmd = f"{HMI_SETP}={HMI_TRIGGER_FIRE}"
     all_cmds = [c[0][0] for c in ctrl.cmd.call_args_list]
@@ -512,7 +503,9 @@ def test_exit_fires_to_non_setup_screen():
     manager.current = "run"
     screen.manager = manager
 
-    screen.on_leave()
+    # _exit_setup_if_needed uses base.submit; execute lambdas synchronously
+    with patch('dmccodegui.screens.base.submit', side_effect=lambda fn, *a, **kw: fn()):
+        screen.on_leave()
 
     exit_cmd = f"{HMI_EXIT_SETUP}={HMI_TRIGGER_FIRE}"
     all_cmds = [c[0][0] for c in ctrl.cmd.call_args_list]
@@ -536,7 +529,9 @@ def test_exit_skips_to_sibling_setup_screen():
     manager.current = "parameters"
     screen.manager = manager
 
-    screen.on_leave()
+    # _exit_setup_if_needed uses base.submit; execute lambdas synchronously
+    with patch('dmccodegui.screens.base.submit', side_effect=lambda fn, *a, **kw: fn()):
+        screen.on_leave()
 
     exit_cmd = f"{HMI_EXIT_SETUP}={HMI_TRIGGER_FIRE}"
     all_cmds = [c[0][0] for c in ctrl.cmd.call_args_list]
@@ -634,8 +629,8 @@ def test_jog_blocked_when_not_setup():
     screen._cpm_ready = True
 
     submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
-        mock_jobs.submit = lambda fn: submitted_fns.append(fn)
+    # jog_axis is in BaseAxesSetupScreen (base.py), so patch base.submit
+    with patch('dmccodegui.screens.base.submit', side_effect=lambda fn: submitted_fns.append(fn)):
         screen.jog_axis("A", 1)
 
     assert len(submitted_fns) == 0, (
@@ -661,8 +656,8 @@ def test_jog_blocked_when_in_progress():
     screen._cpm_ready = True
 
     submitted_fns = []
-    with patch('dmccodegui.screens.axes_setup.jobs') as mock_jobs:
-        mock_jobs.submit = lambda fn: submitted_fns.append(fn)
+    # jog_axis is in BaseAxesSetupScreen (base.py), so patch base.submit
+    with patch('dmccodegui.screens.base.submit', side_effect=lambda fn: submitted_fns.append(fn)):
         screen.jog_axis("A", 1)
 
     # Job is submitted, but do_jog should bail before PR/BG

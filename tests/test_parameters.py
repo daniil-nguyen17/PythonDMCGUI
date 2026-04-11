@@ -190,8 +190,8 @@ def test_apply_sends_dirty():
         nonlocal job_fn
         job_fn = fn
 
-    with patch('dmccodegui.screens.parameters.submit', side_effect=capture_job):
-        with patch('dmccodegui.screens.parameters.mc.get_param_defs', return_value=PARAM_DEFS):
+    with patch('dmccodegui.screens.base.submit', side_effect=capture_job):
+        with patch('dmccodegui.screens.base.mc.get_param_defs', return_value=PARAM_DEFS):
             screen.apply_to_controller()
 
     assert job_fn is not None, "apply_to_controller should submit a background job"
@@ -230,8 +230,8 @@ def test_apply_burns_nv():
         nonlocal job_fn
         job_fn = fn
 
-    with patch('dmccodegui.screens.parameters.submit', side_effect=capture_job):
-        with patch('dmccodegui.screens.parameters.mc.get_param_defs', return_value=PARAM_DEFS):
+    with patch('dmccodegui.screens.base.submit', side_effect=capture_job):
+        with patch('dmccodegui.screens.base.mc.get_param_defs', return_value=PARAM_DEFS):
             screen.apply_to_controller()
 
     job_fn()
@@ -270,8 +270,8 @@ def test_apply_reads_back():
         nonlocal job_fn
         job_fn = fn
 
-    with patch('dmccodegui.screens.parameters.submit', side_effect=capture_job):
-        with patch('dmccodegui.screens.parameters.mc.get_param_defs', return_value=PARAM_DEFS):
+    with patch('dmccodegui.screens.base.submit', side_effect=capture_job):
+        with patch('dmccodegui.screens.base.mc.get_param_defs', return_value=PARAM_DEFS):
             screen.apply_to_controller()
 
     job_fn()
@@ -300,7 +300,7 @@ def test_apply_skips_when_motion_active():
 
     submitted = []
 
-    with patch('dmccodegui.screens.parameters.submit', side_effect=lambda fn, *a, **k: submitted.append(fn)):
+    with patch('dmccodegui.screens.base.submit', side_effect=lambda fn, *a, **k: submitted.append(fn)):
         screen.apply_to_controller()
 
     assert len(submitted) == 0, "Should not submit job when motion is active (GRINDING)"
@@ -331,9 +331,9 @@ def test_read_clears_dirty():
         nonlocal job_fn
         job_fn = fn
 
-    with patch('dmccodegui.screens.parameters.submit', side_effect=capture_job):
-        with patch('dmccodegui.screens.parameters.mc.is_configured', return_value=True):
-            with patch('dmccodegui.screens.parameters.mc.get_param_defs', return_value=PARAM_DEFS):
+    with patch('dmccodegui.screens.base.submit', side_effect=capture_job):
+        with patch('dmccodegui.screens.base.mc.is_configured', return_value=True):
+            with patch('dmccodegui.screens.base.mc.get_param_defs', return_value=PARAM_DEFS):
                 screen.read_from_controller()
 
     assert job_fn is not None
@@ -375,7 +375,7 @@ def _make_apply_screen():
     """Helper: create ParametersScreen with one dirty param, mock controller.
 
     Does NOT configure machine_config globally — callers must patch
-    'dmccodegui.screens.parameters.mc.get_param_defs' if the job will call it.
+    'dmccodegui.screens.base.mc.get_param_defs' if the job will call it.
     """
     _setup_env()
     from dmccodegui.screens.parameters import ParametersScreen, PARAM_DEFS
@@ -407,8 +407,8 @@ def _run_apply_job_with_mc_patch(screen):
         nonlocal job_fn
         job_fn = fn
 
-    with patch('dmccodegui.screens.parameters.submit', side_effect=capture_job):
-        with patch('dmccodegui.screens.parameters.mc.get_param_defs', return_value=PARAM_DEFS):
+    with patch('dmccodegui.screens.base.submit', side_effect=capture_job):
+        with patch('dmccodegui.screens.base.mc.get_param_defs', return_value=PARAM_DEFS):
             screen.apply_to_controller()
 
     assert job_fn is not None, "apply_to_controller should submit a background job"
@@ -435,8 +435,8 @@ def test_apply_readback_after_delay():
     screen, mock_controller = _make_apply_screen()
 
     sleep_calls = []
-    with patch('dmccodegui.screens.parameters.mc.get_param_defs', return_value=PARAM_DEFS):
-        with patch('dmccodegui.screens.parameters.submit', side_effect=lambda fn, *a, **k: fn()):
+    with patch('dmccodegui.screens.base.mc.get_param_defs', return_value=PARAM_DEFS):
+        with patch('dmccodegui.screens.base.submit', side_effect=lambda fn, *a, **k: fn()):
             with patch('time.sleep', side_effect=lambda s: sleep_calls.append(s)):
                 screen.apply_to_controller()
 
@@ -459,8 +459,8 @@ def test_apply_bv_after_readback():
     from dmccodegui.screens.parameters import PARAM_DEFS
     screen, mock_controller = _make_apply_screen()
 
-    with patch('dmccodegui.screens.parameters.mc.get_param_defs', return_value=PARAM_DEFS):
-        with patch('dmccodegui.screens.parameters.submit', side_effect=lambda fn, *a, **k: fn()):
+    with patch('dmccodegui.screens.base.mc.get_param_defs', return_value=PARAM_DEFS):
+        with patch('dmccodegui.screens.base.submit', side_effect=lambda fn, *a, **k: fn()):
             with patch('time.sleep'):
                 screen.apply_to_controller()
 
@@ -496,7 +496,8 @@ def test_enter_skips_fire_when_already_setup():
     state.setup_unlocked = True
     screen.state = state
 
-    with patch('dmccodegui.screens.parameters.submit'):
+    # submit executes lambdas synchronously so ctrl.cmd calls are visible
+    with patch('dmccodegui.screens.base.submit', side_effect=lambda fn, *a, **kw: fn()):
         screen.on_pre_enter()
 
     calls = [c[0][0] for c in mock_controller.cmd.call_args_list]
@@ -519,7 +520,8 @@ def test_enter_fires_when_not_in_setup():
     state.setup_unlocked = True
     screen.state = state
 
-    with patch('dmccodegui.screens.parameters.submit'):
+    # submit executes lambdas synchronously so ctrl.cmd calls are visible
+    with patch('dmccodegui.screens.base.submit', side_effect=lambda fn, *a, **kw: fn()):
         screen.on_pre_enter()
 
     calls = [c[0][0] for c in mock_controller.cmd.call_args_list]
@@ -541,7 +543,9 @@ def test_exit_fires_to_non_setup_screen():
     mock_manager.current = "run"
     screen.manager = mock_manager
 
-    screen.on_leave()
+    # submit executes lambdas synchronously so ctrl.cmd calls are visible
+    with patch('dmccodegui.screens.base.submit', side_effect=lambda fn, *a, **kw: fn()):
+        screen.on_leave()
 
     calls = [c[0][0] for c in mock_controller.cmd.call_args_list]
     assert any('hmiExSt=0' in s for s in calls), \
@@ -562,7 +566,9 @@ def test_exit_skips_to_sibling_setup_screen():
     mock_manager.current = "axes_setup"
     screen.manager = mock_manager
 
-    screen.on_leave()
+    # submit executes lambdas synchronously so ctrl.cmd calls are visible
+    with patch('dmccodegui.screens.base.submit', side_effect=lambda fn, *a, **kw: fn()):
+        screen.on_leave()
 
     calls = [c[0][0] for c in mock_controller.cmd.call_args_list]
     assert not any('hmiExSt=0' in s for s in calls), \
@@ -615,8 +621,8 @@ class TestParametersApplyMotionGating:
         """
         from dmccodegui.screens.parameters import PARAM_DEFS
         submitted = []
-        with patch('dmccodegui.screens.parameters.submit', side_effect=lambda fn, *a, **k: submitted.append(fn)):
-            with patch('dmccodegui.screens.parameters.mc.get_param_defs', return_value=PARAM_DEFS):
+        with patch('dmccodegui.screens.base.submit', side_effect=lambda fn, *a, **k: submitted.append(fn)):
+            with patch('dmccodegui.screens.base.mc.get_param_defs', return_value=PARAM_DEFS):
                 screen.apply_to_controller()
         return submitted
 

@@ -44,6 +44,9 @@ from kivy.clock import Clock
 from kivy.properties import ObjectProperty
 from kivy.uix.screenmanager import Screen
 
+import dmccodegui.machine_config as mc
+from dmccodegui.utils.jobs import submit  # noqa: F401 — re-exported for test patching
+
 logger = logging.getLogger(__name__)
 
 
@@ -80,7 +83,6 @@ class SetupScreenMixin:
             STATE_GRINDING, STATE_HOMING, STATE_SETUP,
             HMI_SETP, HMI_TRIGGER_FIRE,
         )
-        from ..utils import jobs  # noqa: PLC0415
 
         if (self.state is not None  # type: ignore[attr-defined]
                 and self.state.dmc_state in (STATE_GRINDING, STATE_HOMING)):  # type: ignore[attr-defined]
@@ -93,7 +95,7 @@ class SetupScreenMixin:
             )
             if not already_in_setup:
                 ctrl = self.controller  # type: ignore[attr-defined]
-                jobs.submit(lambda: ctrl.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}"))
+                submit(lambda: ctrl.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}"))
 
     def _exit_setup_if_needed(self) -> None:
         """Fire hmiExSt=0 only when leaving to a non-setup screen.
@@ -102,7 +104,6 @@ class SetupScreenMixin:
         fire exit-setup — the controller stays in STATE_SETUP the whole time.
         """
         from ..hmi.dmc_vars import HMI_EXIT_SETUP, HMI_TRIGGER_FIRE  # noqa: PLC0415
-        from ..utils import jobs  # noqa: PLC0415
 
         next_screen = ""
         if self.manager:  # type: ignore[attr-defined]
@@ -111,7 +112,7 @@ class SetupScreenMixin:
         if next_screen not in self._SETUP_SCREENS:
             if self.controller and self.controller.is_connected():  # type: ignore[attr-defined]
                 ctrl = self.controller  # type: ignore[attr-defined]
-                jobs.submit(lambda: ctrl.cmd(f"{HMI_EXIT_SETUP}={HMI_TRIGGER_FIRE}"))
+                submit(lambda: ctrl.cmd(f"{HMI_EXIT_SETUP}={HMI_TRIGGER_FIRE}"))
 
 
 # ---------------------------------------------------------------------------
@@ -289,7 +290,6 @@ class BaseAxesSetupScreen(Screen, SetupScreenMixin):
 
         def do_jog():
             import time  # noqa: PLC0415
-            from ..utils import jobs as _jobs  # noqa: PLC0415 — unused but keeps import lazy
             try:
                 # In-progress gate: skip if previous jog still running
                 try:
@@ -327,8 +327,7 @@ class BaseAxesSetupScreen(Screen, SetupScreenMixin):
             except Exception as exc:
                 Clock.schedule_once(lambda *_, err=exc: self._log_jog_error(err))
 
-        from ..utils import jobs  # noqa: PLC0415
-        jobs.submit(do_jog)
+        submit(do_jog)
 
     def _log_jog(self, axis: str, counts: int, final_pos: str) -> None:
         """Log a completed jog. Subclasses can override to write to a cmd log widget."""
@@ -344,9 +343,7 @@ class BaseAxesSetupScreen(Screen, SetupScreenMixin):
         Safe to call from the main thread — posts to the background job queue.
         Sets _cpm_ready=True on success (even if some axes fail).
         """
-        from ..utils import jobs  # noqa: PLC0415
-
-        jobs.submit(self._read_cpm_for_axis)
+        submit(self._read_cpm_for_axis)
 
     def _read_cpm_for_axis(self) -> None:
         """Background job: read cpm{axis} from controller for all 4 axes.
@@ -410,7 +407,6 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
     _state_unsub: Optional[Callable[[], None]] = None
 
     def __init__(self, **kwargs):
-        import dmccodegui.machine_config as mc  # noqa: PLC0415
         super().__init__(**kwargs)
         # Param defs dict -- keyed by var name.
         # Initialised to Flat Grind defaults so validation works immediately
@@ -529,8 +525,6 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
 
         Called at the start of on_pre_enter.
         """
-        import dmccodegui.machine_config as mc  # noqa: PLC0415
-
         try:
             param_defs = mc.get_param_defs()
         except ValueError:
@@ -553,7 +547,6 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
         Clears the container before rebuilding to handle hot-swap without duplicates.
         """
         from collections import OrderedDict  # noqa: PLC0415
-        import dmccodegui.machine_config as mc  # noqa: PLC0415
 
         # Group accent colors — consistent across all machine types
         GROUP_COLORS: dict[str, list[float]] = {
@@ -733,11 +726,9 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
     def apply_to_controller(self) -> None:
         """Send all dirty parameters to controller, read back, then burn NV."""
         import time  # noqa: PLC0415
-        import dmccodegui.machine_config as mc  # noqa: PLC0415
         from dmccodegui.hmi.dmc_vars import (  # noqa: PLC0415
             HMI_CALC, HMI_TRIGGER_FIRE, STATE_GRINDING, STATE_HOMING,
         )
-        from dmccodegui.utils.jobs import submit  # noqa: PLC0415
 
         if not self._dirty:
             return
@@ -807,8 +798,6 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
 
         Reads only the vars defined for the active machine type.
         """
-        import dmccodegui.machine_config as mc  # noqa: PLC0415
-        from dmccodegui.utils.jobs import submit  # noqa: PLC0415
 
         if self.controller is None:
             return

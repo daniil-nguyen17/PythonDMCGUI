@@ -50,7 +50,7 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
 
 </details>
 
-### 🚧 v3.0 Multi-Machine (Phases 18-23)
+### v3.0 Multi-Machine (Phases 18-23)
 
 - [x] **Phase 18: Base Class Extraction** — Extract BaseRunScreen, BaseAxesSetupScreen, BaseParametersScreen with shared controller wiring and subscription lifecycle (2/2 plans, completed 2026-04-11)
 - [x] **Phase 19: Flat Grind Rename and KV Split** — Rename existing screens to FlatGrind* classes with per-machine kv files in ui/flat_grind/ (completed 2026-04-11)
@@ -212,8 +212,8 @@ Plans:
   4. A new machine screen subclass that calls super() on all lifecycle hooks inherits poll subscription and controller wiring with no additional code
 **Plans:** 2/2 plans complete
 Plans:
-- [ ] 18-01-PLAN.md — Create base classes (BaseRunScreen, BaseAxesSetupScreen, BaseParametersScreen, SetupScreenMixin) and extract Flat Grind widgets
-- [ ] 18-02-PLAN.md — Wire existing screens to inherit from base classes, full regression verification
+- [x] 18-01-PLAN.md — Create base classes (BaseRunScreen, BaseAxesSetupScreen, BaseParametersScreen, SetupScreenMixin) and extract Flat Grind widgets
+- [x] 18-02-PLAN.md — Wire existing screens to inherit from base classes, full regression verification
 
 ### Phase 19: Flat Grind Rename and KV Split
 **Goal**: The existing screens are renamed to FlatGrindRunScreen, FlatGrindAxesSetupScreen, and FlatGrindParametersScreen with independent .kv files in ui/flat_grind/ — establishing the reference implementation and naming convention before the screen loader is wired
@@ -226,8 +226,8 @@ Plans:
   4. A hardware-equivalent smoke test (simulated or real controller) confirms the Run page cycle, jog, teach, and parameter write all function correctly under the new class names
 **Plans:** 2/2 plans complete
 Plans:
-- [ ] 19-01-PLAN.md — Create screens/flat_grind/ package and ui/flat_grind/ KV files with FlatGrind* classes
-- [ ] 19-02-PLAN.md — Wire app to FlatGrind* classes: re-export wrappers, main.py, base.kv, test imports
+- [x] 19-01-PLAN.md — Create screens/flat_grind/ package and ui/flat_grind/ KV files with FlatGrind* classes
+- [x] 19-02-PLAN.md — Wire app to FlatGrind* classes: re-export wrappers, main.py, base.kv, test imports
 
 ### Phase 20: Screen Registry and Loader
 **Goal**: The application detects the connected machine type and loads the correct screen set under canonical names — machine switching is a restart-and-reconnect, not a hot-swap, and the swap function tears down threads and figures cleanly
@@ -240,8 +240,8 @@ Plans:
   4. After a machine type switch and restart, navigating to Run, Axes Setup, and Parameters each shows the correct screen for the active machine type
 **Plans:** 2 plans
 Plans:
-- [ ] 19-01-PLAN.md — Create screens/flat_grind/ package and ui/flat_grind/ KV files with FlatGrind* classes
-- [ ] 19-02-PLAN.md — Wire app to FlatGrind* classes: re-export wrappers, main.py, base.kv, test imports
+- [ ] 20-01-PLAN.md — Extend _REGISTRY with screen_classes/load_kv and add cleanup() to base classes
+- [ ] 20-02-PLAN.md — Wire _load_machine_screens() loader, update build()/on_stop()/base.kv, add machType mismatch detection
 
 ### Phase 21: Serration Screen Set
 **Goal**: The Serration Grind machine has its own Run, Axes Setup, and Parameters screens reachable through the screen loader — 3-axis layout with D-axis removed and bComp panel stubbed pending customer DMC program
@@ -252,10 +252,7 @@ Plans:
   2. The Serration Axes Setup screen shows only A, B, and C axis controls — D-axis jog buttons and position labels are absent from the layout
   3. The Serration Run page contains a bComp panel area that is clearly marked as pending customer DMC program — it does not crash or error when rendered
   4. Editing a Serration-specific parameter and saving it writes only Serration param_defs values — no Flat Grind parameter keys are written
-**Plans:** 2 plans
-Plans:
-- [ ] 19-01-PLAN.md — Create screens/flat_grind/ package and ui/flat_grind/ KV files with FlatGrind* classes
-- [ ] 19-02-PLAN.md — Wire app to FlatGrind* classes: re-export wrappers, main.py, base.kv, test imports
+**Plans:** TBD
 
 ### Phase 22: Convex Screen Set
 **Goal**: The Convex Grind machine has its own Run, Axes Setup, and Parameters screens reachable through the screen loader — 4-axis layout with convex-specific controls, placeholder param_defs noted for future customer sign-off
@@ -266,10 +263,7 @@ Plans:
   2. The Convex Run page includes a convex-specific adjustment panel not present on the Flat Grind or Serration run screens
   3. The Convex Axes Setup screen shows all four axes (A, B, C, D) with correct labels for convex machine axis roles
   4. Convex param_defs are clearly marked as placeholder in machine_config comments — a code comment identifies which values need customer production specs before sign-off
-**Plans:** 2 plans
-Plans:
-- [ ] 19-01-PLAN.md — Create screens/flat_grind/ package and ui/flat_grind/ KV files with FlatGrind* classes
-- [ ] 19-02-PLAN.md — Wire app to FlatGrind* classes: re-export wrappers, main.py, base.kv, test imports
+**Plans:** TBD
 
 ### Phase 23: Controller Communication Optimization
 **Goal**: The controller poll loop uses GRecord for position reads, user variables are batched, state transitions are detected via structured MG messages on a dedicated reader thread, and all gclib handles have explicit timeouts and use the direct connection flag
@@ -281,10 +275,7 @@ Plans:
   3. The DMC program emits a structured MG message (e.g. "STATE:3") at each state transition and the MG reader thread updates MachineState within one message receipt — sub-ms detection latency without polling hmiState
   4. Connecting with the --direct flag bypasses gcaps middleware and establishes a production-speed connection — confirmed by observing connection log output
   5. A gclib timeout error on the primary handle produces a timeout exception within 1000 ms; on the MG handle within 500 ms — not a hang
-**Plans:** 2 plans
-Plans:
-- [ ] 19-01-PLAN.md — Create screens/flat_grind/ package and ui/flat_grind/ KV files with FlatGrind* classes
-- [ ] 19-02-PLAN.md — Wire app to FlatGrind* classes: re-export wrappers, main.py, base.kv, test imports
+**Plans:** TBD
 
 ---
 
@@ -309,9 +300,9 @@ Plans:
 | 15. Run Page Missing Controls | v2.0 | 1/1 | Complete | 2026-04-06 |
 | 16. ProfilesScreen Setup Loop Fix | v2.0 | 1/1 | Complete | 2026-04-07 |
 | 17. Poll Reset and Cold-Start Fix | v2.0 | 1/1 | Complete | 2026-04-07 |
-| 18. Base Class Extraction | 1/2 | Complete    | 2026-04-11 | - |
-| 19. Flat Grind Rename and KV Split | 2/2 | Complete    | 2026-04-11 | - |
-| 20. Screen Registry and Loader | v3.0 | 0/TBD | Not started | - |
+| 18. Base Class Extraction | v3.0 | 2/2 | Complete | 2026-04-11 |
+| 19. Flat Grind Rename and KV Split | v3.0 | 2/2 | Complete | 2026-04-11 |
+| 20. Screen Registry and Loader | v3.0 | 0/2 | Not started | - |
 | 21. Serration Screen Set | v3.0 | 0/TBD | Not started | - |
 | 22. Convex Screen Set | v3.0 | 0/TBD | Not started | - |
 | 23. Controller Communication Optimization | v3.0 | 0/TBD | Not started | - |

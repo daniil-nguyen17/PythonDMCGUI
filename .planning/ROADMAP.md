@@ -224,7 +224,10 @@ Plans:
   2. Each Flat Grind screen has its own .kv file that contains only that screen's layout — no shared kv file references Flat Grind layout rules
   3. No kv rule name collision exists: grep for duplicate `<ClassName>:` headers across all kv files returns zero matches
   4. A hardware-equivalent smoke test (simulated or real controller) confirms the Run page cycle, jog, teach, and parameter write all function correctly under the new class names
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 19-01-PLAN.md — Create screens/flat_grind/ package and ui/flat_grind/ KV files with FlatGrind* classes
+- [ ] 19-02-PLAN.md — Wire app to FlatGrind* classes: re-export wrappers, main.py, base.kv, test imports
 
 ### Phase 20: Screen Registry and Loader
 **Goal**: The application detects the connected machine type and loads the correct screen set under canonical names — machine switching is a restart-and-reconnect, not a hot-swap, and the swap function tears down threads and figures cleanly
@@ -235,7 +238,10 @@ Plans:
   2. Connecting to a controller that reports machine type "flat_grind" causes the app to load FlatGrind* screens; connecting to "serration" loads Serration* screens — verified by inspecting the ScreenManager widget tree
   3. Calling _load_machine_screens() stops the position poll thread and closes the matplotlib figure before removing the outgoing screens — no background thread or figure handle leak after the swap
   4. After a machine type switch and restart, navigating to Run, Axes Setup, and Parameters each shows the correct screen for the active machine type
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 19-01-PLAN.md — Create screens/flat_grind/ package and ui/flat_grind/ KV files with FlatGrind* classes
+- [ ] 19-02-PLAN.md — Wire app to FlatGrind* classes: re-export wrappers, main.py, base.kv, test imports
 
 ### Phase 21: Serration Screen Set
 **Goal**: The Serration Grind machine has its own Run, Axes Setup, and Parameters screens reachable through the screen loader — 3-axis layout with D-axis removed and bComp panel stubbed pending customer DMC program
@@ -246,7 +252,10 @@ Plans:
   2. The Serration Axes Setup screen shows only A, B, and C axis controls — D-axis jog buttons and position labels are absent from the layout
   3. The Serration Run page contains a bComp panel area that is clearly marked as pending customer DMC program — it does not crash or error when rendered
   4. Editing a Serration-specific parameter and saving it writes only Serration param_defs values — no Flat Grind parameter keys are written
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 19-01-PLAN.md — Create screens/flat_grind/ package and ui/flat_grind/ KV files with FlatGrind* classes
+- [ ] 19-02-PLAN.md — Wire app to FlatGrind* classes: re-export wrappers, main.py, base.kv, test imports
 
 ### Phase 22: Convex Screen Set
 **Goal**: The Convex Grind machine has its own Run, Axes Setup, and Parameters screens reachable through the screen loader — 4-axis layout with convex-specific controls, placeholder param_defs noted for future customer sign-off
@@ -257,7 +266,10 @@ Plans:
   2. The Convex Run page includes a convex-specific adjustment panel not present on the Flat Grind or Serration run screens
   3. The Convex Axes Setup screen shows all four axes (A, B, C, D) with correct labels for convex machine axis roles
   4. Convex param_defs are clearly marked as placeholder in machine_config comments — a code comment identifies which values need customer production specs before sign-off
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 19-01-PLAN.md — Create screens/flat_grind/ package and ui/flat_grind/ KV files with FlatGrind* classes
+- [ ] 19-02-PLAN.md — Wire app to FlatGrind* classes: re-export wrappers, main.py, base.kv, test imports
 
 ### Phase 23: Controller Communication Optimization
 **Goal**: The controller poll loop uses GRecord for position reads, user variables are batched, state transitions are detected via structured MG messages on a dedicated reader thread, and all gclib handles have explicit timeouts and use the direct connection flag
@@ -269,7 +281,10 @@ Plans:
   3. The DMC program emits a structured MG message (e.g. "STATE:3") at each state transition and the MG reader thread updates MachineState within one message receipt — sub-ms detection latency without polling hmiState
   4. Connecting with the --direct flag bypasses gcaps middleware and establishes a production-speed connection — confirmed by observing connection log output
   5. A gclib timeout error on the primary handle produces a timeout exception within 1000 ms; on the MG handle within 500 ms — not a hang
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 19-01-PLAN.md — Create screens/flat_grind/ package and ui/flat_grind/ KV files with FlatGrind* classes
+- [ ] 19-02-PLAN.md — Wire app to FlatGrind* classes: re-export wrappers, main.py, base.kv, test imports
 
 ---
 

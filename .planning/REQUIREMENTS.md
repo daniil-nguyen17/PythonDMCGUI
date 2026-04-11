@@ -77,38 +77,38 @@ Requirements for multi-machine screen architecture and controller communication 
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ARCH-01 | — | Pending |
-| ARCH-02 | — | Pending |
-| ARCH-03 | — | Pending |
-| ARCH-04 | — | Pending |
-| LOAD-01 | — | Pending |
-| LOAD-02 | — | Pending |
-| LOAD-03 | — | Pending |
-| LOAD-04 | — | Pending |
-| FLAT-01 | — | Pending |
-| FLAT-02 | — | Pending |
-| FLAT-03 | — | Pending |
-| FLAT-04 | — | Pending |
-| SERR-01 | — | Pending |
-| SERR-02 | — | Pending |
-| SERR-03 | — | Pending |
-| SERR-04 | — | Pending |
-| CONV-01 | — | Pending |
-| CONV-02 | — | Pending |
-| CONV-03 | — | Pending |
-| CONV-04 | — | Pending |
-| COMM-01 | — | Pending |
-| COMM-02 | — | Pending |
-| COMM-03 | — | Pending |
-| COMM-04 | — | Pending |
-| COMM-05 | — | Pending |
-| COMM-06 | — | Pending |
+| ARCH-01 | Phase 18 | Pending |
+| ARCH-02 | Phase 18 | Pending |
+| ARCH-03 | Phase 18 | Pending |
+| ARCH-04 | Phase 18 | Pending |
+| LOAD-01 | Phase 20 | Pending |
+| LOAD-02 | Phase 20 | Pending |
+| LOAD-03 | Phase 20 | Pending |
+| LOAD-04 | Phase 20 | Pending |
+| FLAT-01 | Phase 19 | Pending |
+| FLAT-02 | Phase 19 | Pending |
+| FLAT-03 | Phase 19 | Pending |
+| FLAT-04 | Phase 19 | Pending |
+| SERR-01 | Phase 21 | Pending |
+| SERR-02 | Phase 21 | Pending |
+| SERR-03 | Phase 21 | Pending |
+| SERR-04 | Phase 21 | Pending |
+| CONV-01 | Phase 22 | Pending |
+| CONV-02 | Phase 22 | Pending |
+| CONV-03 | Phase 22 | Pending |
+| CONV-04 | Phase 22 | Pending |
+| COMM-01 | Phase 23 | Pending |
+| COMM-02 | Phase 23 | Pending |
+| COMM-03 | Phase 23 | Pending |
+| COMM-04 | Phase 23 | Pending |
+| COMM-05 | Phase 23 | Pending |
+| COMM-06 | Phase 23 | Pending |
 
 **Coverage:**
 - v3.0 requirements: 26 total
-- Mapped to phases: 0
-- Unmapped: 26
+- Mapped to phases: 26
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-11*
-*Last updated: 2026-04-11 after initial definition*
+*Last updated: 2026-04-11 — traceability mapped after roadmap creation*

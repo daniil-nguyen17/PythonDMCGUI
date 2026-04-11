@@ -4,7 +4,8 @@
 
 - ✅ **v1.0 MVP** — Phases 1-7 (shipped 2026-04-06) | Phase 8 deferred
 - ⏸ **v1.1 Deployment** — Phase 8: Pi Kiosk (pending hardware validation)
-- 🚧 **v2.0 Flat Grind Integration** — Phases 9-14 (in progress)
+- ✅ **v2.0 Flat Grind Integration** — Phases 9-17 (shipped 2026-04-07)
+- 🚧 **v3.0 Multi-Machine** — Phases 18-23 (in progress)
 
 ## Phases
 
@@ -32,17 +33,31 @@ Full context: `.planning/phases/08-CONTEXT.md`
 
 </details>
 
-### 🚧 v2.0 Flat Grind Integration (Phases 9-17)
+<details>
+<summary>✅ v2.0 Flat Grind Integration (Phases 9-17) — SHIPPED 2026-04-07</summary>
 
-- [x] **Phase 9: DMC Foundation** — Modify DMC program and add Python HMI constants/state fields — hard prerequisite for all wiring (completed 2026-04-06)
-- [x] **Phase 10: State Poll** — Wire 10 Hz poll to read hmiState and axis positions from real controller (completed 2026-04-06)
-- [x] **Phase 11: E-STOP Safety** — Validate priority stop path and motion-state gate before any motion commands are wired (completed 2026-04-06)
-- [x] **Phase 12: Run Page Wiring** — Wire all operator Run page buttons to real DMC subroutines (completed 2026-04-06)
-- [x] **Phase 13: Setup Loop** — Wire Setup page entry, homing, jog, teach points, parameters write, and exit (completed 2026-04-06)
-- [x] **Phase 14: State-Driven UI** — Button enable/disable, status labels, setup badge, and live plot validation
-- [x] **Phase 15: Run Page Missing Controls** — Restructure Run page layout: Stone Compensation card with persistent startPtC readback (layout gap closure) (completed 2026-04-06)
-- [x] **Phase 16: ProfilesScreen Setup Loop Fix** — Fix smart-enter guard and exit-setup wiring in ProfilesScreen (gap closure) (completed 2026-04-07)
-- [x] **Phase 17: Poll Reset and Cold-Start Fix** — Reset _fail_count on reconnect and fix cold-start E-STOP label (gap closure) (completed 2026-04-07)
+- [x] **Phase 9: DMC Foundation** — HMI trigger variables, dmc_vars.py constants, hmiState at every boundary (completed 2026-04-06)
+- [x] **Phase 10: State Poll** — 10 Hz poll wired to real controller for positions, knife count, disconnect detection (completed 2026-04-06)
+- [x] **Phase 11: E-STOP Safety** — Priority stop path, motion-gate on all buttons (completed 2026-04-06)
+- [x] **Phase 12: Run Page Wiring** — All operator Run page buttons trigger real DMC subroutines (completed 2026-04-06)
+- [x] **Phase 13: Setup Loop** — Enter/exit setup, home, jog, teach points, parameter write + recalc (completed 2026-04-06)
+- [x] **Phase 14: State-Driven UI** — Button enable/disable, status labels, setup badge, tab gating (completed 2026-04-06)
+- [x] **Phase 15: Run Page Missing Controls** — Stone Compensation card layout gap closure (completed 2026-04-06)
+- [x] **Phase 16: ProfilesScreen Setup Loop Fix** — Smart-enter guard and exit-setup wiring (completed 2026-04-07)
+- [x] **Phase 17: Poll Reset and Cold-Start Fix** — _fail_count reset on reconnect, OFFLINE default (completed 2026-04-07)
+
+Full details: `.planning/milestones/v2.0-ROADMAP.md`
+
+</details>
+
+### 🚧 v3.0 Multi-Machine (Phases 18-23)
+
+- [ ] **Phase 18: Base Class Extraction** — Extract BaseRunScreen, BaseAxesSetupScreen, BaseParametersScreen with shared controller wiring and subscription lifecycle
+- [ ] **Phase 19: Flat Grind Rename and KV Split** — Rename existing screens to FlatGrind* classes with per-machine kv files in ui/flat_grind/
+- [ ] **Phase 20: Screen Registry and Loader** — machine_config screen_classes mapping, _load_machine_screens() swap function, machine detection on connect
+- [ ] **Phase 21: Serration Screen Set** — SerrationRunScreen, SerrationAxesSetupScreen, SerrationParametersScreen with 3-axis layout and bComp stub
+- [ ] **Phase 22: Convex Screen Set** — ConvexRunScreen, ConvexAxesSetupScreen, ConvexParametersScreen with convex-specific layout
+- [ ] **Phase 23: Controller Communication Optimization** — GRecord poll replacement, MG variable batching, structured state messages, MG reader thread, direct connection flag, explicit timeouts
 
 ---
 
@@ -88,9 +103,9 @@ Plans:
   4. The knife count label on the Run page shows the same value as ctSesKni queried directly from the DMC terminal
 **Plans:** 3/3 plans complete
 Plans:
-- [ ] 10-01-PLAN.md — Extend dmc_vars.py, MachineState, and DMC program with knife count + Thread 2
-- [ ] 10-02-PLAN.md — Create ControllerPoller module and wire into app lifecycle
-- [ ] 10-03-PLAN.md — Migrate RunScreen to MachineState subscription, add knife count and disconnect UI
+- [x] 10-01-PLAN.md — Extend dmc_vars.py, MachineState, and DMC program with knife count + Thread 2
+- [x] 10-02-PLAN.md — Create ControllerPoller module and wire into app lifecycle
+- [x] 10-03-PLAN.md — Migrate RunScreen to MachineState subscription, add knife count and disconnect UI
 
 ### Phase 11: E-STOP Safety
 **Goal**: The stop path halts motion within 200 ms from any screen, is never queued behind normal controller jobs, and all motion-triggering buttons are gated on real controller state — validated on hardware before any motion commands are wired.
@@ -103,8 +118,8 @@ Plans:
   4. E-STOP is accessible from the Run page without navigating away from any active screen
 **Plans:** 2/2 plans complete
 Plans:
-- [ ] 11-01-PLAN.md — Priority job infrastructure (submit_urgent, reset_handle, program_running poll)
-- [ ] 11-02-PLAN.md — Wire E-STOP, Stop, RECOVER buttons and motion gate on RunScreen
+- [x] 11-01-PLAN.md — Priority job infrastructure (submit_urgent, reset_handle, program_running poll)
+- [x] 11-02-PLAN.md — Wire E-STOP, Stop, RECOVER buttons and motion gate on RunScreen
 
 ### Phase 12: Run Page Wiring
 **Goal**: An operator can run a complete grind cycle from the touchscreen — start, stop, navigate to rest and start positions, adjust stone compensation, and begin a new session — all triggering real DMC subroutines via the HMI one-shot variable pattern.
@@ -117,7 +132,7 @@ Plans:
   4. Pressing More Stone or Less Stone while the machine is idle triggers the corresponding DMC compensation routine — buttons are disabled during active motion
   5. Pressing New Session requires a two-step confirmation, is blocked for Operator role, and triggers the DMC #NEWSESS routine on confirmation
   6. The A/B live plot fills with real axis position data during an active grind cycle — trace is not synthetic, flat, or static
-**Plans**: TBD
+**Plans**: 1/1 plans complete
 
 ### Phase 13: Setup Loop
 **Goal**: A Setup user can enter controller setup mode from the HMI, home the machine, jog all axes, teach rest and start points, write parameter values to the controller, trigger recalculation, and return to main loop — entirely from the touchscreen.
@@ -130,7 +145,7 @@ Plans:
   4. Tapping Teach Rest Point writes current axis positions to restPt[] on the controller; Teach Start Point writes to startPt[] — values confirmed by reading back from controller terminal
   5. Editing a parameter value and saving writes the new value to the controller variable and triggers hmiCalc=0 — the controller recalculates derived values (verified by reading back a derived variable)
   6. Tapping Exit Setup returns the controller to the #MAIN loop — hmiState returns to IDLE within one poll tick
-**Plans**: TBD
+**Plans**: 3/3 plans complete
 
 ### Phase 14: State-Driven UI
 **Goal**: Every interactive element reflects real controller state — buttons enable and disable correctly on controller-reported state, status labels name the current machine state, setup mode is visible across all screens, and the Run tab blocks correctly during setup.
@@ -144,13 +159,11 @@ Plans:
   5. The connection status indicator is visible on every screen and reflects connected or disconnected without requiring any page navigation
 **Plans:** 2/2 plans complete
 Plans:
-- [ ] 14-01-PLAN.md — StatusBar state label, setup badge, and tab gating
-- [ ] 14-02-PLAN.md — Cross-screen button gating (Profiles import, Parameters apply)
-
----
+- [x] 14-01-PLAN.md — StatusBar state label, setup badge, and tab gating
+- [x] 14-02-PLAN.md — Cross-screen button gating (Profiles import, Parameters apply)
 
 ### Phase 15: Run Page Missing Controls
-**Goal**: The Run page Stone Compensation controls move from the bottom action bar into a dedicated card in the right column with a persistent startPtC readback label, and requirements RUN-02, RUN-03, RUN-06 are re-mapped to Phase 13 where they are already implemented.
+**Goal**: The Run page Stone Compensation controls move from the bottom action bar into a dedicated card in the right column with a persistent startPtC readback label.
 **Depends on**: Phase 12
 **Requirements**: (layout only — RUN-02, RUN-03, RUN-06 re-mapped to Phase 13)
 **Gap Closure**: Closes gaps from v2.0 audit
@@ -172,7 +185,7 @@ Plans:
   2. Leaving ProfilesScreen sends hmiExSt=0 (not hmiSetp=1) to correctly exit setup mode
 **Plans:** 1/1 plans complete
 Plans:
-- [ ] 16-01-PLAN.md — Fix smart-enter guard and exit command in ProfilesScreen
+- [x] 16-01-PLAN.md — Fix smart-enter guard and exit command in ProfilesScreen
 
 ### Phase 17: Poll Reset and Cold-Start Fix
 **Goal**: Controller poller resets cleanly between disconnect/reconnect cycles and the status bar shows OFFLINE (not E-STOP) before the first successful connection.
@@ -184,7 +197,78 @@ Plans:
   2. Before the first successful poll, the status bar shows OFFLINE instead of E-STOP
 **Plans:** 1/1 plans complete
 Plans:
-- [ ] 17-01-PLAN.md — Reset _fail_count on stop() and fix program_running cold-start default
+- [x] 17-01-PLAN.md — Reset _fail_count on stop() and fix program_running cold-start default
+
+---
+
+### Phase 18: Base Class Extraction
+**Goal**: Shared controller wiring, poll subscription, and lifecycle behavior exist in three base classes that all future machine screens inherit — isolating the riskiest refactor before any machine-specific code is created
+**Depends on**: Phase 17 (v2.0 complete)
+**Requirements**: ARCH-01, ARCH-02, ARCH-03, ARCH-04
+**Success Criteria** (what must be TRUE):
+  1. Existing RunScreen, AxesSetupScreen, and ParametersScreen inherit from their respective base classes and the application runs identically to v2.0 — no behavior change observable by the user
+  2. Navigating away from any screen unsubscribes all state listeners; navigating back re-subscribes — verified by adding a log line that shows zero duplicate callbacks after two enter/leave cycles
+  3. All lifecycle hooks (on_pre_enter, on_enter, on_leave) are defined only in Python base class files, not in any .kv file
+  4. A new machine screen subclass that calls super() on all lifecycle hooks inherits poll subscription and controller wiring with no additional code
+**Plans**: TBD
+
+### Phase 19: Flat Grind Rename and KV Split
+**Goal**: The existing screens are renamed to FlatGrindRunScreen, FlatGrindAxesSetupScreen, and FlatGrindParametersScreen with independent .kv files in ui/flat_grind/ — establishing the reference implementation and naming convention before the screen loader is wired
+**Depends on**: Phase 18
+**Requirements**: FLAT-01, FLAT-02, FLAT-03, FLAT-04
+**Success Criteria** (what must be TRUE):
+  1. The application runs with FlatGrind* class names and ui/flat_grind/*.kv files loaded — all v2.0 Flat Grind functionality works without a single behavior change
+  2. Each Flat Grind screen has its own .kv file that contains only that screen's layout — no shared kv file references Flat Grind layout rules
+  3. No kv rule name collision exists: grep for duplicate `<ClassName>:` headers across all kv files returns zero matches
+  4. A hardware-equivalent smoke test (simulated or real controller) confirms the Run page cycle, jog, teach, and parameter write all function correctly under the new class names
+**Plans**: TBD
+
+### Phase 20: Screen Registry and Loader
+**Goal**: The application detects the connected machine type and loads the correct screen set under canonical names — machine switching is a restart-and-reconnect, not a hot-swap, and the swap function tears down threads and figures cleanly
+**Depends on**: Phase 19
+**Requirements**: LOAD-01, LOAD-02, LOAD-03, LOAD-04
+**Success Criteria** (what must be TRUE):
+  1. machine_config._REGISTRY for each machine type includes a screen_classes key mapping "run", "axes_setup", "parameters" to the correct Python class
+  2. Connecting to a controller that reports machine type "flat_grind" causes the app to load FlatGrind* screens; connecting to "serration" loads Serration* screens — verified by inspecting the ScreenManager widget tree
+  3. Calling _load_machine_screens() stops the position poll thread and closes the matplotlib figure before removing the outgoing screens — no background thread or figure handle leak after the swap
+  4. After a machine type switch and restart, navigating to Run, Axes Setup, and Parameters each shows the correct screen for the active machine type
+**Plans**: TBD
+
+### Phase 21: Serration Screen Set
+**Goal**: The Serration Grind machine has its own Run, Axes Setup, and Parameters screens reachable through the screen loader — 3-axis layout with D-axis removed and bComp panel stubbed pending customer DMC program
+**Depends on**: Phase 20
+**Requirements**: SERR-01, SERR-02, SERR-03, SERR-04
+**Success Criteria** (what must be TRUE):
+  1. Connecting with machine type "serration" loads SerrationRunScreen, SerrationAxesSetupScreen, SerrationParametersScreen — no FlatGrind* class is used for any Serration screen
+  2. The Serration Axes Setup screen shows only A, B, and C axis controls — D-axis jog buttons and position labels are absent from the layout
+  3. The Serration Run page contains a bComp panel area that is clearly marked as pending customer DMC program — it does not crash or error when rendered
+  4. Editing a Serration-specific parameter and saving it writes only Serration param_defs values — no Flat Grind parameter keys are written
+**Plans**: TBD
+
+### Phase 22: Convex Screen Set
+**Goal**: The Convex Grind machine has its own Run, Axes Setup, and Parameters screens reachable through the screen loader — 4-axis layout with convex-specific controls, placeholder param_defs noted for future customer sign-off
+**Depends on**: Phase 20
+**Requirements**: CONV-01, CONV-02, CONV-03, CONV-04
+**Success Criteria** (what must be TRUE):
+  1. Connecting with machine type "convex" loads ConvexRunScreen, ConvexAxesSetupScreen, ConvexParametersScreen — no FlatGrind* or Serration* class is used for any Convex screen
+  2. The Convex Run page includes a convex-specific adjustment panel not present on the Flat Grind or Serration run screens
+  3. The Convex Axes Setup screen shows all four axes (A, B, C, D) with correct labels for convex machine axis roles
+  4. Convex param_defs are clearly marked as placeholder in machine_config comments — a code comment identifies which values need customer production specs before sign-off
+**Plans**: TBD
+
+### Phase 23: Controller Communication Optimization
+**Goal**: The controller poll loop uses GRecord for position reads, user variables are batched, state transitions are detected via structured MG messages on a dedicated reader thread, and all gclib handles have explicit timeouts and use the direct connection flag
+**Depends on**: Phase 18
+**Requirements**: COMM-01, COMM-02, COMM-03, COMM-04, COMM-05, COMM-06
+**Success Criteria** (what must be TRUE):
+  1. The poll loop issues a single GRecord command per tick instead of individual MG TP commands for A, B, C, D positions — verified by adding a gclib call counter and confirming it drops from 4+ to 1 per tick
+  2. hmiState, ctSesKni, and ctStnKni are read in a single batched MG command per poll tick — no individual MG commands for these variables remain in poll.py
+  3. The DMC program emits a structured MG message (e.g. "STATE:3") at each state transition and the MG reader thread updates MachineState within one message receipt — sub-ms detection latency without polling hmiState
+  4. Connecting with the --direct flag bypasses gcaps middleware and establishes a production-speed connection — confirmed by observing connection log output
+  5. A gclib timeout error on the primary handle produces a timeout exception within 1000 ms; on the MG handle within 500 ms — not a hang
+**Plans**: TBD
+
+---
 
 ## Progress
 
@@ -200,15 +284,22 @@ Plans:
 | 8. Pi Kiosk and Deployment | v1.1 | 0/TBD | Deferred | - |
 | 9. DMC Foundation | v2.0 | 3/3 | Complete | 2026-04-06 |
 | 10. State Poll | v2.0 | 3/3 | Complete | 2026-04-06 |
-| 11. E-STOP Safety | 2/2 | Complete   | 2026-04-06 | - |
-| 12. Run Page Wiring | 1/1 | Complete    | 2026-04-06 | - |
-| 13. Setup Loop | 3/3 | Complete   | 2026-04-06 | - |
-| 14. State-Driven UI | 2/2 | Complete    | 2026-04-06 | - |
-| 15. Run Page Missing Controls | 1/1 | Complete    | 2026-04-06 | - |
-| 16. ProfilesScreen Setup Loop Fix | 1/1 | Complete    | 2026-04-07 | - |
-| 17. Poll Reset and Cold-Start Fix | 1/1 | Complete    | 2026-04-07 | - |
+| 11. E-STOP Safety | v2.0 | 2/2 | Complete | 2026-04-06 |
+| 12. Run Page Wiring | v2.0 | 1/1 | Complete | 2026-04-06 |
+| 13. Setup Loop | v2.0 | 3/3 | Complete | 2026-04-06 |
+| 14. State-Driven UI | v2.0 | 2/2 | Complete | 2026-04-06 |
+| 15. Run Page Missing Controls | v2.0 | 1/1 | Complete | 2026-04-06 |
+| 16. ProfilesScreen Setup Loop Fix | v2.0 | 1/1 | Complete | 2026-04-07 |
+| 17. Poll Reset and Cold-Start Fix | v2.0 | 1/1 | Complete | 2026-04-07 |
+| 18. Base Class Extraction | v3.0 | 0/TBD | Not started | - |
+| 19. Flat Grind Rename and KV Split | v3.0 | 0/TBD | Not started | - |
+| 20. Screen Registry and Loader | v3.0 | 0/TBD | Not started | - |
+| 21. Serration Screen Set | v3.0 | 0/TBD | Not started | - |
+| 22. Convex Screen Set | v3.0 | 0/TBD | Not started | - |
+| 23. Controller Communication Optimization | v3.0 | 0/TBD | Not started | - |
 
 ---
 
 *Roadmap created: 2026-04-06*
 *v2.0 phases added: 2026-04-06*
+*v3.0 phases added: 2026-04-11*

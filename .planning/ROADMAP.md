@@ -238,7 +238,7 @@ Plans:
   2. Connecting to a controller that reports machine type "flat_grind" causes the app to load FlatGrind* screens; connecting to "serration" loads Serration* screens — verified by inspecting the ScreenManager widget tree
   3. Calling _load_machine_screens() stops the position poll thread and closes the matplotlib figure before removing the outgoing screens — no background thread or figure handle leak after the swap
   4. After a machine type switch and restart, navigating to Run, Axes Setup, and Parameters each shows the correct screen for the active machine type
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 20-01-PLAN.md — Extend _REGISTRY with screen_classes/load_kv and add cleanup() to base classes
 - [ ] 20-02-PLAN.md — Wire _load_machine_screens() loader, update build()/on_stop()/base.kv, add machType mismatch detection
@@ -302,7 +302,7 @@ Plans:
 | 17. Poll Reset and Cold-Start Fix | v2.0 | 1/1 | Complete | 2026-04-07 |
 | 18. Base Class Extraction | v3.0 | 2/2 | Complete | 2026-04-11 |
 | 19. Flat Grind Rename and KV Split | v3.0 | 2/2 | Complete | 2026-04-11 |
-| 20. Screen Registry and Loader | v3.0 | 0/2 | Not started | - |
+| 20. Screen Registry and Loader | 1/2 | In Progress|  | - |
 | 21. Serration Screen Set | v3.0 | 0/TBD | Not started | - |
 | 22. Convex Screen Set | v3.0 | 0/TBD | Not started | - |
 | 23. Controller Communication Optimization | v3.0 | 0/TBD | Not started | - |

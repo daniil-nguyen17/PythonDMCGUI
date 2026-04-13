@@ -76,14 +76,9 @@ class TestPollerWritesDmcState(unittest.TestCase):
 
     def test_poller_writes_dmc_state(self):
         """After one _do_read, state.dmc_state == 2 when controller returns '2.0000'."""
+        # Batched response: a, b, c, d, dmc_state, ses_kni, stn_kni, xq_raw
         responses = [
-            " 0.0000\r\n",   # MG aPos
-            " 0.0000\r\n",   # MG bPos
-            " 0.0000\r\n",   # MG cPos
-            " 0.0000\r\n",   # MG dPos
-            " 2.0000\r\n",   # MG hmiState
-            " 0.0000\r\n",   # MG ctSesKni
-            " 0.0000\r\n",   # MG ctStnKni
+            " 0.0000  0.0000  0.0000  0.0000  2.0000  0.0000  0.0000  0.0000\r\n",
         ]
         ctrl = _make_mock_controller(cmd_return_values=responses)
         state = _make_mock_state()
@@ -99,14 +94,9 @@ class TestPollerWritesPositions(unittest.TestCase):
 
     def test_poller_writes_positions(self):
         """After _do_read, state.pos matches the 4 axis values returned by controller."""
+        # Batched response: a, b, c, d, dmc_state, ses_kni, stn_kni, xq_raw
         responses = [
-            " 100.0000\r\n",   # MG aPos
-            " 200.0000\r\n",   # MG bPos
-            " 300.0000\r\n",   # MG cPos
-            " 400.0000\r\n",   # MG dPos
-            " 2.0000\r\n",     # MG hmiState
-            " 0.0000\r\n",     # MG ctSesKni
-            " 0.0000\r\n",     # MG ctStnKni
+            " 100.0000  200.0000  300.0000  400.0000  2.0000  0.0000  0.0000  0.0000\r\n",
         ]
         ctrl = _make_mock_controller(cmd_return_values=responses)
         state = _make_mock_state()
@@ -125,14 +115,9 @@ class TestPollerWritesKnifeCounts(unittest.TestCase):
 
     def test_poller_writes_knife_counts(self):
         """After _do_read, session and stone knife counts are set correctly."""
+        # Batched response: a, b, c, d, dmc_state, ses_kni, stn_kni, xq_raw
         responses = [
-            " 0.0000\r\n",   # MG aPos
-            " 0.0000\r\n",   # MG bPos
-            " 0.0000\r\n",   # MG cPos
-            " 0.0000\r\n",   # MG dPos
-            " 1.0000\r\n",   # MG hmiState
-            " 42.0000\r\n",  # MG ctSesKni
-            " 77.0000\r\n",  # MG ctStnKni
+            " 0.0000  0.0000  0.0000  0.0000  1.0000  42.0000  77.0000  0.0000\r\n",
         ]
         ctrl = _make_mock_controller(cmd_return_values=responses)
         state = _make_mock_state()
@@ -164,24 +149,15 @@ class TestSingleFailureNoDisconnect(unittest.TestCase):
 
     def test_single_failure_no_disconnect(self):
         """One failure followed by success keeps state.connected == True."""
-        # First call raises; subsequent calls succeed
-        good_responses = [
-            " 0.0000\r\n",   # MG aPos
-            " 0.0000\r\n",   # MG bPos
-            " 0.0000\r\n",   # MG cPos
-            " 0.0000\r\n",   # MG dPos
-            " 1.0000\r\n",   # MG hmiState
-            " 0.0000\r\n",   # MG ctSesKni
-            " 0.0000\r\n",   # MG ctStnKni
-        ]
+        # Batched response for the good call
+        good_response = " 0.0000  0.0000  0.0000  0.0000  1.0000  0.0000  0.0000  0.0000\r\n"
         call_count = [0]
 
         def side_effect(cmd):
             call_count[0] += 1
             if call_count[0] == 1:
                 raise RuntimeError("transient error")
-            idx = (call_count[0] - 2) % len(good_responses)
-            return good_responses[idx]
+            return good_response
 
         ctrl = _make_mock_controller(cmd_side_effect=side_effect)
         state = _make_mock_state()
@@ -202,25 +178,14 @@ class TestReconnectClearsDisconnect(unittest.TestCase):
     def test_reconnect_clears_disconnect(self):
         """After disconnect (3 failures), a successful poll restores state.connected == True."""
         call_count = [0]
-
-        good_responses = [
-            " 0.0000\r\n",   # MG aPos
-            " 0.0000\r\n",   # MG bPos
-            " 0.0000\r\n",   # MG cPos
-            " 0.0000\r\n",   # MG dPos
-            " 1.0000\r\n",   # MG hmiState
-            " 0.0000\r\n",   # MG ctSesKni
-            " 0.0000\r\n",   # MG ctStnKni
-        ]
+        good_response = " 0.0000  0.0000  0.0000  0.0000  1.0000  0.0000  0.0000  0.0000\r\n"
 
         def side_effect(cmd):
             call_count[0] += 1
             # First 3 calls raise (trigger disconnect)
             if call_count[0] <= 3:
                 raise RuntimeError("comm error")
-            # After that: succeed
-            idx = (call_count[0] - 4) % len(good_responses)
-            return good_responses[idx]
+            return good_response
 
         ctrl = _make_mock_controller(cmd_side_effect=side_effect)
         ctrl.connect.return_value = True  # reconnect succeeds
@@ -378,70 +343,184 @@ class TestApplySetsProgramRunning(unittest.TestCase):
 
 
 class TestXQReadFailureDefaultsTrue(unittest.TestCase):
-    """test_xq_read_failure_defaults_program_running_true"""
+    """test_xq_read_failure_defaults_program_running_true
 
-    def test_xq_read_failure_defaults_program_running_true(self):
-        """If MG _XQ fails in _do_read, program_running defaults to True (conservative)."""
-        # Provide good responses for the 7 normal reads
-        good_responses = [
-            " 1.0000\r\n",   # MG hmiState
-            " 0.0000\r\n",   # MG _TPA
-            " 0.0000\r\n",   # MG _TPB
-            " 0.0000\r\n",   # MG _TPC
-            " 0.0000\r\n",   # MG _TPD
-            " 0.0000\r\n",   # MG ctSesKni
-            " 0.0000\r\n",   # MG ctStnKni
-        ]
+    With batched reads, _XQ is part of the single batch command.
+    When the batch succeeds, xq_raw >= 0 means True; xq_raw < 0 means False.
+    program_running=True is the initial MachineState default (conservative).
+    """
 
-        call_count = [0]
-
-        def side_effect(cmd):
-            call_count[0] += 1
-            if "MG _XQ" in cmd:
-                raise RuntimeError("XQ read failure")
-            idx = (call_count[0] - 1) % len(good_responses)
-            return good_responses[idx]
-
-        ctrl = _make_mock_controller(cmd_side_effect=side_effect)
+    def test_program_running_true_when_xq_zero(self):
+        """program_running is True when xq_raw=0 (program running on thread 0)."""
+        # xq_raw = 0.0000 in batch
+        batch = " 0.0000  0.0000  0.0000  0.0000  1.0000  0.0000  0.0000  0.0000\r\n"
+        ctrl = _make_mock_controller(cmd_return_values=[batch])
         state = _make_mock_state()
         poller, _, _ = _make_poller(ctrl, state)
 
         _run_do_read_sync(poller)
 
         self.assertTrue(state.program_running,
-                        "program_running should be True (conservative) when _XQ read fails")
+                        "program_running should be True when xq_raw=0")
 
-    def test_xq_failure_does_not_increment_fail_count(self):
-        """_XQ read failure must NOT increment _fail_count (isolated try/except)."""
-        good_responses = [
-            " 0.0000\r\n",   # MG aPos
-            " 0.0000\r\n",   # MG bPos
-            " 0.0000\r\n",   # MG cPos
-            " 0.0000\r\n",   # MG dPos
-            " 1.0000\r\n",   # MG hmiState
-            " 0.0000\r\n",   # MG ctSesKni
-            " 0.0000\r\n",   # MG ctStnKni
-        ]
+    def test_program_running_false_when_xq_negative(self):
+        """program_running is False when xq_raw=-1 (program not running)."""
+        # xq_raw = -1.0000 in batch
+        batch = " 0.0000  0.0000  0.0000  0.0000  1.0000  0.0000  0.0000 -1.0000\r\n"
+        ctrl = _make_mock_controller(cmd_return_values=[batch])
+        state = _make_mock_state()
+        poller, _, _ = _make_poller(ctrl, state)
+        state.program_running = True
 
-        call_count = [0]
+        _run_do_read_sync(poller)
 
-        def side_effect(cmd):
-            call_count[0] += 1
-            if "MG _XQ" in cmd:
-                raise RuntimeError("XQ read failure")
-            idx = (call_count[0] - 1) % len(good_responses)
-            return good_responses[idx]
+        self.assertFalse(state.program_running,
+                         "program_running should be False when xq_raw=-1")
 
-        ctrl = _make_mock_controller(cmd_side_effect=side_effect)
+    def test_batch_failure_preserves_program_running(self):
+        """When entire batch fails, program_running retains its last known value (stale-on-failure)."""
+        ctrl = _make_mock_controller(cmd_side_effect=RuntimeError("comm error"))
+        state = _make_mock_state()
+        state.program_running = True
+        poller, _, _ = _make_poller(ctrl, state)
+
+        _run_do_read_sync(poller)
+
+        self.assertTrue(state.program_running,
+                        "program_running preserved (not zeroed) when batch fails")
+
+
+# ---------------------------------------------------------------------------
+# Phase 23-01 — Mega-batch read tests
+# ---------------------------------------------------------------------------
+
+# Batched response: 8 space-delimited floats
+# Order: a, b, c, d, dmc_state, ses_kni, stn_kni, xq_raw
+_GOOD_BATCH = " 100.0000  200.0000  300.0000  400.0000  2.0000  42.0000  77.0000  0.0000\r\n"
+# xq_raw >= 0 means program_running=True; -1 means False
+_BATCH_PROG_FALSE = " 0.0000  0.0000  0.0000  0.0000  1.0000  0.0000  0.0000 -1.0000\r\n"
+
+
+class TestMegaBatchRead(unittest.TestCase):
+    """Tests for the module-level read_all_state() function."""
+
+    def test_returns_tuple_on_success(self):
+        """read_all_state returns (a,b,c,d,dmc_state,ses_kni,stn_kni,program_running) on success."""
+        from dmccodegui.hmi.poll import read_all_state
+        ctrl = _make_mock_controller(cmd_return_values=[_GOOD_BATCH])
+        result = read_all_state(ctrl)
+        self.assertIsNotNone(result)
+        a, b, c, d, dmc_state, ses_kni, stn_kni, program_running = result
+        self.assertAlmostEqual(a, 100.0)
+        self.assertAlmostEqual(b, 200.0)
+        self.assertAlmostEqual(c, 300.0)
+        self.assertAlmostEqual(d, 400.0)
+        self.assertEqual(dmc_state, 2)
+        self.assertEqual(ses_kni, 42)
+        self.assertEqual(stn_kni, 77)
+        self.assertTrue(program_running)  # xq_raw=0 >= 0
+
+    def test_program_running_false_when_xq_negative(self):
+        """read_all_state sets program_running=False when xq_raw < 0."""
+        from dmccodegui.hmi.poll import read_all_state
+        ctrl = _make_mock_controller(cmd_return_values=[_BATCH_PROG_FALSE])
+        result = read_all_state(ctrl)
+        self.assertIsNotNone(result)
+        self.assertFalse(result[7])
+
+    def test_returns_none_on_exception(self):
+        """read_all_state returns None when ctrl.cmd raises Exception."""
+        from dmccodegui.hmi.poll import read_all_state
+        ctrl = _make_mock_controller(cmd_side_effect=RuntimeError("comm error"))
+        result = read_all_state(ctrl)
+        self.assertIsNone(result)
+
+    def test_returns_none_when_too_few_values(self):
+        """read_all_state returns None when response has fewer than 8 values."""
+        from dmccodegui.hmi.poll import read_all_state
+        ctrl = _make_mock_controller(cmd_return_values=[" 1.0 2.0 3.0\r\n"])
+        result = read_all_state(ctrl)
+        self.assertIsNone(result)
+
+    def test_uses_batch_cmd(self):
+        """read_all_state calls ctrl.cmd with exactly BATCH_CMD."""
+        from dmccodegui.hmi.poll import read_all_state
+        from dmccodegui.hmi.dmc_vars import BATCH_CMD
+        ctrl = _make_mock_controller(cmd_return_values=[_GOOD_BATCH])
+        read_all_state(ctrl)
+        ctrl.cmd.assert_called_once_with(BATCH_CMD)
+
+    def test_batch_cmd_uses_tda_not_tpa(self):
+        """BATCH_CMD uses _TDA/_TDB/_TDC/_TDD (told position), NOT _TPA/_TPB/_TPC/_TPD."""
+        from dmccodegui.hmi.dmc_vars import BATCH_CMD
+        self.assertIn("_TDA", BATCH_CMD)
+        self.assertIn("_TDB", BATCH_CMD)
+        self.assertIn("_TDC", BATCH_CMD)
+        self.assertIn("_TDD", BATCH_CMD)
+        self.assertNotIn("_TPA", BATCH_CMD)
+        self.assertNotIn("_TPB", BATCH_CMD)
+        self.assertNotIn("_TPC", BATCH_CMD)
+        self.assertNotIn("_TPD", BATCH_CMD)
+
+
+class TestBatchCallCount(unittest.TestCase):
+    """Tests that _do_read() issues exactly 1 ctrl.cmd call on the success path."""
+
+    def test_do_read_calls_cmd_exactly_once(self):
+        """_do_read() must call ctrl.cmd exactly 1 time on a successful read."""
+        ctrl = _make_mock_controller(cmd_return_values=[_GOOD_BATCH])
         state = _make_mock_state()
         poller, _, _ = _make_poller(ctrl, state)
 
-        # Run multiple times — _fail_count should never increment because of _XQ
-        for _ in range(5):
+        _run_do_read_sync(poller)
+
+        self.assertEqual(ctrl.cmd.call_count, 1,
+                         f"Expected 1 ctrl.cmd call, got {ctrl.cmd.call_count}")
+
+
+class TestStaleOnFailure(unittest.TestCase):
+    """Tests that failed reads keep last known values and count toward disconnect."""
+
+    def test_fail_increments_fail_count(self):
+        """When read_all_state returns None, _do_read increments _fail_count."""
+        ctrl = _make_mock_controller(cmd_side_effect=RuntimeError("comm error"))
+        state = _make_mock_state()
+        poller, _, _ = _make_poller(ctrl, state)
+
+        _run_do_read_sync(poller)
+
+        self.assertEqual(poller._fail_count, 1)
+
+    def test_fail_does_not_call_apply(self):
+        """When read_all_state returns None, _apply is never called (values preserved)."""
+        ctrl = _make_mock_controller(cmd_side_effect=RuntimeError("comm error"))
+        state = _make_mock_state()
+        poller, _, _ = _make_poller(ctrl, state)
+
+        # Record state before
+        state.pos["A"] = 99.0
+        state.dmc_state = 7
+
+        _run_do_read_sync(poller)
+
+        # Values must NOT have changed
+        self.assertAlmostEqual(state.pos["A"], 99.0,
+                               msg="Last known A position must be preserved on failure")
+        self.assertEqual(state.dmc_state, 7,
+                         msg="Last known dmc_state must be preserved on failure")
+
+    def test_threshold_fires_on_disconnect(self):
+        """When _fail_count reaches DISCONNECT_THRESHOLD, _on_disconnect is scheduled."""
+        from dmccodegui.hmi.poll import DISCONNECT_THRESHOLD
+        ctrl = _make_mock_controller(cmd_side_effect=RuntimeError("comm error"))
+        state = _make_mock_state()
+        poller, _, _ = _make_poller(ctrl, state)
+
+        for _ in range(DISCONNECT_THRESHOLD):
             _run_do_read_sync(poller)
 
-        self.assertEqual(poller._fail_count, 0,
-                         "_fail_count must stay 0 — _XQ failures are isolated")
+        self.assertFalse(state.connected,
+                         "state.connected must be False after DISCONNECT_THRESHOLD failures")
 
 
 if __name__ == "__main__":

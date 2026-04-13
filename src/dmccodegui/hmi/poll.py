@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Optional
 
 from kivy.clock import Clock
 
-from .dmc_vars import HMI_STATE_VAR, CT_SES_KNI, CT_STN_KNI, APOS, BPOS, CPOS, DPOS
+from .dmc_vars import HMI_STATE_VAR, CT_SES_KNI, CT_STN_KNI, APOS, BPOS, CPOS, DPOS, BATCH_CMD
 from ..utils import jobs
 
 if TYPE_CHECKING:
@@ -28,6 +28,36 @@ if TYPE_CHECKING:
 
 POLL_HZ: int = 10
 DISCONNECT_THRESHOLD: int = 3
+
+
+def read_all_state(ctrl) -> "tuple[float, float, float, float, int, int, int, bool] | None":
+    """Single GCommand call returning all 8 controller values in one batch.
+
+    Issues exactly one ctrl.cmd(BATCH_CMD) call per invocation.
+    Returns None on any failure — the caller is responsible for keeping last
+    known values (stale-on-failure pattern).
+
+    Response format: 8 space-delimited floats from the MG mega-batch command.
+    Order: a, b, c, d, dmc_state, ses_kni, stn_kni, xq_raw
+
+    Returns:
+        (a, b, c, d, dmc_state, ses_kni, stn_kni, program_running) on success.
+        None on Exception or when the response has fewer than 8 values.
+    """
+    try:
+        raw = ctrl.cmd(BATCH_CMD).strip()
+        vals = [float(v) for v in raw.split()]
+        if len(vals) < 8:
+            return None
+        a, b, c, d = vals[0], vals[1], vals[2], vals[3]
+        dmc_state = int(vals[4])
+        ses_kni = int(vals[5])
+        stn_kni = int(vals[6])
+        xq_raw = int(vals[7])
+        program_running = (xq_raw >= 0)
+        return (a, b, c, d, dmc_state, ses_kni, stn_kni, program_running)
+    except Exception:
+        return None
 
 
 class ControllerPoller:
@@ -86,10 +116,13 @@ class ControllerPoller:
     # ------------------------------------------------------------------
 
     def _do_read(self) -> None:
-        """Background thread: read 7 values from controller.
+        """Background thread: read all controller state in a single batched MG command.
+
+        Issues exactly 1 ctrl.cmd call per tick via read_all_state().
 
         On success: reset fail count, post _apply() to main thread.
-        On exception: increment fail count; if >= DISCONNECT_THRESHOLD, post _on_disconnect().
+        On failure (None): increment fail count; if >= DISCONNECT_THRESHOLD, post _on_disconnect().
+        Last known values are preserved on failure (stale-on-failure pattern).
 
         Reconnect attempt: when state.connected is False (poller still running after
         disconnect), try controller.connect() before reading.
@@ -115,47 +148,19 @@ class ControllerPoller:
                 # No address to reconnect to; nothing to do
                 return
 
-        # Read positions from built-in Galil registers.
-        # _TPA/_TPB/_TPC/_TPD always exist — no DMC program required.
-        try:
-            a = float(ctrl.cmd("MG _TPA").strip())
-            b = float(ctrl.cmd("MG _TPB").strip())
-            c = float(ctrl.cmd("MG _TPC").strip())
-            d = float(ctrl.cmd("MG _TPD").strip())
-        except Exception:
+        # Single batched read: 1 cmd call for all 8 values
+        result = read_all_state(ctrl)
+
+        if result is None:
+            # Read failed — keep last known values (stale-on-failure)
             self._fail_count += 1
             if self._fail_count >= DISCONNECT_THRESHOLD:
                 Clock.schedule_once(self._on_disconnect)
             return
 
-        # Non-critical reads: hmiState, knife counts.
-        # Failures here do NOT count toward disconnect threshold.
-        dmc_state = 0
-        ses_kni = 0
-        stn_kni = 0
-        try:
-            dmc_state = int(float(ctrl.cmd(f"MG {HMI_STATE_VAR}").strip()))
-        except Exception:
-            pass
-        try:
-            ses_kni = int(float(ctrl.cmd(f"MG {CT_SES_KNI}").strip()))
-        except Exception:
-            pass
-        try:
-            stn_kni = int(float(ctrl.cmd(f"MG {CT_STN_KNI}").strip()))
-        except Exception:
-            pass
-
-        # All position reads succeeded — reset failure counter
+        # Unpack result and reset failure counter
+        a, b, c, d, dmc_state, ses_kni, stn_kni, program_running = result
         self._fail_count = 0
-
-        # Read _XQ — non-critical; failure does NOT affect disconnect threshold
-        program_running = True  # Conservative default: assume running
-        try:
-            xq_raw = int(float(ctrl.cmd("MG _XQ").strip()))
-            program_running = (xq_raw >= 0)
-        except Exception:
-            pass
 
         # Post state update to main thread
         Clock.schedule_once(

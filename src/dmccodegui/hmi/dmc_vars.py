@@ -151,3 +151,14 @@ POS_BUF_SIZE: int = 300         # Ring buffer capacity
 
 BCOMP_ARRAY: str = "bComp"      # DMC array variable for per-serration B-axis compensation
 BCOMP_NUM_SERR: str = "numSerr" # DMC variable for number of serrations
+
+# ---------------------------------------------------------------------------
+# Mega-batch MG command — reads all 8 poll values in a single controller call.
+# Uses _TD (told/desired position) NOT _TP (actual encoder position).
+# Response: 8 space-delimited floats: a, b, c, d, dmc_state, ses_kni, stn_kni, xq_raw
+# CRITICAL: Do NOT change _TDA/_TDB/_TDC/_TDD to _TPA/_TPB/_TPC/_TPD.
+# ---------------------------------------------------------------------------
+
+BATCH_CMD: str = (
+    f"MG _TDA,_TDB,_TDC,_TDD,{HMI_STATE_VAR},{CT_SES_KNI},{CT_STN_KNI},_XQ"
+)

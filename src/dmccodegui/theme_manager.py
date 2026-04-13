@@ -50,19 +50,19 @@ class ThemeManager(EventDispatcher):
     }
 
     LIGHT = {
-        "bg_dark": [0.925, 0.929, 0.933, 1],       # warm off-white
-        "bg_panel": [0.898, 0.902, 0.910, 1],       # slightly darker panel
-        "bg_row": [0.871, 0.878, 0.890, 1],         # row bg
-        "bg_card": [0.949, 0.953, 0.957, 1],        # card bg slightly lighter
-        "border": [0.780, 0.792, 0.812, 1],
-        "text_main": [0.133, 0.153, 0.192, 1],      # dark text
-        "text_mid": [0.349, 0.380, 0.435, 1],
-        "text_dim": [0.545, 0.573, 0.624, 1],
-        "input_bg": [0.949, 0.953, 0.957, 1],
-        "input_fg": [0.133, 0.153, 0.192, 1],
-        "input_cursor": [0.349, 0.380, 0.435, 1],
-        "input_hint": [0.545, 0.573, 0.624, 0.9],
-        "overlay_bg": [0.925, 0.929, 0.933, 0.95],
+        "bg_dark": [0.945, 0.935, 0.910, 1],       # warm cream (yellow hue)
+        "bg_panel": [0.910, 0.900, 0.875, 1],       # slightly darker warm panel
+        "bg_row": [0.875, 0.865, 0.840, 1],         # row bg warm
+        "bg_card": [0.960, 0.952, 0.930, 1],        # card bg warm lighter
+        "border": [0.750, 0.735, 0.700, 1],         # warm border
+        "text_main": [0.100, 0.100, 0.120, 1],      # near-black text for contrast
+        "text_mid": [0.280, 0.280, 0.320, 1],       # dark gray secondary
+        "text_dim": [0.450, 0.440, 0.470, 1],       # medium gray dim
+        "input_bg": [0.970, 0.965, 0.950, 1],       # warm white input
+        "input_fg": [0.100, 0.100, 0.120, 1],       # dark input text
+        "input_cursor": [0.280, 0.280, 0.320, 1],
+        "input_hint": [0.500, 0.490, 0.510, 0.9],
+        "overlay_bg": [0.945, 0.935, 0.910, 0.95],
     }
 
     def toggle(self) -> str:

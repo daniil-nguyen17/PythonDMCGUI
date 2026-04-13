@@ -112,6 +112,10 @@ class FlatGrindParametersScreen(BaseParametersScreen):
         """
         readonly = not setup_unlocked
 
+        # Guard: _field_widgets may not exist yet if called before __init__ completes
+        if not hasattr(self, '_field_widgets'):
+            return readonly
+
         # Update all field widgets
         for var_name, widget in self._field_widgets.items():
             try:

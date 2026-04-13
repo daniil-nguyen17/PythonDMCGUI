@@ -145,6 +145,7 @@ class ConvexRunScreen(BaseRunScreen):
     section_count = NumericProperty(1)
     delta_c_offsets = ListProperty([0.0])        # one offset per section
     selected_section_value = StringProperty("0") # display value for the selected bar
+    comp_mode = StringProperty("cumulative")
 
     # Knife count display strings (Phase 10)
     session_knife_count = StringProperty("0")
@@ -369,9 +370,14 @@ class ConvexRunScreen(BaseRunScreen):
             self.stone_knife_count = str(s.stone_knife_count)
 
             # Cycle running from controller state (drives Kivy property for KV bindings)
-            self.cycle_running = s.cycle_running
+            new_cycle = s.cycle_running
+            if self.cycle_running != new_cycle:
+                self.cycle_running = new_cycle
             # Motion gate: True when axes may be in motion (disables motion buttons)
-            self.motion_active = s.dmc_state in (STATE_GRINDING, STATE_HOMING)
+            # Only update if changed to avoid Kivy property re-dispatch causing button flicker
+            new_motion = s.dmc_state in (STATE_GRINDING, STATE_HOMING)
+            if self.motion_active != new_motion:
+                self.motion_active = new_motion
 
         else:
             # Disconnected: freeze positions (don't overwrite with zeros)
@@ -489,8 +495,12 @@ class ConvexRunScreen(BaseRunScreen):
                 self.session_knife_count = str(ses_kni)
                 self.stone_knife_count = str(stn_kni)
                 was_grinding = self.cycle_running
-                self.cycle_running = dmc_state == STATE_GRINDING
-                self.motion_active = dmc_state in (STATE_GRINDING, STATE_HOMING)
+                new_cycle = dmc_state == STATE_GRINDING
+                if self.cycle_running != new_cycle:
+                    self.cycle_running = new_cycle
+                new_motion = dmc_state in (STATE_GRINDING, STATE_HOMING)
+                if self.motion_active != new_motion:
+                    self.motion_active = new_motion
                 # Detect grind end: was grinding, now idle
                 if was_grinding and not self.cycle_running:
                     self._stop_elapsed()
@@ -552,7 +562,8 @@ class ConvexRunScreen(BaseRunScreen):
             try:
                 self.controller.cmd("ST ABCD")
             except Exception as e:
-                Clock.schedule_once(lambda *_: self._alert(f"Stop failed: {e}"))
+                msg = f"Stop failed: {e}"
+                Clock.schedule_once(lambda *_, m=msg: self._alert(m))
         jobs.submit_urgent(do_stop)
 
     def on_start_grind(self) -> None:
@@ -594,7 +605,8 @@ class ConvexRunScreen(BaseRunScreen):
             try:
                 self.controller.cmd(f"{HMI_GRND}={HMI_TRIGGER_FIRE}")
             except Exception as e:
-                Clock.schedule_once(lambda *_: self._alert(f"Start failed: {e}"))
+                msg = f"Start failed: {e}"
+                Clock.schedule_once(lambda *_, m=msg: self._alert(m))
 
         jobs.submit_urgent(_fire)
 
@@ -626,7 +638,8 @@ class ConvexRunScreen(BaseRunScreen):
             try:
                 ctrl.cmd(f"{HMI_MORE}={HMI_TRIGGER_FIRE}")
             except Exception as e:
-                Clock.schedule_once(lambda *_: self._alert(f"More stone failed: {e}"))
+                msg = f"More stone failed: {e}"
+                Clock.schedule_once(lambda *_, m=msg: self._alert(m))
                 return
 
             _time.sleep(0.4)
@@ -669,7 +682,8 @@ class ConvexRunScreen(BaseRunScreen):
             try:
                 ctrl.cmd(f"{HMI_LESS}={HMI_TRIGGER_FIRE}")
             except Exception as e:
-                Clock.schedule_once(lambda *_: self._alert(f"Less stone failed: {e}"))
+                msg = f"Less stone failed: {e}"
+                Clock.schedule_once(lambda *_, m=msg: self._alert(m))
                 return
 
             _time.sleep(0.4)
@@ -751,9 +765,10 @@ class ConvexRunScreen(BaseRunScreen):
                 self.selected_section_value = "0"
 
     def on_apply_delta_c(self) -> None:
-        """Convert section offsets to a 100-element deltaC array and send to controller.
+        """Convert section offsets to a deltaC array and send only changed indices.
 
-        Uses individual element assignments (like bComp) for reliable writes.
+        Compares the new values against the previously sent array to determine
+        which indices actually changed, then sends only those assignments.
         Submits on the background job thread.
         """
         if not self.controller or not self.controller.is_connected():
@@ -761,17 +776,30 @@ class ConvexRunScreen(BaseRunScreen):
         values = self._offsets_to_delta_c()
         ctrl = self.controller
 
-        nonzero = sum(1 for v in values if v != 0.0)
-        print(f"[ConvexRunScreen] Apply deltaC: {len(values)} elements, {nonzero} nonzero")
+        # Compare against last-sent values to find changed indices
+        prev = getattr(self, '_last_delta_c', None)
+        if prev is None:
+            prev = [0.0] * len(values)
+
+        changed: list[tuple[int, float]] = []
+        for i, v in enumerate(values):
+            if i >= len(prev) or abs(v - prev[i]) > 1e-9:
+                changed.append((i, v))
+
+        if not changed:
+            print("[ConvexRunScreen] deltaC: no changes to apply")
+            return
+
+        print(f"[ConvexRunScreen] Apply deltaC: {len(changed)} changed indices "
+              f"(out of {len(values)} total)")
 
         def _send():
             try:
-                # Write using chunked GCommand assignments (reliable)
                 line = ""
                 written = 0
-                for i, v in enumerate(values):
-                    cmd = f"deltaC[{DELTA_C_WRITABLE_START + i}]={v}"
-                    if len(line) + len(cmd) + 1 < 300:
+                for idx, v in changed:
+                    cmd = f"deltaC[{DELTA_C_WRITABLE_START + idx}]={round(v):.0f}"
+                    if len(line) + len(cmd) + 1 < 80:
                         line = f"{line};{cmd}" if line else cmd
                     else:
                         ctrl.cmd(line)
@@ -780,67 +808,102 @@ class ConvexRunScreen(BaseRunScreen):
                 if line:
                     ctrl.cmd(line)
                     written += line.count("=")
+                self._last_delta_c = list(values)
                 print(f"[ConvexRunScreen] deltaC written: {written} elements")
             except Exception as e:
                 print(f"[ConvexRunScreen] Apply deltaC error: {e}")
-                Clock.schedule_once(lambda *_: self._alert(f"Apply failed: {e}"))
+                msg = f"Apply failed: {e}"
+                Clock.schedule_once(lambda *_, m=msg: self._alert(m))
 
         jobs.submit(_send)
 
     def _offsets_to_delta_c(self) -> list[float]:
-        """Expand per-section offsets into the full deltaC array using windowed ramps.
+        """Dispatch to active compensation mode."""
+        if self.comp_mode == "spline":
+            return self._offsets_to_delta_c_spline()
+        return self._offsets_to_delta_c_cumulative()
 
-        The stone grinding surface is ~40mm wide (~30 indices). A point change
-        is physically impossible — the stone blends over its contact width.
-
-        Each segment's offset creates a triangular ramp across the stone window:
-          - Ramp UP:   constant +val/half from (center - half) to center
-          - Ramp DOWN: constant -val/half from center to (center + half)
-
-        The cumulative sum of the output = the actual C-axis profile.
-        Multiple segments' ramps add together where they overlap.
-
-        Returns
-        -------
-        list[float]
-            Length DELTA_C_ARRAY_SIZE.
-        """
+    def _offsets_to_delta_c_cumulative(self) -> list[float]:
+        """Cumulative mode: each bar's offset carries forward."""
         n = max(1, int(self.section_count))
         size = DELTA_C_ARRAY_SIZE
         offsets = list(self.delta_c_offsets)
         while len(offsets) < n:
             offsets.append(0.0)
 
-        result: list[float] = [0.0] * size
+        position = [0.0] * size
         chunk = size // n
-        half = STONE_WINDOW_INDICES // 2  # ~15
+        cumulative = 0.0
 
         for i in range(n):
-            val = offsets[i]
-            if val == 0.0:
-                continue
+            first = i * chunk
+            last = (first + chunk - 1) if i < n - 1 else (size - 1)
+            prev_level = cumulative
+            cumulative += offsets[i]
+            span = last - first + 1
+            for j in range(span):
+                t = j / max(1, span - 1)
+                position[first + j] = prev_level + (cumulative - prev_level) * t
 
-            # Segment center in deltaC index space
+        # Positive C = more grinding (stone moves down toward knife)
+        result = [0.0] * size
+        result[0] = position[0]
+        for i in range(1, size):
+            result[i] = position[i] - position[i - 1]
+        return result
+
+    def _offsets_to_delta_c_spline(self) -> list[float]:
+        """Spline mode: smooth cubic interpolation between bar centers."""
+        import numpy as np
+        from scipy.interpolate import CubicSpline
+
+        n = max(1, int(self.section_count))
+        size = DELTA_C_ARRAY_SIZE
+        offsets = list(self.delta_c_offsets)
+        while len(offsets) < n:
+            offsets.append(0.0)
+
+        chunk = size // n
+        x_points, y_points = [0], [0.0]
+        for i in range(n):
             first = i * chunk
             last = (first + chunk - 1) if i < n - 1 else (size - 1)
             center = (first + last) // 2
+            cum = sum(offsets[:i + 1])
+            x_points.append(center)
+            y_points.append(cum)
+        x_points.append(size - 1)
+        y_points.append(y_points[-1])
 
-            # Ramp boundaries (clamped to array)
-            ramp_start = max(0, center - half)
-            ramp_end = min(size - 1, center + half)
+        seen = set()
+        ux, uy = [], []
+        for xv, yv in zip(x_points, y_points):
+            if xv not in seen:
+                seen.add(xv)
+                ux.append(xv)
+                uy.append(yv)
 
-            # Increment per step (using ideal half-width for consistent scaling)
-            inc = val / half if half > 0 else val
+        if len(ux) < 2:
+            return [0.0] * size
 
-            # Ramp up: constant positive increment
-            for j in range(ramp_start, center):
-                result[j] += inc
+        cs = CubicSpline(ux, uy, bc_type='natural')
+        indices = np.arange(size, dtype=float)
+        position = cs(indices)
 
-            # Ramp down: constant negative increment
-            for j in range(center, ramp_end):
-                result[j] -= inc
-
+        # Positive C = more grinding (stone moves down toward knife)
+        result = [0.0] * size
+        result[0] = float(position[0])
+        for i in range(1, size):
+            result[i] = float(position[i] - position[i - 1])
         return result
+
+    def toggle_comp_mode(self) -> None:
+        """Toggle between cumulative and spline compensation modes."""
+        if self.comp_mode == "cumulative":
+            self.comp_mode = "spline"
+        else:
+            self.comp_mode = "cumulative"
+        print(f"[ConvexRunScreen] Compensation mode: {self.comp_mode}")
 
     # -----------------------------------------------------------------------
     # Stone Compensation and CPM

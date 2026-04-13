@@ -729,40 +729,95 @@ try:
             dialog.build_diff_table(changes)
 
         def _apply_import(self, parsed: dict) -> None:
-            """Write CSV values to controller and burn NV in background."""
+            """Write CSV values to controller, verify readback, then burn NV."""
             if self.controller is None:
-                self.status_text = "Import failed: no controller connected."
+                self.status_text = "THAT BAI: khong co ket noi voi bo dieu khien."
                 return
 
             ctrl = self.controller
 
             def _job():
-                # Write scalars
-                for var, val in parsed["scalars"].items():
+                import time
+
+                profile_name = parsed.get("profile_name", "")
+
+                # --- Step 1: Write scalars ---
+                scalar_ok = 0
+                scalar_total = len(parsed.get("scalars", {}))
+                for var, val in parsed.get("scalars", {}).items():
                     try:
                         ctrl.cmd(f"{var}={val}")
+                        scalar_ok += 1
                     except Exception:
                         pass
 
-                # Write arrays
-                for array_name, values in parsed["arrays"].items():
-                    if values:
-                        try:
-                            ctrl.download_array_full(array_name, values)
-                        except Exception:
-                            pass
+                # --- Step 2: Write arrays ---
+                array_results: list[str] = []
+                for array_name, values in parsed.get("arrays", {}).items():
+                    if not values:
+                        continue
+                    try:
+                        ctrl.download_array_full(array_name, values)
+                    except Exception:
+                        array_results.append(f"{array_name}: GHI THAT BAI")
+                        continue
 
-                # Burn NV memory
+                    # --- Step 3: Read back and verify ---
+                    time.sleep(0.1)
+                    try:
+                        readback = ctrl.upload_array_auto(array_name)
+                        if readback is None:
+                            array_results.append(f"{array_name}: doc lai that bai")
+                            continue
+                        readback_list = list(readback)
+                        # Compare element-by-element
+                        matched = 0
+                        total = len(values)
+                        compare_len = min(len(values), len(readback_list))
+                        for i in range(compare_len):
+                            if abs(values[i] - readback_list[i]) < 1e-6:
+                                matched += 1
+                        if matched == total and len(readback_list) >= total:
+                            array_results.append(f"{array_name}: {matched}/{total} OK")
+                        else:
+                            array_results.append(
+                                f"{array_name}: {matched}/{total} khop"
+                            )
+                    except Exception:
+                        array_results.append(f"{array_name}: xac nhan that bai")
+
+                # --- Step 4: Burn NV memory ---
+                burn_ok = False
                 try:
                     ctrl.cmd("BV")
-                    msg = f"Imported profile '{parsed.get('profile_name', '')}' — burned to NV."
-                except Exception as exc:
-                    msg = f"Import applied but BV burn failed: {exc}"
+                    burn_ok = True
+                except Exception:
+                    pass
+
+                # --- Step 5: Build status message ---
+                parts: list[str] = []
+                if scalar_total > 0:
+                    parts.append(f"Tham so: {scalar_ok}/{scalar_total}")
+                if array_results:
+                    parts.append(" | ".join(array_results))
+
+                all_ok = (
+                    scalar_ok == scalar_total
+                    and all("OK" in r for r in array_results)
+                    and burn_ok
+                )
+
+                if all_ok:
+                    msg = f"THANH CONG: '{profile_name}' — {' | '.join(parts)} — Da luu NV"
+                elif burn_ok:
+                    msg = f"CANH BAO: '{profile_name}' — {' | '.join(parts)} — Da luu NV"
+                else:
+                    msg = f"THAT BAI: '{profile_name}' — {' | '.join(parts)} — Luu NV that bai"
 
                 Clock.schedule_once(lambda *_: setattr(self, "status_text", msg))
 
             jobs.submit(_job)
-            self.status_text = "Applying import…"
+            self.status_text = "Dang nap ho so..."
 
         # ------------------------------------------------------------------
         # Helpers

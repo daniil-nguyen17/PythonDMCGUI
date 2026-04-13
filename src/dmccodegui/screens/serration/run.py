@@ -20,6 +20,7 @@ TODO: verify bComp array name against real Serration DMC program (customer to co
 from __future__ import annotations
 
 import logging
+import threading
 
 from kivy.clock import Clock
 from kivy.properties import (
@@ -104,6 +105,8 @@ class SerrationRunScreen(BaseRunScreen):
     _bcomp_panel: BCompPanel | None = None
     _pos_clock_event = None
     _pos_busy: bool = False
+    _mg_thread: threading.Thread | None = None
+    _mg_stop_event: threading.Event | None = None
     _disconnect_clock = None
     _disconnect_t0: float | None = None
     _cycle_start_time: float | None = None
@@ -122,14 +125,14 @@ class SerrationRunScreen(BaseRunScreen):
         """
         super().on_pre_enter(*args)
 
-        # Stop the centralized poller — its traffic floods the controller bus
+        # Stop the centralized poller — frees controller bus for MG messages
         from kivy.app import App
         app = App.get_running_app()
         if app and hasattr(app, '_stop_poller'):
             app._stop_poller()
 
-        # Start position poll
-        self._start_pos_poll()
+        # One-shot read to populate UI (no continuous polling until grind starts)
+        self._do_one_shot_read()
 
         # Read startPtC so the Stone Compensation label is populated on entry
         self._read_start_pt_c()
@@ -142,13 +145,8 @@ class SerrationRunScreen(BaseRunScreen):
             panel.refresh_callback = self._read_bcomp_job
             self._read_bcomp_job()
 
-        # Register with app-wide MgReader for controller log messages
-        from kivy.app import App as _App
-        _app = _App.get_running_app()
-        if _app and hasattr(_app, 'mg_reader') and _app.mg_reader:
-            self._mg_log_unreg = _app.mg_reader.add_log_handler(self._on_mg_log)
-        else:
-            self._mg_log_unreg = None
+        # Start per-screen MG reader (own gclib handle, --subscribe MG)
+        self._start_mg_reader()
 
     def on_leave(self, *args) -> None:
         """Called by Kivy when operator navigates away.
@@ -167,10 +165,8 @@ class SerrationRunScreen(BaseRunScreen):
             self._elapsed_clock_event.cancel()
             self._elapsed_clock_event = None
 
-        # Unregister from app-wide MgReader
-        if hasattr(self, '_mg_log_unreg') and self._mg_log_unreg:
-            self._mg_log_unreg()
-            self._mg_log_unreg = None
+        # Stop per-screen MG reader thread
+        self._stop_mg_reader()
 
         # Restart the centralized poller for other screens
         from kivy.app import App
@@ -184,8 +180,35 @@ class SerrationRunScreen(BaseRunScreen):
     # Position poll
     # -----------------------------------------------------------------------
 
+    def _do_one_shot_read(self) -> None:
+        """Single read of positions + state to populate UI on page load."""
+        if not self.controller or not self.controller.is_connected():
+            return
+        ctrl = self.controller
+
+        def _do():
+            result = read_all_state(ctrl)
+            if result is None:
+                return
+            a, b, c, _d, dmc_state, ses_kni, stn_kni, program_running = result
+
+            def _apply(*_):
+                self.pos_a = f"{int(a):,}"
+                self.pos_b = f"{int(b):,}"
+                self.pos_c = f"{int(c):,}"
+                self.session_knife_count = str(ses_kni)
+                self.stone_knife_count = str(stn_kni)
+                self.cycle_running = dmc_state == STATE_GRINDING
+                self.motion_active = dmc_state in (STATE_GRINDING, STATE_HOMING)
+                # If already grinding when we enter, start polling
+                if self.cycle_running:
+                    self._start_pos_poll()
+            Clock.schedule_once(_apply)
+
+        jobs.submit(_do)
+
     def _start_pos_poll(self) -> None:
-        """Start 5 Hz position polling."""
+        """Start 5 Hz position polling. Called when grind starts."""
         if self._pos_clock_event is not None:
             return
         self._pos_clock_event = Clock.schedule_interval(self._tick_pos, 0.2)
@@ -240,12 +263,14 @@ class SerrationRunScreen(BaseRunScreen):
                 self.pos_c = f"{int(c):,}"
                 self.session_knife_count = str(ses_kni)
                 self.stone_knife_count = str(stn_kni)
+                # Detect grind end: was grinding, now idle → stop polling
                 was_grinding = self.cycle_running
-                self.cycle_running = dmc_state == STATE_GRINDING
-                self.motion_active = dmc_state in (STATE_GRINDING, STATE_HOMING)
-                if was_grinding and not self.cycle_running:
+                new_grinding = dmc_state == STATE_GRINDING
+                if was_grinding and not new_grinding:
+                    self.cycle_running = False
+                    self.motion_active = False
+                    self._stop_pos_poll()
                     self._stop_elapsed()
-                    self._set_poll_rate(5)
                     self._read_start_pt_c()
 
             Clock.schedule_once(_apply)
@@ -290,9 +315,11 @@ class SerrationRunScreen(BaseRunScreen):
         self._apply_state(state)
 
     def _apply_state(self, s) -> None:
-        """Main thread: apply MachineState to SerrationRunScreen Kivy properties.
+        """Main thread: handle connection state changes only.
 
-        Updates positions (A, B, C only), cycle status, knife counts.
+        Position updates and button states are handled by one-shot read
+        (on_pre_enter) and pos_poll (during grind). This only handles
+        disconnect detection.
         """
         import time as _time
 
@@ -304,25 +331,10 @@ class SerrationRunScreen(BaseRunScreen):
                 self._disconnect_clock = None
                 self._disconnect_t0 = None
 
-            # Axis positions — 3 axes only (no D)
-            for axis, prop in (("A", "pos_a"), ("B", "pos_b"), ("C", "pos_c")):
-                val = s.pos.get(axis)
-                if val is not None:
-                    try:
-                        setattr(self, prop, f"{int(val):,}")
-                    except (ValueError, TypeError):
-                        setattr(self, prop, "---")
-                else:
-                    setattr(self, prop, "---")
-
-            self.session_knife_count = str(s.session_knife_count)
-            self.stone_knife_count = str(s.stone_knife_count)
-            self.cycle_running = s.cycle_running
-            self.motion_active = s.dmc_state in (STATE_GRINDING, STATE_HOMING)
-
         else:
             self.cycle_running = False
             self.motion_active = True
+            self._stop_pos_poll()
             if self._disconnect_clock is None:
                 self._disconnect_t0 = _time.monotonic()
                 self._tick_disconnect_banner(0)
@@ -455,7 +467,13 @@ class SerrationRunScreen(BaseRunScreen):
                 Clock.schedule_once(lambda *_: logger.error("Start grind failed: %s", e))
 
         jobs.submit_urgent(_fire)
-        self._set_poll_rate(1)
+
+        # Immediately disable grind button and enable stop button
+        self.motion_active = True
+        self.cycle_running = True
+
+        # Start position polling for grind monitoring
+        self._start_pos_poll()
 
     def on_stop(self) -> None:
         """Send ST ABCD via submit_urgent — preempts polls, thread-safe."""
@@ -469,6 +487,48 @@ class SerrationRunScreen(BaseRunScreen):
                 Clock.schedule_once(lambda *_: logger.error("Stop failed: %s", e))
 
         jobs.submit_urgent(do_stop)
+
+    def on_shutdown(self) -> None:
+        """Shutdown sequence: BV (save all), enter setup, then home all axes.
+
+        Uses the one-shot HMI pattern — sends hmiSetp=0 to enter setup mode
+        (where hmiHome is polled), then hmiHome=0 to trigger homing.
+        """
+        if not self.controller or not self.controller.is_connected():
+            return
+        if self.motion_active or self.cycle_running:
+            return
+
+        from dmccodegui.hmi.dmc_vars import (
+            HMI_SETP, HMI_HOME, HMI_TRIGGER_FIRE,
+        )
+
+        self.motion_active = True  # Disable buttons during shutdown
+
+        def _do_shutdown():
+            ctrl = self.controller
+            try:
+                # Step 1: Save all variables to NV
+                ctrl.cmd("BV")
+                logger.info("[Shutdown] BV done — variables saved")
+                import time; time.sleep(0.3)
+
+                # Step 2: Enter setup mode (so hmiHome is checked in #SULOOP)
+                ctrl.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}")
+                logger.info("[Shutdown] hmiSetp fired — entering setup")
+                time.sleep(0.5)
+
+                # Step 3: Trigger homing sequence
+                ctrl.cmd(f"{HMI_HOME}={HMI_TRIGGER_FIRE}")
+                logger.info("[Shutdown] hmiHome fired — homing axes")
+
+            except Exception as e:
+                msg = f"Shutdown failed: {e}"
+                logger.error("[Shutdown] error: %s", e)
+                Clock.schedule_once(lambda *_, m=msg: self._alert(m))
+                Clock.schedule_once(lambda *_: setattr(self, 'motion_active', False))
+
+        jobs.submit(_do_shutdown)
 
     def on_more_stone(self) -> None:
         """Send hmiMore=0 then read startPtC after 400ms delay to update label.
@@ -578,9 +638,88 @@ class SerrationRunScreen(BaseRunScreen):
     # -----------------------------------------------------------------------
 
     def _on_mg_log(self, text: str) -> None:
-        """Main thread: append a freeform MG log message (cap at 100 lines)."""
+        """Main thread: append a freeform MG log message (cap at 200 lines)."""
         lines = self.mg_log_text.split('\n') if self.mg_log_text else []
         lines.append(text)
-        if len(lines) > 100:
-            lines = lines[-100:]
+        if len(lines) > 200:
+            lines = lines[-200:]
         self.mg_log_text = '\n'.join(lines)
+        # Auto-scroll the log
+        log_view = self.ids.get("mg_log_scroll")
+        if log_view:
+            Clock.schedule_once(lambda *_: setattr(log_view, 'scroll_y', 0))
+
+    # -----------------------------------------------------------------------
+    # MG Message Reader — per-screen gclib handle for unsolicited messages
+    # -----------------------------------------------------------------------
+
+    def _start_mg_reader(self) -> None:
+        """Open a second gclib handle subscribed to MG on a background thread."""
+        if self._mg_thread is not None:
+            return
+        if not self.controller or not self.controller.is_connected():
+            return
+
+        addr = getattr(self.controller, '_address', '')
+        if not addr:
+            return
+
+        self._mg_stop_event = threading.Event()
+        self._mg_thread = threading.Thread(
+            target=self._mg_reader_loop,
+            args=(addr, self._mg_stop_event),
+            daemon=True,
+        )
+        self._mg_thread.start()
+
+    def _stop_mg_reader(self) -> None:
+        """Signal MG reader thread to stop and join."""
+        if self._mg_stop_event is not None:
+            self._mg_stop_event.set()
+        if self._mg_thread is not None:
+            self._mg_thread.join(timeout=2.0)
+            self._mg_thread = None
+            self._mg_stop_event = None
+
+    def _mg_reader_loop(self, address: str, stop_event: threading.Event) -> None:
+        """Background thread: subscribe to MG via UDP and drain unsolicited messages."""
+        try:
+            import gclib  # type: ignore
+        except ImportError:
+            print("[SerrationRunScreen] MG reader: gclib not available")
+            return
+
+        handle = None
+        try:
+            handle = gclib.py()
+            handle.GOpen(f"{address} --subscribe MG")
+            handle.GTimeout(500)
+            print(f"[SerrationRunScreen] MG reader connected: {address} --subscribe MG")
+        except Exception as e:
+            print(f"[SerrationRunScreen] MG reader open failed: {e}")
+            if handle:
+                try:
+                    handle.GClose()
+                except Exception:
+                    pass
+            return
+
+        try:
+            while not stop_event.is_set():
+                try:
+                    msg = handle.GMessage()
+                    if msg:
+                        for line in msg.strip().split('\n'):
+                            line = line.strip()
+                            if line:
+                                Clock.schedule_once(
+                                    lambda *_, t=line: self._on_mg_log(t)
+                                )
+                except Exception:
+                    pass
+        finally:
+            try:
+                handle.GClose()
+            except Exception:
+                pass
+            print("[SerrationRunScreen] MG reader closed")

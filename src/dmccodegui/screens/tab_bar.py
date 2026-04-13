@@ -114,7 +114,7 @@ class TabBar(BoxLayout):
                     child.background_color = [0.133, 0.773, 0.369, 0.3]
                 else:
                     child.background_color = list(theme.bg_row)
-                child.color = [1, 1, 1, 1]
+                child.color = list(theme.text_main)
             return
 
         motion_active = dmc_state in (STATE_GRINDING, STATE_HOMING)
@@ -141,7 +141,7 @@ class TabBar(BoxLayout):
                     child.background_color = [0.133, 0.773, 0.369, 0.3]
                 else:
                     child.background_color = list(theme.bg_row)
-                child.color = [1, 1, 1, 1]
+                child.color = list(theme.text_main)
 
         # Force-navigation: if on a setup screen when motion starts, go to Run
         if motion_active:

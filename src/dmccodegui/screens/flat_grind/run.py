@@ -1,6 +1,7 @@
 """FlatGrindRunScreen — operator run screen with live axis positions and cycle monitoring."""
 from __future__ import annotations
 
+import threading
 import time
 from collections import deque
 
@@ -132,6 +133,8 @@ class FlatGrindRunScreen(BaseRunScreen):
     section_count = NumericProperty(1)
     delta_c_offsets = ListProperty([0.0])        # one offset per section
     selected_section_value = StringProperty("0") # display value for the selected bar
+    # Compensation mode: "cumulative" or "spline"
+    comp_mode = StringProperty("cumulative")
 
     # Knife count display strings (Phase 10)
     session_knife_count = StringProperty("0")
@@ -166,6 +169,8 @@ class FlatGrindRunScreen(BaseRunScreen):
     ## Toolpath preview disabled — was causing jobs queue blocking
     _pos_clock_event = None  # lightweight position poll (replaces centralized poller on Run)
     _pos_busy: bool = False  # guard: skip tick if previous read still in flight
+    _mg_thread: threading.Thread | None = None
+    _mg_stop_event: threading.Event | None = None
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -207,47 +212,34 @@ class FlatGrindRunScreen(BaseRunScreen):
     def on_pre_enter(self, *args) -> None:
         """Called by Kivy when operator navigates to this screen.
 
-        Applies machine type widget visibility, subscribes to MachineState for
-        live updates, and applies the current state immediately so values are
-        visible before the next poll fires.
-        Also starts the 5 Hz plot redraw clock.
+        Polling strategy:
+          1. One-shot read on entry to populate positions/state
+          2. NO continuous polling while idle (buttons stay stable)
+          3. Continuous 5 Hz poll starts when START GRIND is pressed
+          4. Poll stops after grind ends (one final read included)
+          5. MG reader stays active for controller log messages
         """
-        # BaseRunScreen.on_pre_enter subscribes to MachineState and calls
-        # _on_state_change with current state immediately.
+        # BaseRunScreen.on_pre_enter subscribes to MachineState (disconnect detection)
         super().on_pre_enter(*args)
 
-        # Stop the centralized poller — its 10 Hz MG traffic floods the
-        # controller bus and blocks GDK unsolicited message printing during grind.
+        # Stop the centralized poller — frees controller bus for MG messages
         from kivy.app import App
         app = App.get_running_app()
         if app and hasattr(app, '_stop_poller'):
             app._stop_poller()
 
-        # Apply machine-type-specific widget visibility first
+        # Apply machine-type-specific widget visibility
         self._apply_machine_type_widgets()
 
-        # Start 5 Hz position poll — runs all the time on Run page (only 2 commands)
-        self._start_pos_poll()
+        # Single batched one-shot read: positions, state, CPMs, startPts, stone arcs
+        # All reads run in ONE job so no response collisions with user commands
+        self._do_page_load_read()
 
-        # Start 5 Hz plot redraw
+        # Start plot redraw clock (lightweight — just redraws existing buffer)
         self._plot_clock_event = Clock.schedule_interval(self._tick_plot, 1.0 / PLOT_UPDATE_HZ)
 
-        # Read startPtC from controller so the Stone Compensation label is populated on entry
-        self._read_start_pt_c()
-
-        # Read CPM values from controller for axis position annotations
-        self._read_cpm_values()
-
-        # Read startPtA/B and draw stone arcs (2 fast commands, FIFO after CPM)
-        self._read_start_and_draw_stone()
-
-        # Register with app-wide MgReader for controller log messages
-        from kivy.app import App as _App
-        _app = _App.get_running_app()
-        if _app and hasattr(_app, 'mg_reader') and _app.mg_reader:
-            self._mg_log_unreg = _app.mg_reader.add_log_handler(self._append_mg_log)
-        else:
-            self._mg_log_unreg = None
+        # Start per-screen MG reader (own gclib handle, --subscribe MG)
+        self._start_mg_reader()
 
     def on_leave(self, *args) -> None:
         """Called by Kivy when operator navigates away.
@@ -267,10 +259,8 @@ class FlatGrindRunScreen(BaseRunScreen):
         if self._plot_clock_event:
             self._plot_clock_event.cancel()
             self._plot_clock_event = None
-        # Unregister from app-wide MgReader
-        if hasattr(self, '_mg_log_unreg') and self._mg_log_unreg:
-            self._mg_log_unreg()
-            self._mg_log_unreg = None
+        # Stop per-screen MG reader thread
+        self._stop_mg_reader()
 
         # Restart the centralized poller for other screens
         from kivy.app import App
@@ -323,16 +313,16 @@ class FlatGrindRunScreen(BaseRunScreen):
         self._apply_state(state)
 
     def _apply_state(self, s: MachineState) -> None:
-        """Main thread: apply MachineState to FlatGrindRunScreen Kivy properties.
+        """Main thread: handle connection state changes only.
 
-        Called on every MachineState change notification. This is the single
-        path for updating all reactive Kivy properties on this screen.
+        Position updates and button states are handled exclusively by the
+        one-shot read (on_pre_enter) and pos_poll (during grind). This
+        method only handles disconnect detection to show the banner.
         """
         import time as _time
 
-        # Connection state
         if s.connected:
-            # Clear disconnect banner and stop elapsed timer
+            # Clear disconnect banner if reconnected
             if self.disconnect_banner:
                 self.disconnect_banner = ""
             if self._disconnect_clock:
@@ -340,30 +330,11 @@ class FlatGrindRunScreen(BaseRunScreen):
                 self._disconnect_clock = None
                 self._disconnect_t0 = None
 
-            # Axis positions — format as integer with comma thousands separator
-            for axis, prop in (("A", "pos_a"), ("B", "pos_b"), ("C", "pos_c"), ("D", "pos_d")):
-                val = s.pos.get(axis)
-                if val is not None:
-                    try:
-                        setattr(self, prop, f"{int(val):,}")
-                    except (ValueError, TypeError):
-                        setattr(self, prop, "---")
-                else:
-                    setattr(self, prop, "---")
-
-            # Knife counts
-            self.session_knife_count = str(s.session_knife_count)
-            self.stone_knife_count = str(s.stone_knife_count)
-
-            # Cycle running from controller state (drives Kivy property for KV bindings)
-            self.cycle_running = s.cycle_running
-            # Motion gate: True when axes may be in motion (disables motion buttons)
-            self.motion_active = s.dmc_state in (STATE_GRINDING, STATE_HOMING)
-
         else:
-            # Disconnected: freeze positions (don't overwrite with zeros)
+            # Disconnected: disable all motion buttons, stop polling
             self.cycle_running = False
             self.motion_active = True  # Disable all motion buttons when disconnected
+            self._stop_pos_poll()
             # Start disconnect elapsed timer if not already running
             if self._disconnect_clock is None:
                 self._disconnect_t0 = _time.monotonic()
@@ -392,8 +363,113 @@ class FlatGrindRunScreen(BaseRunScreen):
     # Lightweight position poll — only runs during grind cycle
     # -----------------------------------------------------------------------
 
+    def _do_page_load_read(self) -> None:
+        """Single batched job: read ALL controller state on page entry.
+
+        Combines positions, state, CPMs, startPtC, startPtA/B, and contour
+        arrays into ONE sequential job. This prevents response collisions
+        with user commands (deltaC writes) since everything completes before
+        the user can interact.
+        """
+        if not self.controller or not self.controller.is_connected():
+            return
+        ctrl = self.controller
+
+        def _do():
+            # 1. Positions + state
+            result = read_all_state(ctrl)
+            if result is None:
+                return
+            a, b, c, d, dmc_state, ses_kni, stn_kni, program_running = result
+
+            # 2. CPM values
+            _CPM_DEFAULTS = {"A": 1200.0, "B": 1200.0, "C": 800.0, "D": 360000.0}
+            cpm_results: dict[str, float] = {}
+            for axis in ("A", "B", "C", "D"):
+                try:
+                    raw = ctrl.cmd(f"MG cpm{axis}").strip()
+                    cpm_results[axis] = float(raw)
+                except Exception:
+                    cpm_results[axis] = _CPM_DEFAULTS.get(axis, 1.0)
+
+            # 3. startPtC
+            start_c_val = None
+            try:
+                from ...hmi.dmc_vars import STARTPT_C
+                raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
+                start_c_val = int(float(raw))
+            except Exception:
+                pass
+
+            # 4. startPtA/B + contour arrays
+            start_a_mm, start_b_mm = None, None
+            contour_a_mm, contour_b_mm = None, None
+            try:
+                from ...hmi.dmc_vars import STARTPT_A, STARTPT_B
+                start_a = float(ctrl.cmd(f"MG {STARTPT_A}").strip())
+                start_b = float(ctrl.cmd(f"MG {STARTPT_B}").strip())
+                cpm_a = cpm_results.get("A", 1200.0)
+                cpm_b = cpm_results.get("B", 1200.0)
+                start_a_mm = start_a / cpm_a
+                start_b_mm = start_b / cpm_b
+
+                delta_a = ctrl.upload_array_auto("deltaA")
+                delta_b = ctrl.upload_array_auto("deltaB")
+                if delta_a and delta_b:
+                    n = min(len(delta_a), len(delta_b))
+                    acc_a, acc_b = start_a, start_b
+                    ca, cb = [start_a_mm], [start_b_mm]
+                    for k in range(n):
+                        acc_a += delta_a[k]
+                        acc_b += delta_b[k]
+                        ca.append(acc_a / cpm_a)
+                        cb.append(acc_b / cpm_b)
+                    contour_a_mm = ca
+                    contour_b_mm = cb
+            except Exception:
+                pass
+
+            def _apply(*_):
+                # Positions
+                self.pos_a = f"{int(a):,}"
+                self.pos_b = f"{int(b):,}"
+                self.pos_c = f"{int(c):,}"
+                self.pos_d = f"{int(d):,}"
+                self.session_knife_count = str(ses_kni)
+                self.stone_knife_count = str(stn_kni)
+                self.cycle_running = dmc_state == STATE_GRINDING
+                self.motion_active = dmc_state in (STATE_GRINDING, STATE_HOMING)
+
+                # CPMs
+                for axis, cpm in cpm_results.items():
+                    prop = f"cpm_{axis.lower()}"
+                    if hasattr(self, prop):
+                        setattr(self, prop, f"{cpm:.0f} cts/mm")
+                    if axis == "A":
+                        self._cpm_a_raw = cpm
+                    elif axis == "B":
+                        self._cpm_b_raw = cpm
+
+                # startPtC
+                if start_c_val is not None:
+                    self.start_pt_c = f"Stone Pos: {start_c_val:,}"
+
+                # Stone arcs + contour
+                if start_a_mm is not None and start_b_mm is not None:
+                    self._draw_stone(
+                        start_a_mm, start_b_mm, contour_a_mm, contour_b_mm
+                    )
+
+                # If already grinding when we enter, start polling
+                if self.cycle_running:
+                    self._start_pos_poll()
+
+            Clock.schedule_once(_apply)
+
+        jobs.submit(_do)
+
     def _start_pos_poll(self) -> None:
-        """Start 5 Hz position polling. Called on screen entry."""
+        """Start 5 Hz position polling. Called when grind starts."""
         if self._pos_clock_event is not None:
             return
         self._pos_clock_event = Clock.schedule_interval(self._tick_pos, 1.0 / PLOT_UPDATE_HZ)
@@ -472,16 +548,17 @@ class FlatGrindRunScreen(BaseRunScreen):
                 if dmc_state == STATE_GRINDING:
                     self._plot_buf_x.append(a)
                     self._plot_buf_y.append(b)
-                # Update state-driven properties
+                # Update knife counts
                 self.session_knife_count = str(ses_kni)
                 self.stone_knife_count = str(stn_kni)
+                # Detect grind end: was grinding, now idle → stop polling
                 was_grinding = self.cycle_running
-                self.cycle_running = dmc_state == STATE_GRINDING
-                self.motion_active = dmc_state in (STATE_GRINDING, STATE_HOMING)
-                # Detect grind end: was grinding, now idle
-                if was_grinding and not self.cycle_running:
+                new_grinding = dmc_state == STATE_GRINDING
+                if was_grinding and not new_grinding:
+                    self.cycle_running = False
+                    self.motion_active = False
+                    self._stop_pos_poll()
                     self._stop_elapsed()
-                    self._set_poll_rate(PLOT_UPDATE_HZ)  # restore 5 Hz
                     self._read_start_pt_c()  # refresh Stone Pos after auto wear
             Clock.schedule_once(_apply)
 
@@ -539,8 +616,51 @@ class FlatGrindRunScreen(BaseRunScreen):
             try:
                 self.controller.cmd("ST ABCD")
             except Exception as e:
-                Clock.schedule_once(lambda *_: self._alert(f"Stop failed: {e}"))
+                msg = f"Stop failed: {e}"
+                Clock.schedule_once(lambda *_, m=msg: self._alert(m))
         jobs.submit_urgent(do_stop)
+
+    def on_shutdown(self) -> None:
+        """Shutdown sequence: BV (save all), enter setup, then home all axes.
+
+        Uses the one-shot HMI pattern — sends hmiSetp=0 to enter setup mode
+        (where hmiHome is polled), then hmiHome=0 to trigger homing.
+        """
+        if not self.controller or not self.controller.is_connected():
+            return
+        if self.motion_active or self.cycle_running:
+            return
+
+        from dmccodegui.hmi.dmc_vars import (
+            HMI_SETP, HMI_HOME, HMI_TRIGGER_FIRE,
+        )
+
+        self.motion_active = True  # Disable buttons during shutdown
+
+        def _do_shutdown():
+            ctrl = self.controller
+            try:
+                # Step 1: Save all variables to NV
+                ctrl.cmd("BV")
+                print("[Shutdown] BV done — variables saved")
+                import time; time.sleep(0.3)
+
+                # Step 2: Enter setup mode (so hmiHome is checked in #SULOOP)
+                ctrl.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}")
+                print("[Shutdown] hmiSetp fired — entering setup")
+                time.sleep(0.5)
+
+                # Step 3: Trigger homing sequence
+                ctrl.cmd(f"{HMI_HOME}={HMI_TRIGGER_FIRE}")
+                print("[Shutdown] hmiHome fired — homing axes")
+
+            except Exception as e:
+                msg = f"Shutdown failed: {e}"
+                print(f"[Shutdown] error: {e}")
+                Clock.schedule_once(lambda *_, m=msg: self._alert(m))
+                Clock.schedule_once(lambda *_: setattr(self, 'motion_active', False))
+
+        jobs.submit(_do_shutdown)
 
     def on_start_grind(self) -> None:
         """Send hmiGrnd=0 via jobs.submit to start/continue grinding cycle.
@@ -581,12 +701,17 @@ class FlatGrindRunScreen(BaseRunScreen):
             try:
                 self.controller.cmd(f"{HMI_GRND}={HMI_TRIGGER_FIRE}")
             except Exception as e:
-                Clock.schedule_once(lambda *_: self._alert(f"Start failed: {e}"))
+                msg = f"Start failed: {e}"
+                Clock.schedule_once(lambda *_, m=msg: self._alert(m))
 
         jobs.submit_urgent(_fire)
 
-        # Reduce poll rate during grind — free command channel for triggers
-        self._set_poll_rate(1.0)
+        # Immediately disable grind button and enable stop button
+        self.motion_active = True
+        self.cycle_running = True
+
+        # Start position polling for grind monitoring
+        self._start_pos_poll()
 
     def on_more_stone(self) -> None:
         """Send hmiMore=0 then read startPtC after 400ms delay to update persistent label.
@@ -613,7 +738,8 @@ class FlatGrindRunScreen(BaseRunScreen):
             try:
                 ctrl.cmd(f"{HMI_MORE}={HMI_TRIGGER_FIRE}")
             except Exception as e:
-                Clock.schedule_once(lambda *_: self._alert(f"More stone failed: {e}"))
+                msg = f"More stone failed: {e}"
+                Clock.schedule_once(lambda *_, m=msg: self._alert(m))
                 return
 
             _time.sleep(0.4)
@@ -656,7 +782,8 @@ class FlatGrindRunScreen(BaseRunScreen):
             try:
                 ctrl.cmd(f"{HMI_LESS}={HMI_TRIGGER_FIRE}")
             except Exception as e:
-                Clock.schedule_once(lambda *_: self._alert(f"Less stone failed: {e}"))
+                msg = f"Less stone failed: {e}"
+                Clock.schedule_once(lambda *_, m=msg: self._alert(m))
                 return
 
             _time.sleep(0.4)
@@ -727,6 +854,14 @@ class FlatGrindRunScreen(BaseRunScreen):
         self.delta_c_offsets = offsets
         self.selected_section_value = str(int(self.delta_c_offsets[idx]))
 
+    def toggle_comp_mode(self) -> None:
+        """Toggle between cumulative and spline compensation modes."""
+        if self.comp_mode == "cumulative":
+            self.comp_mode = "spline"
+        else:
+            self.comp_mode = "cumulative"
+        print(f"[FlatGrindRunScreen] Compensation mode: {self.comp_mode}")
+
     def on_clear_delta_c(self) -> None:
         """Reset all section offsets to zero."""
         n = max(1, int(self.section_count))
@@ -738,9 +873,10 @@ class FlatGrindRunScreen(BaseRunScreen):
                 self.selected_section_value = "0"
 
     def on_apply_delta_c(self) -> None:
-        """Convert section offsets to a 100-element deltaC array and send to controller.
+        """Convert section offsets to a deltaC array and send only changed indices.
 
-        Uses individual element assignments (like bComp) for reliable writes.
+        Compares the new values against the previously sent array to determine
+        which indices actually changed, then sends only those assignments.
         Submits on the background job thread.
         """
         if not self.controller or not self.controller.is_connected():
@@ -748,17 +884,30 @@ class FlatGrindRunScreen(BaseRunScreen):
         values = self._offsets_to_delta_c()
         ctrl = self.controller
 
-        nonzero = sum(1 for v in values if v != 0.0)
-        print(f"[FlatGrindRunScreen] Apply deltaC: {len(values)} elements, {nonzero} nonzero")
+        # Compare against last-sent values to find changed indices
+        prev = getattr(self, '_last_delta_c', None)
+        if prev is None:
+            prev = [0.0] * len(values)
+
+        changed: list[tuple[int, float]] = []
+        for i, v in enumerate(values):
+            if i >= len(prev) or abs(v - prev[i]) > 1e-9:
+                changed.append((i, v))
+
+        if not changed:
+            print("[FlatGrindRunScreen] deltaC: no changes to apply")
+            return
+
+        print(f"[FlatGrindRunScreen] Apply deltaC: {len(changed)} changed indices "
+              f"(out of {len(values)} total)")
 
         def _send():
             try:
-                # Write using chunked GCommand assignments (reliable)
                 line = ""
                 written = 0
-                for i, v in enumerate(values):
-                    cmd = f"deltaC[{DELTA_C_WRITABLE_START + i}]={v}"
-                    if len(line) + len(cmd) + 1 < 300:
+                for idx, v in changed:
+                    cmd = f"deltaC[{DELTA_C_WRITABLE_START + idx}]={round(v):.0f}"
+                    if len(line) + len(cmd) + 1 < 80:
                         line = f"{line};{cmd}" if line else cmd
                     else:
                         ctrl.cmd(line)
@@ -767,30 +916,50 @@ class FlatGrindRunScreen(BaseRunScreen):
                 if line:
                     ctrl.cmd(line)
                     written += line.count("=")
+                # Cache sent values for next diff
+                self._last_delta_c = list(values)
                 print(f"[FlatGrindRunScreen] deltaC written: {written} elements")
             except Exception as e:
+                err_msg = f"Apply failed: {e}"
                 print(f"[FlatGrindRunScreen] Apply deltaC error: {e}")
-                Clock.schedule_once(lambda *_: self._alert(f"Apply failed: {e}"))
+                Clock.schedule_once(lambda *_, msg=err_msg: self._alert(msg))
 
         jobs.submit(_send)
 
     def _offsets_to_delta_c(self) -> list[float]:
-        """Expand per-section offsets into the full deltaC array using windowed ramps.
+        """Expand per-section offsets into deltaC array.
 
-        The stone grinding surface is ~40mm wide (~30 indices). A point change
-        is physically impossible — the stone blends over its contact width.
+        Dispatches to the active compensation mode (self.comp_mode):
+          - "cumulative": offset carries forward until cancelled
+          - "spline":     smooth cubic interpolation between bar centers
 
-        Each segment's offset creates a triangular ramp across the stone window:
-          - Ramp UP:   constant +val/half from (center - half) to center
-          - Ramp DOWN: constant -val/half from center to (center + half)
+        Stone geometry:
+          - 347mm outer / 267mm inner = 40mm grind surface per side (left side)
+          - Start point is 3mm past heel
+          - Each deltaC index ≈ 1.2–1.5mm (STEP_MM ≈ 1.3)
+          - deltaC values are incremental C-axis movements (LI vector mode)
+          - Cumulative sum of deltaC = actual C-axis position profile
+        """
+        if self.comp_mode == "spline":
+            return self._offsets_to_delta_c_spline()
+        return self._offsets_to_delta_c_cumulative()
 
-        The cumulative sum of the output = the actual C-axis profile.
-        Multiple segments' ramps add together where they overlap.
+    def _offsets_to_delta_c_cumulative(self) -> list[float]:
+        """Cumulative mode: each bar's offset carries forward for all subsequent indices.
 
-        Returns
-        -------
-        list[float]
-            Length DELTA_C_ARRAY_SIZE.
+        The offset at each bar is a CHANGE from the previous level. To return
+        to baseline, the user must add the opposite offset in a later bar.
+
+        Example (5 bars, bar 3 = +50):
+          Bar 1: +0   → cumulative = 0    → indices  0-19 all get 0
+          Bar 2: +0   → cumulative = 0    → indices 20-39 all get 0
+          Bar 3: +50  → cumulative = 50   → indices 40-59 transition to 50
+          Bar 4: +0   → cumulative = 50   → indices 60-79 stay at 50
+          Bar 5: +0   → cumulative = 50   → indices 80-99 stay at 50
+
+        deltaC values are the incremental changes needed to produce this
+        cumulative position profile. Within each bar's range, the offset
+        change is distributed evenly across the bar width for smooth ramping.
         """
         n = max(1, int(self.section_count))
         size = DELTA_C_ARRAY_SIZE
@@ -798,34 +967,100 @@ class FlatGrindRunScreen(BaseRunScreen):
         while len(offsets) < n:
             offsets.append(0.0)
 
-        result: list[float] = [0.0] * size
+        # Build the desired cumulative position profile
+        # Each bar's offset adds to the running total
+        position = [0.0] * size
         chunk = size // n
-        half = STONE_WINDOW_INDICES // 2  # ~15
+        cumulative = 0.0
 
         for i in range(n):
-            val = offsets[i]
-            if val == 0.0:
-                continue
+            first = i * chunk
+            last = (first + chunk - 1) if i < n - 1 else (size - 1)
+            prev_level = cumulative
+            cumulative += offsets[i]
 
-            # Segment center in deltaC index space
+            # Ramp smoothly from prev_level to cumulative across this bar
+            span = last - first + 1
+            for j in range(span):
+                t = j / max(1, span - 1)  # 0.0 to 1.0
+                position[first + j] = prev_level + (cumulative - prev_level) * t
+
+        # Convert position profile to incremental deltaC
+        # Positive C = more grinding (stone moves down toward knife)
+        result = [0.0] * size
+        result[0] = position[0]
+        for i in range(1, size):
+            result[i] = position[i] - position[i - 1]
+
+        return result
+
+    def _offsets_to_delta_c_spline(self) -> list[float]:
+        """Spline mode: smooth cubic interpolation between bar center control points.
+
+        User sets offset values at bar centers. A natural cubic spline
+        interpolates between control points. The endpoints are clamped
+        to zero slope (natural boundary condition).
+
+        deltaC values are the derivative of the spline (incremental changes
+        needed to produce the smooth position curve).
+        """
+        import numpy as np
+        from scipy.interpolate import CubicSpline
+
+        n = max(1, int(self.section_count))
+        size = DELTA_C_ARRAY_SIZE
+        offsets = list(self.delta_c_offsets)
+        while len(offsets) < n:
+            offsets.append(0.0)
+
+        chunk = size // n
+
+        # Control points at bar centers
+        x_points = []
+        y_points = []
+
+        # Pin start at 0
+        x_points.append(0)
+        y_points.append(0.0)
+
+        for i in range(n):
             first = i * chunk
             last = (first + chunk - 1) if i < n - 1 else (size - 1)
             center = (first + last) // 2
+            # Cumulative offset up to this bar
+            cum = sum(offsets[:i + 1])
+            x_points.append(center)
+            y_points.append(cum)
 
-            # Ramp boundaries (clamped to array)
-            ramp_start = max(0, center - half)
-            ramp_end = min(size - 1, center + half)
+        # Pin end at last value
+        x_points.append(size - 1)
+        y_points.append(y_points[-1])
 
-            # Increment per step (using ideal half-width for consistent scaling)
-            inc = val / half if half > 0 else val
+        # Remove duplicates (if center == 0 or center == size-1)
+        seen = set()
+        unique_x, unique_y = [], []
+        for xv, yv in zip(x_points, y_points):
+            if xv not in seen:
+                seen.add(xv)
+                unique_x.append(xv)
+                unique_y.append(yv)
 
-            # Ramp up: constant positive increment
-            for j in range(ramp_start, center):
-                result[j] += inc
+        if len(unique_x) < 2:
+            return [0.0] * size
 
-            # Ramp down: constant negative increment
-            for j in range(center, ramp_end):
-                result[j] -= inc
+        # Natural cubic spline (zero second derivative at endpoints)
+        cs = CubicSpline(unique_x, unique_y, bc_type='natural')
+
+        # Evaluate position at every index
+        indices = np.arange(size, dtype=float)
+        position = cs(indices)
+
+        # Convert position profile to incremental deltaC
+        # Positive C = more grinding (stone moves down toward knife)
+        result = [0.0] * size
+        result[0] = float(position[0])
+        for i in range(1, size):
+            result[i] = float(position[i] - position[i - 1])
 
         return result
 
@@ -1010,6 +1245,85 @@ class FlatGrindRunScreen(BaseRunScreen):
         log_view = self.ids.get("mg_log_scroll")
         if log_view:
             Clock.schedule_once(lambda *_: setattr(log_view, 'scroll_y', 0))
+
+    # -----------------------------------------------------------------------
+    # MG Message Reader — per-screen gclib handle for unsolicited messages
+    # -----------------------------------------------------------------------
+
+    def _start_mg_reader(self) -> None:
+        """Open a second gclib handle subscribed to MG on a background thread."""
+        if self._mg_thread is not None:
+            return
+        if not self.controller or not self.controller.is_connected():
+            return
+
+        addr = getattr(self.controller, '_address', '')
+        if not addr:
+            return
+
+        self._mg_stop_event = threading.Event()
+        self._mg_thread = threading.Thread(
+            target=self._mg_reader_loop,
+            args=(addr, self._mg_stop_event),
+            daemon=True,
+        )
+        self._mg_thread.start()
+
+    def _stop_mg_reader(self) -> None:
+        """Signal MG reader thread to stop and join."""
+        if self._mg_stop_event is not None:
+            self._mg_stop_event.set()
+        if self._mg_thread is not None:
+            self._mg_thread.join(timeout=2.0)
+            self._mg_thread = None
+            self._mg_stop_event = None
+
+    def _mg_reader_loop(self, address: str, stop_event: threading.Event) -> None:
+        """Background thread: subscribe to MG via UDP and drain unsolicited messages.
+
+        GMessage() takes NO arguments — timeout controlled by GTimeout().
+        """
+        try:
+            import gclib  # type: ignore
+        except ImportError:
+            print("[RunScreen] MG reader: gclib not available")
+            return
+
+        handle = None
+        try:
+            handle = gclib.py()
+            handle.GOpen(f"{address} --subscribe MG")
+            handle.GTimeout(500)  # 500ms so loop checks stop_event regularly
+            print(f"[RunScreen] MG reader connected: {address} --subscribe MG")
+        except Exception as e:
+            print(f"[RunScreen] MG reader open failed: {e}")
+            if handle:
+                try:
+                    handle.GClose()
+                except Exception:
+                    pass
+            return
+
+        try:
+            while not stop_event.is_set():
+                try:
+                    msg = handle.GMessage()  # blocks up to 500ms (GTimeout)
+                    if msg:
+                        for line in msg.strip().split('\n'):
+                            line = line.strip()
+                            if line:
+                                Clock.schedule_once(
+                                    lambda *_, t=line: self._append_mg_log(t)
+                                )
+                except Exception:
+                    # Timeout or read error — just retry
+                    pass
+        finally:
+            try:
+                handle.GClose()
+            except Exception:
+                pass
+            print("[RunScreen] MG reader closed")
 
     # -----------------------------------------------------------------------
     # Utilities

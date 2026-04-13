@@ -35,13 +35,55 @@
                 color: theme.text_main
 
             Button:
+                text: 'CAI DAT LAN DAU'
+                size_hint_x: None
+                width: '180dp'
+                size_hint_y: None
+                height: '44dp'
+                pos_hint: {'center_y': 0.5}
+                font_size: '14sp'
+                bold: True
+                on_release: root.first_time_setup()
+                background_normal: ''
+                background_down: ''
+                background_color: (0.659, 0.333, 0.965, 0.9)
+                color: theme.text_main
+                canvas.before:
+                    Color:
+                        rgba: (0.659, 0.333, 0.965, 0.6)
+                    Line:
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 6)
+                        width: 1.2
+
+            Button:
+                text: 'TINH TOAN LAI'
+                size_hint_x: None
+                width: '180dp'
+                size_hint_y: None
+                height: '44dp'
+                pos_hint: {'center_y': 0.5}
+                font_size: '14sp'
+                bold: True
+                on_release: root.run_calculation()
+                background_normal: ''
+                background_down: ''
+                background_color: (0.024, 0.714, 0.831, 0.9)
+                color: theme.text_main
+                canvas.before:
+                    Color:
+                        rgba: (0.024, 0.714, 0.831, 0.6)
+                    Line:
+                        rounded_rectangle: (self.x, self.y, self.width, self.height, 6)
+                        width: 1.2
+
+            Button:
                 text: 'DOC THAM SO TU MAY'
                 size_hint_x: None
                 width: '220dp'
                 size_hint_y: None
                 height: '44dp'
                 pos_hint: {'center_y': 0.5}
-                font_size: '16sp'
+                font_size: '14sp'
                 on_release: root.read_from_controller()
                 background_normal: ''
                 background_down: ''

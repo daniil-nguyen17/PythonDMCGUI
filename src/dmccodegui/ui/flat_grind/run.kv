@@ -112,6 +112,18 @@
                             text_size: self.size
                             valign: 'middle'
 
+                        # Mode toggle
+                        Button:
+                            text: root.comp_mode.upper()
+                            size_hint_x: None
+                            width: '100dp'
+                            font_size: '10sp'
+                            bold: True
+                            background_normal: ''
+                            background_color: (0.024, 0.714, 0.831, 0.7) if root.comp_mode == 'cumulative' else (0.659, 0.333, 0.965, 0.7)
+                            color: theme.text_main
+                            on_release: root.toggle_comp_mode()
+
                         BoxLayout:
                             size_hint_x: None
                             width: '120dp'
@@ -157,28 +169,9 @@
                                 background_color: 0.1, 0.12, 0.16, 1
                                 on_release: root.on_section_count_change(root.section_count + 1)
 
-                    # Up arrow
+                    # Less grinding (subtract) — top matches BOT DA position
                     Button:
-                        text: '\u25B2  + ' + str(run_module.DELTA_C_STEP)
-                        font_size: '12sp'
-                        bold: True
-                        background_normal: ''
-                        background_color: 0.02, 0.12, 0.06, 1
-                        color: 0.133, 0.773, 0.369, 1
-                        size_hint_y: None
-                        height: '28dp'
-                        on_release: root.on_adjust_up()
-
-                    # Bar chart
-                    DeltaCBarChart:
-                        id: delta_c_chart
-                        offsets: root.delta_c_offsets
-                        size_hint_y: None
-                        height: '90dp'
-
-                    # Down arrow
-                    Button:
-                        text: '\u25BC  - ' + str(run_module.DELTA_C_STEP)
+                        text: '\u25B2  BOT ' + str(run_module.DELTA_C_STEP)
                         font_size: '12sp'
                         bold: True
                         background_normal: ''
@@ -187,6 +180,25 @@
                         size_hint_y: None
                         height: '28dp'
                         on_release: root.on_adjust_down()
+
+                    # Bar chart
+                    DeltaCBarChart:
+                        id: delta_c_chart
+                        offsets: root.delta_c_offsets
+                        size_hint_y: None
+                        height: '90dp'
+
+                    # More grinding (add) — bottom matches THEM DA position
+                    Button:
+                        text: '\u25BC  THEM ' + str(run_module.DELTA_C_STEP)
+                        font_size: '12sp'
+                        bold: True
+                        background_normal: ''
+                        background_color: 0.02, 0.12, 0.06, 1
+                        color: 0.133, 0.773, 0.369, 1
+                        size_hint_y: None
+                        height: '28dp'
+                        on_release: root.on_adjust_up()
 
                     # Controls row
                     BoxLayout:
@@ -387,7 +399,7 @@
                     spacing: '2dp'
                     canvas.before:
                         Color:
-                            rgba: 0.05, 0.07, 0.10, 1
+                            rgba: theme.bg_dark
                         RoundedRectangle:
                             pos: self.pos
                             size: self.size
@@ -531,15 +543,14 @@
                 on_release: root.on_start_grind()
 
             Button:
-                id: stop_btn
-                text: 'STOP'
+                id: shutdown_btn
+                text: 'TAT MAY'
                 font_size: '16sp'
                 bold: True
                 size_hint_x: 0.6
                 background_normal: ''
                 background_down: ''
-                background_color: (0.88, 0.06, 0.06, 1) if not self.disabled else (0.3, 0.1, 0.1, 1)
-                color: (1, 1, 1, 1) if not self.disabled else (0.5, 0.5, 0.5, 1)
-                opacity: 1.0 if root.motion_active else 0.0
-                disabled: not root.motion_active
-                on_release: root.on_stop()
+                background_color: (0.6, 0.3, 0.0, 1)
+                color: (1, 0.9, 0.7, 1)
+                disabled: root.motion_active
+                on_release: root.on_shutdown()

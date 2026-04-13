@@ -50,6 +50,7 @@ except ImportError:  # pragma: no cover
     plt = None  # type: ignore[assignment]
 
 import dmccodegui.machine_config as mc
+from dmccodegui.theme_manager import theme  # noqa: F401 — used in build_param_cards
 from dmccodegui.utils.jobs import submit  # noqa: F401 — re-exported for test patching
 
 logger = logging.getLogger(__name__)
@@ -472,22 +473,20 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
     _state_unsub: Optional[Callable[[], None]] = None
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # Param defs dict -- keyed by var name.
-        # Initialised to Flat Grind defaults so validation works immediately
-        # (e.g. in tests that create a screen without calling on_pre_enter).
+        # Pre-init instance attrs BEFORE super().__init__ because Kivy fires
+        # on_kv_post during super().__init__, which calls build_param_cards()
+        # and needs these dicts to exist already.
         try:
             param_defs = mc.get_param_defs()
         except (ValueError, Exception):
             from dmccodegui.machine_config import _FLAT_PARAM_DEFS  # noqa: PLC0415
             param_defs = _FLAT_PARAM_DEFS
         self._param_defs: dict[str, dict] = {p["var"]: p for p in param_defs}
-        # Last known controller values {var_name: float}
         self._controller_vals: dict[str, float] = {}
-        # User-edited strings not yet applied {var_name: str}
         self._dirty: dict[str, str] = {}
-        # Widget refs for border color updates {var_name: widget_ref}
         self._field_widgets: dict[str, object] = {}
+        self._dot_widgets: dict[str, object] = {}
+        super().__init__(**kwargs)
 
     def on_pre_enter(self, *args) -> None:
         """Rebuild cards, subscribe to state, and enter setup mode."""
@@ -617,28 +616,41 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
     # ------------------------------------------------------------------
 
     def build_param_cards(self) -> None:
-        """Build grouped parameter cards dynamically in the cards_container.
+        """Build grouped parameter cards in a 2-column grid layout.
 
-        Reads from mc.get_param_defs() to get the current machine type's params.
-        Clears the container before rebuilding to handle hot-swap without duplicates.
+        Cards are arranged in horizontal pairs (2 per row) inside
+        the cards_container ScrollView. Each card has a colored header
+        with group icon, name, and param count badge. Each param row
+        has a dirty-dot indicator that lights up on change.
         """
         from collections import OrderedDict  # noqa: PLC0415
+        from kivy.graphics import Color, RoundedRectangle, Rectangle, Ellipse  # noqa: PLC0415
+        from kivy.uix.boxlayout import BoxLayout  # noqa: PLC0415
+        from kivy.uix.label import Label  # noqa: PLC0415
+        from kivy.uix.textinput import TextInput  # noqa: PLC0415
+        from kivy.uix.widget import Widget  # noqa: PLC0415
+        from kivy.metrics import dp  # noqa: PLC0415
 
-        # Group accent colors — consistent across all machine types
+        # Group accent colors
         GROUP_COLORS: dict[str, list[float]] = {
             "Geometry":    [0.980, 0.569, 0.043, 1],
             "Feedrates":   [0.024, 0.714, 0.831, 1],
             "Calibration": [0.659, 0.333, 0.965, 1],
+            "Positions":   [0.659, 0.333, 0.965, 1],
         }
 
-        # Border color constants
-        BORDER_NORMAL = [0.118, 0.145, 0.188, 1]
+        # Group icons (unicode shapes for visual distinction)
+        GROUP_ICONS: dict[str, str] = {
+            "Geometry":    "\u25c6",   # diamond
+            "Feedrates":   "\u25b6",   # play/arrow
+            "Calibration": "\u2699",   # gear
+            "Positions":   "\u25ce",   # bullseye
+        }
 
         try:
             container = self.ids.get('cards_container')
         except Exception:
             container = None
-
         if container is None:
             return
 
@@ -647,98 +659,143 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
         except ValueError:
             param_defs = []
 
-        from kivy.graphics import Color, RoundedRectangle, Rectangle  # noqa: PLC0415
-        from kivy.uix.boxlayout import BoxLayout  # noqa: PLC0415
-        from kivy.uix.label import Label  # noqa: PLC0415
-        from kivy.uix.textinput import TextInput  # noqa: PLC0415
-        from kivy.uix.widget import Widget  # noqa: PLC0415
-
         groups: OrderedDict[str, list] = OrderedDict()
         for p in param_defs:
             groups.setdefault(p['group'], []).append(p)
 
         container.clear_widgets()
         self._field_widgets.clear()
+        self._dot_widgets = {}
+
+        # --- Build individual card wrappers, then pair them into rows ---
+        card_list: list = []
 
         for group_name, params in groups.items():
             accent = GROUP_COLORS.get(group_name, [0.5, 0.5, 0.5, 1])
+            icon_char = GROUP_ICONS.get(group_name, "\u25cf")
 
+            # Card wrapper: stripe + card body
             card_wrapper = BoxLayout(
                 orientation='horizontal',
                 size_hint_y=None,
+                size_hint_x=0.5,
                 spacing=0,
             )
             card_wrapper.bind(minimum_height=card_wrapper.setter('height'))
 
-            stripe = Widget(size_hint_x=None, width=6, size_hint_y=1)
+            # Left accent stripe
+            stripe = Widget(size_hint_x=None, width=dp(6), size_hint_y=1)
             with stripe.canvas.before:
                 Color(rgba=accent)
-                _rect = RoundedRectangle(pos=stripe.pos, size=stripe.size, radius=[3, 0, 0, 3])
+                _rect = RoundedRectangle(
+                    pos=stripe.pos, size=stripe.size, radius=[3, 0, 0, 3],
+                )
             stripe.bind(pos=lambda w, v, r=_rect: setattr(r, 'pos', v))
             stripe.bind(size=lambda w, v, r=_rect: setattr(r, 'size', v))
             card_wrapper.add_widget(stripe)
 
+            # Card body
             card = BoxLayout(
                 orientation='vertical',
-                padding=[12, 12, 12, 12],
-                spacing=6,
+                padding=[dp(12), dp(10), dp(12), dp(10)],
+                spacing=dp(4),
                 size_hint_y=None,
             )
             card.bind(minimum_height=card.setter('height'))
 
             with card.canvas.before:
-                Color(rgba=[0.051, 0.071, 0.102, 1])
+                Color(rgba=theme.bg_panel)
                 _bg = Rectangle(pos=card.pos, size=card.size)
             card.bind(pos=lambda w, v, r=_bg: setattr(r, 'pos', v))
             card.bind(size=lambda w, v, r=_bg: setattr(r, 'size', v))
 
-            header = Label(
-                text=group_name,
-                font_size='22sp',
-                bold=True,
+            # --- Header row: icon + group name + spacer + "N params" badge ---
+            header_row = BoxLayout(
+                orientation='horizontal',
                 size_hint_y=None,
-                height=40,
+                height=dp(36),
+                spacing=dp(8),
+            )
+
+            # Icon circle
+            icon_lbl = Label(
+                text=icon_char,
+                font_size='18sp',
+                bold=True,
+                size_hint_x=None,
+                width=dp(28),
+                halign='center',
+                valign='middle',
+                color=accent,
+            )
+            icon_lbl.bind(size=icon_lbl.setter('text_size'))
+            header_row.add_widget(icon_lbl)
+
+            # Group name
+            name_lbl = Label(
+                text=group_name.upper(),
+                font_size='16sp',
+                bold=True,
                 halign='left',
                 valign='middle',
                 color=accent,
             )
-            header.bind(size=header.setter('text_size'))
-            card.add_widget(header)
+            name_lbl.bind(size=name_lbl.setter('text_size'))
+            header_row.add_widget(name_lbl)
 
+            # Param count badge
+            count_lbl = Label(
+                text=f'{len(params)} params',
+                font_size='12sp',
+                size_hint_x=None,
+                width=dp(70),
+                halign='right',
+                valign='middle',
+                color=list(theme.text_dim),
+            )
+            count_lbl.bind(size=count_lbl.setter('text_size'))
+            header_row.add_widget(count_lbl)
+
+            card.add_widget(header_row)
+
+            # --- Param rows ---
             for p in params:
                 row = BoxLayout(
                     orientation='horizontal',
                     size_hint_y=None,
-                    height=48,
-                    spacing=4,
+                    height=dp(44),
+                    spacing=dp(4),
                 )
 
+                # Label
                 lbl = Label(
                     text=p['label'],
-                    font_size='18sp',
-                    size_hint_x=0.35,
+                    font_size='16sp',
+                    size_hint_x=0.40,
                     halign='left',
                     valign='middle',
                 )
                 lbl.bind(size=lbl.setter('text_size'))
                 row.add_widget(lbl)
 
+                # Variable name (dim accent)
                 var_lbl = Label(
                     text=p['var'],
-                    font_size='16sp',
-                    size_hint_x=0.15,
+                    font_size='13sp',
+                    size_hint_x=0.18,
                     halign='center',
                     valign='middle',
-                    color=[accent[0], accent[1], accent[2], 0.6],
+                    color=[accent[0], accent[1], accent[2], 0.5],
                 )
                 var_lbl.bind(size=var_lbl.setter('text_size'))
                 row.add_widget(var_lbl)
 
+                # TextInput value
                 ti = TextInput(
                     text='',
                     multiline=False,
-                    size_hint_x=0.35,
-                    font_size='18sp',
+                    size_hint_x=0.28,
+                    font_size='16sp',
                     halign='center',
                 )
                 var_name = p['var']
@@ -746,20 +803,61 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
                 self._field_widgets[var_name] = ti
                 row.add_widget(ti)
 
+                # Unit label
                 unit_lbl = Label(
                     text=p['unit'],
-                    font_size='16sp',
-                    size_hint_x=0.15,
-                    halign='right',
+                    font_size='13sp',
+                    size_hint_x=0.10,
+                    halign='left',
                     valign='middle',
+                    color=list(theme.text_dim),
                 )
                 unit_lbl.bind(size=unit_lbl.setter('text_size'))
                 row.add_widget(unit_lbl)
 
+                # Dirty dot indicator
+                dot = Widget(
+                    size_hint=(None, None),
+                    size=(dp(14), dp(14)),
+                    opacity=0,
+                )
+                dot.pos_hint = {'center_y': 0.5}
+                with dot.canvas:
+                    dot._dot_color = Color(rgba=[0.980, 0.749, 0.043, 1])
+                    dot._dot_ellipse = Ellipse(
+                        pos=dot.pos, size=dot.size,
+                    )
+                dot.bind(
+                    pos=lambda w, v: setattr(w._dot_ellipse, 'pos', v),
+                    size=lambda w, v: setattr(w._dot_ellipse, 'size', v),
+                )
+                self._dot_widgets[var_name] = dot
+                row.add_widget(dot)
+
                 card.add_widget(row)
 
             card_wrapper.add_widget(card)
-            container.add_widget(card_wrapper)
+            card_list.append(card_wrapper)
+
+        # --- Arrange cards into 2-column rows ---
+        for i in range(0, len(card_list), 2):
+            pair_row = BoxLayout(
+                orientation='horizontal',
+                size_hint_y=None,
+                spacing=dp(12),
+            )
+            pair_row.bind(minimum_height=pair_row.setter('height'))
+
+            pair_row.add_widget(card_list[i])
+
+            if i + 1 < len(card_list):
+                pair_row.add_widget(card_list[i + 1])
+            else:
+                # Odd number of groups — add spacer for the empty right column
+                spacer = Widget(size_hint_x=0.5)
+                pair_row.add_widget(spacer)
+
+            container.add_widget(pair_row)
 
     def on_field_text_change(self, var_name: str, text: str) -> None:
         """Called by KV on_text bindings when a field value changes."""
@@ -769,18 +867,20 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
         state = self.validate_field(var_name, text)
         widget = self._field_widgets.get(var_name)
         if widget is not None:
-            self._set_field_state(widget, state)
+            self._set_field_state(widget, state, var_name)
 
         if state == 'modified':
             self._mark_dirty(var_name, text)
         else:
             self._clear_dirty(var_name)
 
-    def _set_field_state(self, widget, state: str) -> None:
-        """Update the border color of a TextInput widget based on validation state."""
+    def _set_field_state(self, widget, state: str, var_name: str = '') -> None:
+        """Update border color of TextInput and dirty dot based on validation state."""
         BORDER_NORMAL = [0.118, 0.145, 0.188, 1]
         BORDER_AMBER = [0.980, 0.749, 0.043, 0.9]
         BORDER_RED = [0.900, 0.200, 0.200, 0.9]
+        DOT_AMBER = [0.980, 0.749, 0.043, 1]
+        DOT_RED = [0.900, 0.200, 0.200, 1]
         try:
             if state == 'error':
                 color = BORDER_RED
@@ -792,6 +892,26 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
             if hasattr(widget, '_border_color_instruction'):
                 widget._border_color_instruction.rgba = color
             widget._param_state = state
+
+            # Update dirty dot if available
+            dot = self._dot_widgets.get(var_name) if var_name else None
+            if dot is None and hasattr(self, '_dot_widgets'):
+                # Try to find by reverse-lookup from widget
+                for vn, w in self._field_widgets.items():
+                    if w is widget:
+                        dot = self._dot_widgets.get(vn)
+                        break
+            if dot is not None:
+                if state == 'error':
+                    dot.opacity = 1
+                    if hasattr(dot, '_dot_color'):
+                        dot._dot_color.rgba = DOT_RED
+                elif state == 'modified':
+                    dot.opacity = 1
+                    if hasattr(dot, '_dot_color'):
+                        dot._dot_color.rgba = DOT_AMBER
+                else:
+                    dot.opacity = 0
         except Exception:
             pass
 
@@ -859,7 +979,7 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
                 if hasattr(self, 'pending_count'):
                     self.pending_count = 0  # type: ignore[attr-defined]
                 for vname, widget in self._field_widgets.items():
-                    self._set_field_state(widget, 'valid')
+                    self._set_field_state(widget, 'valid', vname)
 
             Clock.schedule_once(_update_ui)
 
@@ -888,6 +1008,176 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
             if ctrl is None:
                 return
 
+            new_vals: dict[str, float] = {}
+            for p in param_defs_snapshot:
+                var = p['var']
+                try:
+                    raw = ctrl.cmd(f"MG {var}")
+                    new_vals[var] = float(raw.strip())
+                except Exception:
+                    pass
+
+            def _update_ui(*_args):
+                loading_was = getattr(self, '_loading', False)
+                try:
+                    if hasattr(self, '_loading'):
+                        self._loading = True  # type: ignore[attr-defined]
+                    self._controller_vals.update(new_vals)
+                    for var_name, widget in self._field_widgets.items():
+                        val = new_vals.get(var_name)
+                        if val is not None and hasattr(widget, 'text'):
+                            widget.text = str(val)
+                    self._dirty.clear()
+                    if hasattr(self, 'pending_count'):
+                        self.pending_count = 0  # type: ignore[attr-defined]
+                    for var_name, widget in self._field_widgets.items():
+                        self._set_field_state(widget, 'valid')
+                finally:
+                    if hasattr(self, '_loading'):
+                        self._loading = loading_was  # type: ignore[attr-defined]
+
+            Clock.schedule_once(_update_ui)
+
+        submit(_job)
+
+    # ------------------------------------------------------------------
+    # First time setup — write all params so DMC variables exist
+    # ------------------------------------------------------------------
+
+    def first_time_setup(self) -> None:
+        """Write every parameter field value to the controller, run #VARCALC, burn NV.
+
+        Used on a fresh controller where DMC variables may not exist yet.
+        Writes every PARAM_DEF value (from the text fields, or the current
+        controller value) so the controller has a complete set of variables.
+        Then fires hmiCalc to run #VARCALC and burns to non-volatile memory.
+        """
+        import time  # noqa: PLC0415
+        from dmccodegui.hmi.dmc_vars import (  # noqa: PLC0415
+            HMI_CALC, HMI_TRIGGER_FIRE,
+        )
+
+        if self.controller is None or not self.controller.is_connected():
+            return
+
+        param_defs_snapshot = mc.get_param_defs()
+
+        # Collect values: prefer text field, then controller cache
+        values: dict[str, str] = {}
+        for p in param_defs_snapshot:
+            var = p['var']
+            widget = self._field_widgets.get(var)
+            text = ''
+            if widget is not None and hasattr(widget, 'text') and widget.text.strip():
+                text = widget.text.strip()
+            elif var in self._controller_vals:
+                text = str(self._controller_vals[var])
+            if text:
+                values[var] = text
+
+        def _job():
+            ctrl = self.controller
+            if ctrl is None:
+                return
+
+            # Write every parameter
+            for var_name, text in values.items():
+                try:
+                    ctrl.cmd(f"{var_name}={text}")
+                except Exception:
+                    pass
+
+            # Fire #VARCALC
+            try:
+                ctrl.cmd(f"{HMI_CALC}={HMI_TRIGGER_FIRE}")
+            except Exception:
+                pass
+
+            time.sleep(0.5)
+
+            # Read back all values
+            new_vals: dict[str, float] = {}
+            for p in param_defs_snapshot:
+                var = p['var']
+                try:
+                    raw = ctrl.cmd(f"MG {var}")
+                    new_vals[var] = float(raw.strip())
+                except Exception:
+                    pass
+
+            # Burn to NV
+            try:
+                ctrl.cmd("BV")
+            except Exception:
+                pass
+
+            def _update_ui(*_args):
+                loading_was = getattr(self, '_loading', False)
+                try:
+                    if hasattr(self, '_loading'):
+                        self._loading = True  # type: ignore[attr-defined]
+                    self._controller_vals.update(new_vals)
+                    for var_name, widget in self._field_widgets.items():
+                        val = new_vals.get(var_name)
+                        if val is not None and hasattr(widget, 'text'):
+                            widget.text = str(val)
+                    self._dirty.clear()
+                    if hasattr(self, 'pending_count'):
+                        self.pending_count = 0  # type: ignore[attr-defined]
+                    for var_name, widget in self._field_widgets.items():
+                        self._set_field_state(widget, 'valid')
+                finally:
+                    if hasattr(self, '_loading'):
+                        self._loading = loading_was  # type: ignore[attr-defined]
+
+            Clock.schedule_once(_update_ui)
+
+        submit(_job)
+
+    # ------------------------------------------------------------------
+    # Run calculation — trigger #VARCALC for new knife profile
+    # ------------------------------------------------------------------
+
+    def run_calculation(self) -> None:
+        """Fire hmiCalc to run #VARCALC on the controller, then read back values.
+
+        Used when a new knife profile is loaded and derived variables (cpm,
+        thkCt, bOutDis, cComp curve, etc.) need to be recalculated from
+        the current parameter values already on the controller.
+        Also writes any pending dirty field values before triggering.
+        """
+        import time  # noqa: PLC0415
+        from dmccodegui.hmi.dmc_vars import (  # noqa: PLC0415
+            HMI_CALC, HMI_TRIGGER_FIRE,
+        )
+
+        if self.controller is None or not self.controller.is_connected():
+            return
+
+        param_defs_snapshot = mc.get_param_defs()
+        dirty_snapshot = dict(self._dirty) if self._dirty else {}
+
+        def _job():
+            ctrl = self.controller
+            if ctrl is None:
+                return
+
+            # Write any pending dirty values first
+            for var_name, text in dirty_snapshot.items():
+                try:
+                    ctrl.cmd(f"{var_name}={text}")
+                except Exception:
+                    pass
+
+            # Fire #VARCALC
+            try:
+                ctrl.cmd(f"{HMI_CALC}={HMI_TRIGGER_FIRE}")
+            except Exception:
+                pass
+
+            time.sleep(0.5)
+
+            # Read back all values
             new_vals: dict[str, float] = {}
             for p in param_defs_snapshot:
                 var = p['var']

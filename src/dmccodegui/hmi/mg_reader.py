@@ -154,18 +154,24 @@ class MgReader:
     # ------------------------------------------------------------------
 
     def _dispatch_message(self, line: str) -> None:
-        """Classify *line* and schedule dispatch to appropriate handlers."""
+        """Classify *line* and schedule dispatch to appropriate handlers.
+
+        ALL messages are sent to log_handlers so the controller log shows
+        everything. State and position messages are additionally routed to
+        their specialized handlers for structured processing.
+        """
         kind, value = self._classify_line(line)
 
+        # Always send raw line to log handlers (controller log shows everything)
+        for fn in list(self._log_handlers):
+            Clock.schedule_once(lambda dt, _fn=fn, _v=line: _fn(_v))
+
+        # Additionally route to specialized handlers
         if kind == "state":
             for fn in list(self._state_handlers):
                 Clock.schedule_once(lambda dt, _fn=fn, _v=value: _fn(_v))
         elif kind == "position":
             for fn in list(self._position_handlers):
-                Clock.schedule_once(lambda dt, _fn=fn, _v=value: _fn(_v))
-        else:
-            # freeform log
-            for fn in list(self._log_handlers):
                 Clock.schedule_once(lambda dt, _fn=fn, _v=value: _fn(_v))
 
     # ------------------------------------------------------------------
@@ -211,7 +217,7 @@ class MgReader:
                             if raw_line:
                                 self._dispatch_message(raw_line)
                 except Exception:
-                    # GMessage timeout or read error — retry
+                    # GMessage timeout or read error — normal, just retry
                     pass
         finally:
             try:

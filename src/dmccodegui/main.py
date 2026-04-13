@@ -341,6 +341,8 @@ class DMCApp(App):
             self.state.machine_type = mtype
             self.state.notify()
             picker.dismiss()
+            if callable(on_selected):
+                on_selected(mtype)
             # First-launch: load machine screens inline so they are available
             # immediately without a restart. Only needed when no 'run' screen
             # exists yet (i.e. first configuration of the machine type).
@@ -358,10 +360,39 @@ class DMCApp(App):
                         if hasattr(screen, "controller") and hasattr(screen, "state"):
                             screen.controller = self.controller
                             screen.state = self.state
+                else:
+                    # Machine type changed — requires app restart per Phase 20 spec
+                    from kivy.uix.modalview import ModalView
+                    restart_modal = ModalView(auto_dismiss=False, size_hint=(0.45, 0.3))
+                    restart_layout = BoxLayout(orientation="vertical", padding="20dp", spacing="12dp")
+                    restart_layout.add_widget(Label(
+                        text="Machine type changed.\nPlease restart the application.",
+                        font_size="18sp",
+                        halign="center",
+                    ))
+                    exit_btn = Button(
+                        text="Exit Now",
+                        size_hint_y=None,
+                        height="56dp",
+                        background_color=(0.1, 0.4, 0.2, 1),
+                    )
+
+                    def _do_exit(*_):
+                        restart_modal.dismiss()
+                        try:
+                            for screen in list(sm.screens):
+                                if hasattr(screen, "cleanup"):
+                                    screen.cleanup()
+                        except Exception:
+                            pass
+                        self.stop()
+
+                    exit_btn.bind(on_release=_do_exit)
+                    restart_layout.add_widget(exit_btn)
+                    restart_modal.add_widget(restart_layout)
+                    restart_modal.open()
             except Exception:
                 pass
-            if callable(on_selected):
-                on_selected(mtype)
 
         # One button per machine type
         for mtype in mc.MACHINE_TYPES:
@@ -592,7 +623,8 @@ class DMCApp(App):
             if selected != mc.get_active_type():
                 mc.set_active_type(selected)
             popup.dismiss()
-            # Show restart notice
+            # Show restart notice — per Phase 20 spec, machine type change
+            # requires full app exit and restart to load correct screens.
             restart_modal = ModalView(auto_dismiss=False, size_hint=(0.45, 0.3))
             restart_layout = BoxLayout(orientation="vertical", padding="20dp", spacing="12dp")
             restart_layout.add_widget(Label(
@@ -793,6 +825,10 @@ class DMCApp(App):
                 pass
         if addr:
             self.mg_reader.start(addr)
+            print(f"[MgReader] start requested with addr={addr}, "
+                  f"log_handlers={len(self.mg_reader._log_handlers)}")
+        else:
+            print("[MgReader] no address available — MG reader not started")
 
     def _stop_mg_reader(self) -> None:
         """Stop the app-wide MgReader."""
@@ -881,7 +917,7 @@ class DMCApp(App):
         jobs.submit(do_disc)
 
     def e_stop(self) -> None:
-        """Emergency stop: ST ABCD + HX via priority path, then handle reset.
+        """Emergency stop: ST ABCD via priority path, then handle reset.
 
         Stays connected — no disconnect() call, no navigation change.
         """

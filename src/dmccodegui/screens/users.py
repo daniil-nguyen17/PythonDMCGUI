@@ -17,6 +17,7 @@ try:
     from kivy.uix.popup import Popup
     from kivy.uix.screenmanager import Screen
     from kivy.uix.textinput import TextInput
+    from dmccodegui.theme_manager import theme
 
     # Role badge colours (RGBA tuples)
     _ROLE_COLORS = {
@@ -136,7 +137,7 @@ try:
                         color = _ROLE_COLORS.get(r, (0.3, 0.3, 0.3, 1))
                         btn.background_color = color
                     else:
-                        btn.background_color = (0.071, 0.094, 0.133, 1)
+                        btn.background_color = tuple(theme.bg_row)
             except Exception:
                 pass
 

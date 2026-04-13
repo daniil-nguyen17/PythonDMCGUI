@@ -180,8 +180,8 @@
                     text: 'Operator'
                     font_size: '16sp'
                     background_normal: ''
-                    background_color: 0.071, 0.094, 0.133, 1
-                    color: 1, 1, 1, 1
+                    background_color: theme.bg_row
+                    color: theme.text_main
                     on_release: root._select_role('operator')
 
                 Button:
@@ -189,8 +189,8 @@
                     text: 'Setup'
                     font_size: '16sp'
                     background_normal: ''
-                    background_color: 0.071, 0.094, 0.133, 1
-                    color: 1, 1, 1, 1
+                    background_color: theme.bg_row
+                    color: theme.text_main
                     on_release: root._select_role('setup')
 
                 Button:
@@ -198,8 +198,8 @@
                     text: 'Admin'
                     font_size: '16sp'
                     background_normal: ''
-                    background_color: 0.071, 0.094, 0.133, 1
-                    color: 1, 1, 1, 1
+                    background_color: theme.bg_row
+                    color: theme.text_main
                     on_release: root._select_role('admin')
 
         # Error message
@@ -224,8 +224,8 @@
                 text: 'Cancel'
                 font_size: '18sp'
                 background_normal: ''
-                background_color: 0.3, 0.3, 0.3, 1
-                color: 1, 1, 1, 1
+                background_color: theme.border
+                color: theme.text_main
                 on_release: root.press_cancel()
 
             Button:

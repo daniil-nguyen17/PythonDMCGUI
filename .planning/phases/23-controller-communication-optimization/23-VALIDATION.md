@@ -38,26 +38,25 @@ created: 2026-04-13
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 23-01-01 | 01 | 0 | COMM-01 | unit | `python -m pytest tests/test_poll.py::TestMegaBatchRead -x` | ❌ W0 | ⬜ pending |
-| 23-01-02 | 01 | 0 | COMM-01 | unit | `python -m pytest tests/test_poll.py::TestMegaBatchCallCount -x` | ❌ W0 | ⬜ pending |
-| 23-01-03 | 01 | 0 | COMM-02 | unit | covered by COMM-01 mega-batch test | ❌ W0 | ⬜ pending |
-| 23-01-04 | 01 | 0 | COMM-02 | unit | `python -m pytest tests/test_poll.py::TestStaleOnFailure -x` | ❌ W0 | ⬜ pending |
-| 23-01-05 | 01 | 0 | COMM-03 | unit | `python -m pytest tests/test_mg_reader.py::TestStateDispatch -x` | ❌ W0 | ⬜ pending |
-| 23-01-06 | 01 | 0 | COMM-04 | unit | `python -m pytest tests/test_mg_reader.py::TestStateHandlerCalledWithInt -x` | ❌ W0 | ⬜ pending |
-| 23-01-07 | 01 | 0 | COMM-04 | unit | `python -m pytest tests/test_mg_reader.py::TestFilterStateFromLog -x` | ❌ W0 | ⬜ pending |
-| 23-01-08 | 01 | 0 | COMM-05 | unit | `python -m pytest tests/test_controller.py::TestDirectFlag -x` | ❌ W0 | ⬜ pending |
-| 23-01-09 | 01 | 0 | COMM-06 | unit | `python -m pytest tests/test_controller.py::TestPrimaryTimeout -x` | ❌ W0 | ⬜ pending |
-| 23-01-10 | 01 | 0 | COMM-06 | unit | `python -m pytest tests/test_mg_reader.py::TestMgHandleTimeout -x` | ❌ W0 | ⬜ pending |
+| 23-01-01 | 01 | 0 | COMM-01 | unit | `python -m pytest tests/test_poll.py::TestMegaBatchRead -x` | W0 | pending |
+| 23-01-02 | 01 | 0 | COMM-01 | unit | `python -m pytest tests/test_poll.py::TestBatchCallCount -x` | W0 | pending |
+| 23-01-03 | 01 | 0 | COMM-02 | unit | covered by COMM-01 mega-batch test | W0 | pending |
+| 23-01-04 | 01 | 0 | COMM-02 | unit | `python -m pytest tests/test_poll.py::TestStaleOnFailure -x` | W0 | pending |
+| 23-01-05 | 01 | 0 | COMM-05 | unit | `python -m pytest tests/test_poll.py::TestConnectionHardening -x` | W0 | pending |
+| 23-01-06 | 01 | 0 | COMM-06 | unit | `python -m pytest tests/test_poll.py::TestConnectionHardening -x` | W0 | pending |
+| 23-02-01 | 02 | 0 | COMM-03 | unit | `python -m pytest tests/test_mg_reader.py::TestMgReaderDispatch -x` | W0 | pending |
+| 23-02-02 | 02 | 0 | COMM-04 | unit | `python -m pytest tests/test_mg_reader.py::TestStateFilteredFromLog -x` | W0 | pending |
+| 23-02-03 | 02 | 0 | COMM-04 | unit | `python -m pytest tests/test_mg_reader.py::TestHandlerRegistration -x` | W0 | pending |
+| 23-02-04 | 02 | 0 | COMM-06 | unit | `python -m pytest tests/test_mg_reader.py::TestMgHandleTimeout -x` | W0 | pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: pending / green / red / flaky*
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `tests/test_poll.py` — update existing mock responses from individual to batched format; add TestMegaBatchRead, TestMegaBatchCallCount, TestStaleOnFailure
-- [ ] `tests/test_mg_reader.py` — new file; TestStateDispatch, TestStateHandlerCalledWithInt, TestFilterStateFromLog, TestMgHandleTimeout
-- [ ] `tests/test_controller.py` — extend with TestDirectFlag, TestPrimaryTimeout
+- [ ] `tests/test_poll.py` -- update existing mock responses from individual to batched format; add TestMegaBatchRead, TestBatchCallCount, TestStaleOnFailure, TestConnectionHardening
+- [ ] `tests/test_mg_reader.py` -- new file; TestMgReaderDispatch, TestStateFilteredFromLog, TestHandlerRegistration, TestMgHandleTimeout, TestStartStop
 
 ---
 

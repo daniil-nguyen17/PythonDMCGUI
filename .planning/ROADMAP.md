@@ -57,7 +57,7 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
 - [x] **Phase 20: Screen Registry and Loader** — machine_config screen_classes mapping, _load_machine_screens() swap function, machine detection on connect (completed 2026-04-11)
 - [x] **Phase 21: Serration Screen Set** — SerrationRunScreen, SerrationAxesSetupScreen, SerrationParametersScreen with 3-axis layout and bComp stub (completed 2026-04-13)
 - [x] **Phase 22: Convex Screen Set** — ConvexRunScreen, ConvexAxesSetupScreen, ConvexParametersScreen with convex-specific layout (completed 2026-04-13)
-- [ ] **Phase 23: Controller Communication Optimization** — GRecord poll replacement, MG variable batching, structured state messages, MG reader thread, direct connection flag, explicit timeouts
+- [x] **Phase 23: Controller Communication Optimization** — GRecord poll replacement, MG variable batching, structured state messages, MG reader thread, direct connection flag, explicit timeouts (completed 2026-04-13)
 
 ---
 
@@ -281,7 +281,7 @@ Plans:
   3. The DMC program emits a structured MG message (e.g. "STATE:3") at each state transition and the app-wide MG reader thread dispatches to registered handlers within one message receipt
   4. Connecting with the --direct flag bypasses gcaps middleware and establishes a production-speed connection — confirmed by observing connection log output
   5. A gclib timeout error on the primary handle produces a timeout exception within 1000 ms; on the MG handle within 500 ms — not a hang
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [ ] 23-01-PLAN.md — Batch read function (read_all_state), connection hardening (--direct, --timeout), updated tests
 - [ ] 23-02-PLAN.md — App-wide MgReader module with position/state/log message parsing, tests
@@ -314,7 +314,7 @@ Plans:
 | 20. Screen Registry and Loader | 2/2 | Complete    | 2026-04-11 | - |
 | 21. Serration Screen Set | 2/2 | Complete    | 2026-04-13 | - |
 | 22. Convex Screen Set | 2/2 | Complete    | 2026-04-13 | - |
-| 23. Controller Communication Optimization | 2/3 | In Progress|  | - |
+| 23. Controller Communication Optimization | 3/3 | Complete   | 2026-04-13 | - |
 
 ---
 

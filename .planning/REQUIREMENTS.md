@@ -37,10 +37,10 @@ Requirements for multi-machine screen architecture and controller communication 
 
 ### Convex
 
-- [ ] **CONV-01**: ConvexRunScreen created from Flat Grind base with convex-specific adjustment panel
-- [ ] **CONV-02**: ConvexAxesSetupScreen created with 4-axis layout
-- [ ] **CONV-03**: ConvexParametersScreen created with convex-specific parameter groups
-- [ ] **CONV-04**: Placeholder param_defs noted — production sign-off requires real customer specs
+- [x] **CONV-01**: ConvexRunScreen created from Flat Grind base with convex-specific adjustment panel
+- [x] **CONV-02**: ConvexAxesSetupScreen created with 4-axis layout
+- [x] **CONV-03**: ConvexParametersScreen created with convex-specific parameter groups
+- [x] **CONV-04**: Placeholder param_defs noted — production sign-off requires real customer specs
 
 ### Controller Communication
 
@@ -93,10 +93,10 @@ Requirements for multi-machine screen architecture and controller communication 
 | SERR-02 | Phase 21 | Complete |
 | SERR-03 | Phase 21 | Complete |
 | SERR-04 | Phase 21 | Complete |
-| CONV-01 | Phase 22 | Pending |
-| CONV-02 | Phase 22 | Pending |
-| CONV-03 | Phase 22 | Pending |
-| CONV-04 | Phase 22 | Pending |
+| CONV-01 | Phase 22 | Complete |
+| CONV-02 | Phase 22 | Complete |
+| CONV-03 | Phase 22 | Complete |
+| CONV-04 | Phase 22 | Complete |
 | COMM-01 | Phase 23 | Pending |
 | COMM-02 | Phase 23 | Pending |
 | COMM-03 | Phase 23 | Pending |

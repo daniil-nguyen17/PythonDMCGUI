@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Multi-Machine
 status: unknown
-stopped_at: Phase 21 context gathered
-last_updated: "2026-04-11T16:22:32.655Z"
+stopped_at: Completed 21-01-PLAN.md
+last_updated: "2026-04-13T01:14:42.408Z"
 last_activity: 2026-04-11 — Phase 20 Plan 02 complete; registry-driven screen loader wired, base.kv purged of hard-coded machine screens, cleanup delegation, machType mismatch detection added
 progress:
   total_phases: 16
   completed_phases: 12
-  total_plans: 23
-  completed_plans: 23
+  total_plans: 25
+  completed_plans: 24
 ---
 
 # Project State
@@ -26,13 +26,13 @@ See: .planning/PROJECT.md (updated 2026-04-11)
 
 ```
 Milestone : v3.0 Multi-Machine
-Phase     : 20 — Screen Registry and Loader
-Plan      : 02/02 complete
-Status    : Phase 20 complete — ready for Phase 21 Serration Screen Set
-Progress  : [██████████] 100% (23/23 plans)
+Phase     : 21 — Serration Screen Set
+Plan      : 01/02 complete
+Status    : Phase 21 in progress — package skeleton done, Run screen (Plan 02) next
+Progress  : [██████████] 96% (24/25 plans)
 ```
 
-Last activity: 2026-04-11 — Phase 20 Plan 02 complete; registry-driven screen loader wired, base.kv purged of hard-coded machine screens, cleanup delegation, machType mismatch detection added
+Last activity: 2026-04-13 — Phase 21 Plan 01 complete; Serration screen package created, registry wired, numSerr added, 10 tests passing
 
 ## v3.0 Phase Map
 
@@ -41,7 +41,7 @@ Last activity: 2026-04-11 — Phase 20 Plan 02 complete; registry-driven screen 
 | 18 | Base Class Extraction | ARCH-01, ARCH-02, ARCH-03, ARCH-04 | Complete (2/2 plans) |
 | 19 | Flat Grind Rename and KV Split | FLAT-01, FLAT-02, FLAT-03, FLAT-04 | Complete (2/2 plans) |
 | 20 | Screen Registry and Loader | LOAD-01, LOAD-02, LOAD-03, LOAD-04 | Complete (2/2 plans) |
-| 21 | Serration Screen Set | SERR-01, SERR-02, SERR-03, SERR-04 | Not started |
+| 21 | Serration Screen Set | SERR-01, SERR-02, SERR-03, SERR-04 | In Progress (1/2 plans) |
 | 22 | Convex Screen Set | CONV-01, CONV-02, CONV-03, CONV-04 | Not started |
 | 23 | Controller Communication Optimization | COMM-01, COMM-02, COMM-03, COMM-04, COMM-05, COMM-06 | Not started |
 
@@ -74,6 +74,8 @@ Decisions affecting current work (v3.0):
 - [Phase 20-screen-registry-and-loader]: _MACH_TYPE_MAP maps controller machType int (1/2/3) to type strings — verify on hardware
 - [Phase 20-screen-registry-and-loader]: machType query failures and unknown values silently ignored — graceful degradation locked decision
 - [Phase 20-screen-registry-and-loader]: _add_machine_screens called after Factory.RootLayout(); load_kv called before KV_FILES loop for correct KV registration order
+- [Phase 21-serration-screen-set]: Copied flat_grind code into serration classes (no import from flat_grind) for full independence
+- [Phase 21-serration-screen-set]: D-axis absent from serration/axes_setup.kv entirely — axis_row_d not created, ids.get() returns None gracefully
 
 ### Critical Pitfalls (from research)
 
@@ -102,7 +104,7 @@ Decisions affecting current work (v3.0):
 
 ## Session Continuity
 
-Last session: 2026-04-11T16:22:32.652Z
-Stopped at: Phase 21 context gathered
-Resume file: .planning/phases/21-serration-screen-set/21-CONTEXT.md
+Last session: 2026-04-13T01:14:35.574Z
+Stopped at: Completed 21-01-PLAN.md
+Resume file: None
 Next action: Plan Phase 20 — Screen Registry and Loader

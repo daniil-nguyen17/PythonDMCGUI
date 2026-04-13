@@ -252,7 +252,7 @@ Plans:
   2. The Serration Axes Setup screen shows only A, B, and C axis controls — D-axis jog buttons and position labels are absent from the layout
   3. The Serration Run page contains a bComp panel area that is clearly marked as pending customer DMC program — it does not crash or error when rendered
   4. Editing a Serration-specific parameter and saving it writes only Serration param_defs values — no Flat Grind parameter keys are written
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 21-01-PLAN.md — Serration package skeleton, thin subclasses (AxesSetup, Parameters), KV files, registry update, test scaffold
 - [ ] 21-02-PLAN.md — SerrationRunScreen with BCompPanel widget, run.kv, full test coverage
@@ -312,7 +312,7 @@ Plans:
 | 18. Base Class Extraction | v3.0 | 2/2 | Complete | 2026-04-11 |
 | 19. Flat Grind Rename and KV Split | v3.0 | 2/2 | Complete | 2026-04-11 |
 | 20. Screen Registry and Loader | 2/2 | Complete    | 2026-04-11 | - |
-| 21. Serration Screen Set | v3.0 | 0/TBD | Not started | - |
+| 21. Serration Screen Set | 1/2 | In Progress|  | - |
 | 22. Convex Screen Set | v3.0 | 0/TBD | Not started | - |
 | 23. Controller Communication Optimization | v3.0 | 0/TBD | Not started | - |
 

@@ -31,8 +31,8 @@ Requirements for multi-machine screen architecture and controller communication 
 ### Serration
 
 - [ ] **SERR-01**: SerrationRunScreen created from Flat Grind base with D-axis elements removed
-- [ ] **SERR-02**: SerrationAxesSetupScreen created with 3-axis layout (A, B, C only)
-- [ ] **SERR-03**: SerrationParametersScreen created with serration-specific parameter groups
+- [x] **SERR-02**: SerrationAxesSetupScreen created with 3-axis layout (A, B, C only)
+- [x] **SERR-03**: SerrationParametersScreen created with serration-specific parameter groups
 - [ ] **SERR-04**: bComp panel stubbed in SerrationRunScreen (blocked on customer DMC program)
 
 ### Convex
@@ -90,8 +90,8 @@ Requirements for multi-machine screen architecture and controller communication 
 | FLAT-03 | Phase 19 | Complete |
 | FLAT-04 | Phase 19 | Complete |
 | SERR-01 | Phase 21 | Pending |
-| SERR-02 | Phase 21 | Pending |
-| SERR-03 | Phase 21 | Pending |
+| SERR-02 | Phase 21 | Complete |
+| SERR-03 | Phase 21 | Complete |
 | SERR-04 | Phase 21 | Pending |
 | CONV-01 | Phase 22 | Pending |
 | CONV-02 | Phase 22 | Pending |

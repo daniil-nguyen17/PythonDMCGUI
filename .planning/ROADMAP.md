@@ -268,8 +268,8 @@ Plans:
   4. Convex param_defs are clearly marked as placeholder in machine_config comments — a code comment identifies which values need customer production specs before sign-off
 **Plans:** 2 plans
 Plans:
-- [ ] 21-01-PLAN.md — Serration package skeleton, thin subclasses (AxesSetup, Parameters), KV files, registry update, test scaffold
-- [ ] 21-02-PLAN.md — SerrationRunScreen with BCompPanel widget, run.kv, full test coverage
+- [ ] 22-01-PLAN.md — Convex package skeleton, thin subclasses, KV files, registry update, explicit _CONVEX_PARAM_DEFS, test scaffold
+- [ ] 22-02-PLAN.md — ConvexRunScreen with ConvexAdjustPanel, full run.kv, complete test coverage
 
 ### Phase 23: Controller Communication Optimization
 **Goal**: The controller poll loop uses GRecord for position reads, user variables are batched, state transitions are detected via structured MG messages on a dedicated reader thread, and all gclib handles have explicit timeouts and use the direct connection flag

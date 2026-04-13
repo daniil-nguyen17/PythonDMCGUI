@@ -272,20 +272,19 @@ Plans:
 - [ ] 22-02-PLAN.md — ConvexRunScreen with ConvexAdjustPanel, full run.kv, complete test coverage
 
 ### Phase 23: Controller Communication Optimization
-**Goal**: The controller poll loop uses GRecord for position reads, user variables are batched, state transitions are detected via structured MG messages on a dedicated reader thread, and all gclib handles have explicit timeouts and use the direct connection flag
+**Goal**: The controller poll loop uses a single batched MG command for all position and state reads (GRecord confirmed absent from gclib Python wrapper), state transitions are detected via structured MG messages on an app-wide reader thread, and all gclib handles have explicit timeouts and use the direct connection flag
 **Depends on**: Phase 18
 **Requirements**: COMM-01, COMM-02, COMM-03, COMM-04, COMM-05, COMM-06
 **Success Criteria** (what must be TRUE):
-  1. The poll loop issues a single GRecord command per tick instead of individual MG TP commands for A, B, C, D positions — verified by adding a gclib call counter and confirming it drops from 4+ to 1 per tick
-  2. hmiState, ctSesKni, and ctStnKni are read in a single batched MG command per poll tick — no individual MG commands for these variables remain in poll.py
-  3. The DMC program emits a structured MG message (e.g. "STATE:3") at each state transition and the MG reader thread updates MachineState within one message receipt — sub-ms detection latency without polling hmiState
+  1. The poll loop issues a single batched MG command per tick instead of 7-8 individual MG commands for positions and state — verified by confirming ctrl.cmd call_count drops to 1 per tick
+  2. hmiState, ctSesKni, ctStnKni, and _XQ are read in the same single MG command as positions — no individual MG commands for these variables remain in poll.py
+  3. The DMC program emits a structured MG message (e.g. "STATE:3") at each state transition and the app-wide MG reader thread dispatches to registered handlers within one message receipt
   4. Connecting with the --direct flag bypasses gcaps middleware and establishes a production-speed connection — confirmed by observing connection log output
   5. A gclib timeout error on the primary handle produces a timeout exception within 1000 ms; on the MG handle within 500 ms — not a hang
 **Plans:** 2 plans
 Plans:
-- [ ] 21-01-PLAN.md — Serration package skeleton, thin subclasses (AxesSetup, Parameters), KV files, registry update, test scaffold
-- [ ] 21-02-PLAN.md — SerrationRunScreen with BCompPanel widget, run.kv, full test coverage
-
+- [ ] 23-01-PLAN.md — Mega-batch poll read, connection hardening (--direct, --timeout), updated tests
+- [ ] 23-02-PLAN.md — App-wide MgReader module, DMC state messages, per-screen MG cleanup
 ---
 
 ## Progress
@@ -314,7 +313,7 @@ Plans:
 | 20. Screen Registry and Loader | 2/2 | Complete    | 2026-04-11 | - |
 | 21. Serration Screen Set | 2/2 | Complete    | 2026-04-13 | - |
 | 22. Convex Screen Set | 2/2 | Complete    | 2026-04-13 | - |
-| 23. Controller Communication Optimization | v3.0 | 0/TBD | Not started | - |
+| 23. Controller Communication Optimization | v3.0 | 0/2 | Not started | - |
 
 ---
 

@@ -36,6 +36,7 @@ from ...hmi.dmc_vars import (
     BCOMP_ARRAY, BCOMP_NUM_SERR,
     CT_SES_KNI, CT_STN_KNI,
 )
+from ...hmi.poll import read_all_state
 from ...utils import jobs
 from ..base import BaseRunScreen
 from .widgets import BCompPanel
@@ -200,7 +201,9 @@ class SerrationRunScreen(BaseRunScreen):
     def _tick_pos(self, dt: float) -> None:
         """5 Hz clock: read A, B, C positions + state from controller in background.
 
-        Reads 3 axes only (no D). Uses a busy guard to prevent job pileup.
+        Reads 3 axes only (no D display). Uses a busy guard to prevent job pileup.
+        Uses read_all_state() for a single batched MG command. The D axis value
+        from the batch result is intentionally ignored — Serration has no D display.
         """
         if self._pos_busy:
             return
@@ -213,11 +216,8 @@ class SerrationRunScreen(BaseRunScreen):
             from ...utils.jobs import get_jobs
             cancel = get_jobs().cancel_event
 
-            try:
-                raw = ctrl.cmd("MG _TPA, _TPB, _TPC").strip()
-                vals = [float(v) for v in raw.split()]
-                a, b, c = vals[0], vals[1], vals[2]
-            except Exception:
+            result = read_all_state(ctrl)
+            if result is None:
                 self._pos_busy = False
                 return
 
@@ -225,18 +225,8 @@ class SerrationRunScreen(BaseRunScreen):
                 self._pos_busy = False
                 return
 
-            dmc_state = 0
-            ses_kni = 0
-            stn_kni = 0
-            try:
-                from ...hmi.dmc_vars import HMI_STATE_VAR
-                raw2 = ctrl.cmd(f"MG {HMI_STATE_VAR}, {CT_SES_KNI}, {CT_STN_KNI}").strip()
-                vals2 = [float(v) for v in raw2.split()]
-                dmc_state = int(vals2[0])
-                ses_kni = int(vals2[1])
-                stn_kni = int(vals2[2])
-            except Exception:
-                pass
+            a, b, c, _d, dmc_state, ses_kni, stn_kni, program_running = result
+            # D axis value is intentionally ignored — Serration has no D display
 
             def _apply(*_):
                 self._pos_busy = False

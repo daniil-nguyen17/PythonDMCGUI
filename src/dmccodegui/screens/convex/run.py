@@ -34,6 +34,7 @@ from ...hmi.dmc_vars import (
     STARTPT_C,
     POS_BUF_IDX, POS_BUF_A, POS_BUF_B, POS_BUF_SIZE,
 )
+from ...hmi.poll import read_all_state
 from ...utils import jobs
 import dmccodegui.machine_config as mc
 from ..base import BaseRunScreen
@@ -443,6 +444,8 @@ class ConvexRunScreen(BaseRunScreen):
         Uses a busy guard to prevent job pileup — if the previous read is still
         in the jobs queue or in-flight, this tick is skipped. This prevents the
         FIFO queue from backing up and blocking operator commands.
+
+        Uses read_all_state() for a single batched MG command covering all 8 values.
         """
         if self._pos_busy:
             return  # previous read still in flight — skip this tick
@@ -455,12 +458,8 @@ class ConvexRunScreen(BaseRunScreen):
             from ...utils.jobs import get_jobs
             cancel = get_jobs().cancel_event
 
-            # Batch 1: all 4 positions in one command (1 round-trip)
-            try:
-                raw = ctrl.cmd("MG _TPA, _TPB, _TPC, _TPD").strip()
-                vals = [float(v) for v in raw.split()]
-                a, b, c, d = vals[0], vals[1], vals[2], vals[3]
-            except Exception:
+            result = read_all_state(ctrl)
+            if result is None:
                 self._pos_busy = False
                 return
 
@@ -469,19 +468,7 @@ class ConvexRunScreen(BaseRunScreen):
                 self._pos_busy = False
                 return
 
-            # Batch 2: hmiState + knife counts (1 round-trip)
-            dmc_state = 0
-            ses_kni = 0
-            stn_kni = 0
-            try:
-                from ...hmi.dmc_vars import HMI_STATE_VAR, CT_SES_KNI, CT_STN_KNI
-                raw2 = ctrl.cmd(f"MG {HMI_STATE_VAR}, {CT_SES_KNI}, {CT_STN_KNI}").strip()
-                vals2 = [float(v) for v in raw2.split()]
-                dmc_state = int(vals2[0])
-                ses_kni = int(vals2[1])
-                stn_kni = int(vals2[2])
-            except Exception:
-                pass
+            a, b, c, d, dmc_state, ses_kni, stn_kni, program_running = result
 
             def _apply(*_):
                 self._pos_busy = False  # ready for next tick

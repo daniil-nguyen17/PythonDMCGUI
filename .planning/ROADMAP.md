@@ -252,7 +252,10 @@ Plans:
   2. The Serration Axes Setup screen shows only A, B, and C axis controls — D-axis jog buttons and position labels are absent from the layout
   3. The Serration Run page contains a bComp panel area that is clearly marked as pending customer DMC program — it does not crash or error when rendered
   4. Editing a Serration-specific parameter and saving it writes only Serration param_defs values — no Flat Grind parameter keys are written
-**Plans:** TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 21-01-PLAN.md — Serration package skeleton, thin subclasses (AxesSetup, Parameters), KV files, registry update, test scaffold
+- [ ] 21-02-PLAN.md — SerrationRunScreen with BCompPanel widget, run.kv, full test coverage
 
 ### Phase 22: Convex Screen Set
 **Goal**: The Convex Grind machine has its own Run, Axes Setup, and Parameters screens reachable through the screen loader — 4-axis layout with convex-specific controls, placeholder param_defs noted for future customer sign-off
@@ -263,7 +266,10 @@ Plans:
   2. The Convex Run page includes a convex-specific adjustment panel not present on the Flat Grind or Serration run screens
   3. The Convex Axes Setup screen shows all four axes (A, B, C, D) with correct labels for convex machine axis roles
   4. Convex param_defs are clearly marked as placeholder in machine_config comments — a code comment identifies which values need customer production specs before sign-off
-**Plans:** TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 21-01-PLAN.md — Serration package skeleton, thin subclasses (AxesSetup, Parameters), KV files, registry update, test scaffold
+- [ ] 21-02-PLAN.md — SerrationRunScreen with BCompPanel widget, run.kv, full test coverage
 
 ### Phase 23: Controller Communication Optimization
 **Goal**: The controller poll loop uses GRecord for position reads, user variables are batched, state transitions are detected via structured MG messages on a dedicated reader thread, and all gclib handles have explicit timeouts and use the direct connection flag
@@ -275,7 +281,10 @@ Plans:
   3. The DMC program emits a structured MG message (e.g. "STATE:3") at each state transition and the MG reader thread updates MachineState within one message receipt — sub-ms detection latency without polling hmiState
   4. Connecting with the --direct flag bypasses gcaps middleware and establishes a production-speed connection — confirmed by observing connection log output
   5. A gclib timeout error on the primary handle produces a timeout exception within 1000 ms; on the MG handle within 500 ms — not a hang
-**Plans:** TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 21-01-PLAN.md — Serration package skeleton, thin subclasses (AxesSetup, Parameters), KV files, registry update, test scaffold
+- [ ] 21-02-PLAN.md — SerrationRunScreen with BCompPanel widget, run.kv, full test coverage
 
 ---
 

@@ -219,3 +219,170 @@ def test_dmc_vars_bcomp_constants():
     )
     assert len(BCOMP_ARRAY) > 0, "BCOMP_ARRAY must not be empty"
     assert len(BCOMP_NUM_SERR) > 0, "BCOMP_NUM_SERR must not be empty"
+
+
+# ---------------------------------------------------------------------------
+# 11. SerrationRunScreen has no pos_d property (Plan 02)
+# ---------------------------------------------------------------------------
+
+def test_serration_run_screen_no_d_axis():
+    """SerrationRunScreen has no pos_d property — D-axis absent from Serration machine."""
+    from dmccodegui.screens.serration import SerrationRunScreen
+
+    s = SerrationRunScreen()
+    assert 'pos_d' not in s.properties(), (
+        "SerrationRunScreen must NOT have pos_d — D-axis is absent from Serration (3-axis only)"
+    )
+    assert 'pos_a' in s.properties(), "SerrationRunScreen must have pos_a"
+    assert 'pos_b' in s.properties(), "SerrationRunScreen must have pos_b"
+    assert 'pos_c' in s.properties(), "SerrationRunScreen must have pos_c"
+
+
+# ---------------------------------------------------------------------------
+# 12. SerrationRunScreen has _read_bcomp and _write_bcomp_element methods (Plan 02)
+# ---------------------------------------------------------------------------
+
+def test_serration_run_screen_has_bcomp_methods():
+    """SerrationRunScreen has _read_bcomp and _write_bcomp_element as callable methods."""
+    from dmccodegui.screens.serration import SerrationRunScreen
+
+    s = SerrationRunScreen()
+    assert callable(getattr(s, '_read_bcomp', None)), (
+        "SerrationRunScreen must have a callable _read_bcomp method"
+    )
+    assert callable(getattr(s, '_write_bcomp_element', None)), (
+        "SerrationRunScreen must have a callable _write_bcomp_element method"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 13. serration/run.py has no matplotlib import
+# ---------------------------------------------------------------------------
+
+def test_serration_run_screen_no_matplotlib():
+    """serration/run.py source file does not contain 'import matplotlib'."""
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    run_py_path = os.path.join(
+        project_root, 'src', 'dmccodegui', 'screens', 'serration', 'run.py'
+    )
+
+    assert os.path.exists(run_py_path), f"serration/run.py must exist at: {run_py_path}"
+
+    with open(run_py_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # Check for actual import statements (not comments)
+    lines = content.splitlines()
+    import_lines = [
+        line for line in lines
+        if ('import matplotlib' in line or 'from matplotlib' in line)
+        and not line.strip().startswith('#')
+    ]
+    assert not import_lines, (
+        f"serration/run.py must NOT contain matplotlib imports. Found: {import_lines}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 14. BCompPanel.build_rows() sets num_serrations correctly (Plan 02)
+# ---------------------------------------------------------------------------
+
+def test_bcomp_panel_renders_rows():
+    """BCompPanel.build_rows([0.1, 0.2, 0.3]) sets num_serrations == 3."""
+    from dmccodegui.screens.serration.widgets import BCompPanel
+
+    panel = BCompPanel()
+    panel.build_rows([0.1, 0.2, 0.3])
+
+    assert panel.num_serrations == 3, (
+        f"BCompPanel.num_serrations must be 3 after build_rows([0.1, 0.2, 0.3]), "
+        f"got {panel.num_serrations}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 15. BCompPanel validation constants are well-formed (Plan 02)
+# ---------------------------------------------------------------------------
+
+def test_bcomp_panel_validation():
+    """BCOMP_MIN_MM and BCOMP_MAX_MM are floats with min < 0 < max."""
+    from dmccodegui.screens.serration.widgets import BCOMP_MIN_MM, BCOMP_MAX_MM
+
+    assert isinstance(BCOMP_MIN_MM, float), (
+        f"BCOMP_MIN_MM must be a float, got {type(BCOMP_MIN_MM)}"
+    )
+    assert isinstance(BCOMP_MAX_MM, float), (
+        f"BCOMP_MAX_MM must be a float, got {type(BCOMP_MAX_MM)}"
+    )
+    assert BCOMP_MIN_MM < 0, (
+        f"BCOMP_MIN_MM must be negative, got {BCOMP_MIN_MM}"
+    )
+    assert BCOMP_MAX_MM > 0, (
+        f"BCOMP_MAX_MM must be positive, got {BCOMP_MAX_MM}"
+    )
+    assert BCOMP_MIN_MM < BCOMP_MAX_MM, (
+        f"BCOMP_MIN_MM ({BCOMP_MIN_MM}) must be less than BCOMP_MAX_MM ({BCOMP_MAX_MM})"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 16. ui/serration/run.kv has no pos_d (Plan 02)
+# ---------------------------------------------------------------------------
+
+def test_serration_run_kv_no_d_axis():
+    """ui/serration/run.kv must not contain 'pos_d'."""
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    kv_path = os.path.join(
+        project_root, 'src', 'dmccodegui', 'ui', 'serration', 'run.kv'
+    )
+
+    assert os.path.exists(kv_path), f"run.kv must exist at: {kv_path}"
+
+    with open(kv_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    assert 'pos_d' not in content, (
+        "ui/serration/run.kv must NOT contain 'pos_d' — D-axis absent from Serration machine"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 17. ui/serration/run.kv has no MatplotFigure (Plan 02)
+# ---------------------------------------------------------------------------
+
+def test_serration_run_kv_no_matplotlib():
+    """ui/serration/run.kv must not contain 'MatplotFigure'."""
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    kv_path = os.path.join(
+        project_root, 'src', 'dmccodegui', 'ui', 'serration', 'run.kv'
+    )
+
+    assert os.path.exists(kv_path), f"run.kv must exist at: {kv_path}"
+
+    with open(kv_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    assert 'MatplotFigure' not in content, (
+        "ui/serration/run.kv must NOT contain 'MatplotFigure' — no matplotlib in Serration run screen"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 18. ui/serration/run.kv has bcomp_panel id (Plan 02)
+# ---------------------------------------------------------------------------
+
+def test_serration_run_kv_has_bcomp():
+    """ui/serration/run.kv must contain 'bcomp_panel' id."""
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    kv_path = os.path.join(
+        project_root, 'src', 'dmccodegui', 'ui', 'serration', 'run.kv'
+    )
+
+    assert os.path.exists(kv_path), f"run.kv must exist at: {kv_path}"
+
+    with open(kv_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    assert 'bcomp_panel' in content, (
+        "ui/serration/run.kv must contain 'bcomp_panel' id — required for BCompPanel wiring"
+    )

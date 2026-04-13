@@ -55,7 +55,7 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
 - [x] **Phase 18: Base Class Extraction** — Extract BaseRunScreen, BaseAxesSetupScreen, BaseParametersScreen with shared controller wiring and subscription lifecycle (2/2 plans, completed 2026-04-11)
 - [x] **Phase 19: Flat Grind Rename and KV Split** — Rename existing screens to FlatGrind* classes with per-machine kv files in ui/flat_grind/ (completed 2026-04-11)
 - [x] **Phase 20: Screen Registry and Loader** — machine_config screen_classes mapping, _load_machine_screens() swap function, machine detection on connect (completed 2026-04-11)
-- [ ] **Phase 21: Serration Screen Set** — SerrationRunScreen, SerrationAxesSetupScreen, SerrationParametersScreen with 3-axis layout and bComp stub
+- [x] **Phase 21: Serration Screen Set** — SerrationRunScreen, SerrationAxesSetupScreen, SerrationParametersScreen with 3-axis layout and bComp stub (completed 2026-04-13)
 - [ ] **Phase 22: Convex Screen Set** — ConvexRunScreen, ConvexAxesSetupScreen, ConvexParametersScreen with convex-specific layout
 - [ ] **Phase 23: Controller Communication Optimization** — GRecord poll replacement, MG variable batching, structured state messages, MG reader thread, direct connection flag, explicit timeouts
 
@@ -252,7 +252,7 @@ Plans:
   2. The Serration Axes Setup screen shows only A, B, and C axis controls — D-axis jog buttons and position labels are absent from the layout
   3. The Serration Run page contains a bComp panel area that is clearly marked as pending customer DMC program — it does not crash or error when rendered
   4. Editing a Serration-specific parameter and saving it writes only Serration param_defs values — no Flat Grind parameter keys are written
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 21-01-PLAN.md — Serration package skeleton, thin subclasses (AxesSetup, Parameters), KV files, registry update, test scaffold
 - [ ] 21-02-PLAN.md — SerrationRunScreen with BCompPanel widget, run.kv, full test coverage
@@ -312,7 +312,7 @@ Plans:
 | 18. Base Class Extraction | v3.0 | 2/2 | Complete | 2026-04-11 |
 | 19. Flat Grind Rename and KV Split | v3.0 | 2/2 | Complete | 2026-04-11 |
 | 20. Screen Registry and Loader | 2/2 | Complete    | 2026-04-11 | - |
-| 21. Serration Screen Set | 1/2 | In Progress|  | - |
+| 21. Serration Screen Set | 2/2 | Complete   | 2026-04-13 | - |
 | 22. Convex Screen Set | v3.0 | 0/TBD | Not started | - |
 | 23. Controller Communication Optimization | v3.0 | 0/TBD | Not started | - |
 

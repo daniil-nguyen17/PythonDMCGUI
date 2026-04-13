@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Multi-Machine
 status: unknown
-stopped_at: Completed 21-01-PLAN.md
-last_updated: "2026-04-13T01:14:42.408Z"
-last_activity: 2026-04-11 — Phase 20 Plan 02 complete; registry-driven screen loader wired, base.kv purged of hard-coded machine screens, cleanup delegation, machType mismatch detection added
+stopped_at: Completed 21-02-PLAN.md
+last_updated: "2026-04-13T01:23:37.534Z"
+last_activity: 2026-04-13 — Phase 21 Plan 02 complete; SerrationRunScreen with BCompPanel, run.kv layout, 18 tests passing
 progress:
   total_phases: 16
-  completed_phases: 12
+  completed_phases: 13
   total_plans: 25
-  completed_plans: 24
+  completed_plans: 25
 ---
 
 # Project State
@@ -27,12 +27,12 @@ See: .planning/PROJECT.md (updated 2026-04-11)
 ```
 Milestone : v3.0 Multi-Machine
 Phase     : 21 — Serration Screen Set
-Plan      : 01/02 complete
-Status    : Phase 21 in progress — package skeleton done, Run screen (Plan 02) next
-Progress  : [██████████] 96% (24/25 plans)
+Plan      : 02/02 complete
+Status    : Phase 21 COMPLETE — full SerrationRunScreen with bComp panel, 18 tests passing
+Progress  : [██████████] 100% (25/25 plans)
 ```
 
-Last activity: 2026-04-13 — Phase 21 Plan 01 complete; Serration screen package created, registry wired, numSerr added, 10 tests passing
+Last activity: 2026-04-13 — Phase 21 Plan 02 complete; SerrationRunScreen implemented with BCompPanel, run.kv, 18 tests passing
 
 ## v3.0 Phase Map
 
@@ -41,7 +41,7 @@ Last activity: 2026-04-13 — Phase 21 Plan 01 complete; Serration screen packag
 | 18 | Base Class Extraction | ARCH-01, ARCH-02, ARCH-03, ARCH-04 | Complete (2/2 plans) |
 | 19 | Flat Grind Rename and KV Split | FLAT-01, FLAT-02, FLAT-03, FLAT-04 | Complete (2/2 plans) |
 | 20 | Screen Registry and Loader | LOAD-01, LOAD-02, LOAD-03, LOAD-04 | Complete (2/2 plans) |
-| 21 | Serration Screen Set | SERR-01, SERR-02, SERR-03, SERR-04 | In Progress (1/2 plans) |
+| 21 | Serration Screen Set | SERR-01, SERR-02, SERR-03, SERR-04 | Complete (2/2 plans) |
 | 22 | Convex Screen Set | CONV-01, CONV-02, CONV-03, CONV-04 | Not started |
 | 23 | Controller Communication Optimization | COMM-01, COMM-02, COMM-03, COMM-04, COMM-05, COMM-06 | Not started |
 
@@ -76,6 +76,7 @@ Decisions affecting current work (v3.0):
 - [Phase 20-screen-registry-and-loader]: _add_machine_screens called after Factory.RootLayout(); load_kv called before KV_FILES loop for correct KV registration order
 - [Phase 21-serration-screen-set]: Copied flat_grind code into serration classes (no import from flat_grind) for full independence
 - [Phase 21-serration-screen-set]: D-axis absent from serration/axes_setup.kv entirely — axis_row_d not created, ids.get() returns None gracefully
+- [Phase 21]: BCompPanel is a scrollable BoxLayout list (not bar chart); D-axis absent from SerrationRunScreen; no matplotlib in serration run screen
 
 ### Critical Pitfalls (from research)
 
@@ -104,7 +105,7 @@ Decisions affecting current work (v3.0):
 
 ## Session Continuity
 
-Last session: 2026-04-13T01:14:35.574Z
-Stopped at: Completed 21-01-PLAN.md
+Last session: 2026-04-13T01:23:37.529Z
+Stopped at: Completed 21-02-PLAN.md
 Resume file: None
 Next action: Plan Phase 20 — Screen Registry and Loader

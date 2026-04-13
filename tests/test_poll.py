@@ -391,6 +391,80 @@ class TestXQReadFailureDefaultsTrue(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# Phase 23-01 — Connection hardening tests
+# ---------------------------------------------------------------------------
+
+class TestConnectionHardening(unittest.TestCase):
+    """Tests that connect() and reset_handle() pass --direct and --timeout flags to GOpen."""
+
+    def _make_ctrl_with_mock_driver(self):
+        """Return a GalilController with a mock driver (GOpen does not raise)."""
+        from dmccodegui.controller import GalilController
+        mock_driver = MagicMock()
+        mock_driver.GOpen.return_value = None  # success
+        ctrl = GalilController(driver=mock_driver)
+        return ctrl, mock_driver
+
+    def test_connect_passes_direct_and_timeout_flags(self):
+        """connect(addr) calls GOpen with '{addr} --direct --timeout 1000 -MG 0'."""
+        from dmccodegui.controller import PRIMARY_FLAGS
+        ctrl, mock_driver = self._make_ctrl_with_mock_driver()
+        ctrl.connect("192.168.0.1")
+        mock_driver.GOpen.assert_called_once_with(f"192.168.0.1 {PRIMARY_FLAGS}")
+
+    def test_reset_handle_passes_direct_and_timeout_flags(self):
+        """reset_handle(addr) calls GOpen with '{addr} --direct --timeout 1000 -MG 0'."""
+        from dmccodegui.controller import PRIMARY_FLAGS
+        ctrl, mock_driver = self._make_ctrl_with_mock_driver()
+        ctrl._address = "192.168.0.1"
+        ctrl._connected = True
+        ctrl.reset_handle("192.168.0.1")
+        # GOpen should have been called with flags
+        calls = mock_driver.GOpen.call_args_list
+        self.assertTrue(
+            any(f"192.168.0.1 {PRIMARY_FLAGS}" in str(c) for c in calls),
+            f"GOpen not called with expected flags. Calls: {calls}"
+        )
+
+    def test_reset_handle_no_address_uses_self_address(self):
+        """reset_handle() with no address falls back to self._address."""
+        from dmccodegui.controller import PRIMARY_FLAGS
+        ctrl, mock_driver = self._make_ctrl_with_mock_driver()
+        ctrl._address = "192.168.0.99"
+        ctrl._connected = True
+        ctrl.reset_handle()  # no explicit address
+        calls = mock_driver.GOpen.call_args_list
+        self.assertTrue(
+            any(f"192.168.0.99 {PRIMARY_FLAGS}" in str(c) for c in calls),
+            f"GOpen not called with self._address. Calls: {calls}"
+        )
+
+    def test_reset_handle_with_explicit_address_uses_that_address(self):
+        """reset_handle(addr) uses the given address, not self._address."""
+        from dmccodegui.controller import PRIMARY_FLAGS
+        ctrl, mock_driver = self._make_ctrl_with_mock_driver()
+        ctrl._address = "192.168.0.1"
+        ctrl._connected = True
+        ctrl.reset_handle("10.0.0.5")
+        calls = mock_driver.GOpen.call_args_list
+        self.assertTrue(
+            any(f"10.0.0.5 {PRIMARY_FLAGS}" in str(c) for c in calls),
+            f"GOpen not called with explicit address. Calls: {calls}"
+        )
+
+    def test_connect_log_includes_direct_and_timeout(self):
+        """connect() logger message includes '--direct' and 'timeout=1000ms'."""
+        ctrl, mock_driver = self._make_ctrl_with_mock_driver()
+        log_messages = []
+        ctrl.set_logger(log_messages.append)
+        ctrl.connect("192.168.0.1")
+        self.assertTrue(
+            any("--direct" in m and "timeout=1000ms" in m for m in log_messages),
+            f"Expected log with '--direct' and 'timeout=1000ms'. Got: {log_messages}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Phase 23-01 — Mega-batch read tests
 # ---------------------------------------------------------------------------
 

@@ -59,6 +59,12 @@ class ParseError(Exception):
 
 MAX_EDGES_DEFAULT = 250
 
+# Flags appended to every GOpen address string for the primary command handle.
+# --direct: bypass gclib connection broker for a direct low-latency channel.
+# --timeout 1000: allow 1 second before raising a communication error.
+# -MG 0: do NOT subscribe to MG (message) output on this handle (MgReader uses its own handle).
+PRIMARY_FLAGS: str = "--direct --timeout 1000 -MG 0"
+
 FLOAT_CHARS = set("0123456789+-.eE")
 
 
@@ -116,12 +122,12 @@ class GalilController:
                 log.error("Failed to create gclib driver: %s", e)
                 return False
         try:
-            self._driver.GOpen(address)
+            self._driver.GOpen(f"{address} {PRIMARY_FLAGS}")
             self._connected = True
-            self._address = address  # Store raw address (without flags) for MG handle
+            self._address = address  # Store bare address (without flags) for reset_handle / MG handle
             if self._logger:
                 try:
-                    self._logger(f"Connected to: {address}")
+                    self._logger(f"[CTRL] Connected to {address} --direct, timeout=1000ms")
                 except Exception:
                     pass
             return True
@@ -166,7 +172,7 @@ class GalilController:
             return False
         try:
             self._driver.GClose()
-            self._driver.GOpen(addr)
+            self._driver.GOpen(f"{addr} {PRIMARY_FLAGS}")
             self._connected = True
             return True
         except Exception as e:

@@ -312,7 +312,7 @@ Plans:
 | 18. Base Class Extraction | v3.0 | 2/2 | Complete | 2026-04-11 |
 | 19. Flat Grind Rename and KV Split | v3.0 | 2/2 | Complete | 2026-04-11 |
 | 20. Screen Registry and Loader | 2/2 | Complete    | 2026-04-11 | - |
-| 21. Serration Screen Set | 2/2 | Complete   | 2026-04-13 | - |
+| 21. Serration Screen Set | 2/2 | Complete    | 2026-04-13 | - |
 | 22. Convex Screen Set | v3.0 | 0/TBD | Not started | - |
 | 23. Controller Communication Optimization | v3.0 | 0/TBD | Not started | - |
 

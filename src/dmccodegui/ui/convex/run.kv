@@ -1,0 +1,37 @@
+#:import theme dmccodegui.theme_manager.theme
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ConvexRunScreen — stub layout
+#
+# Plan 02 replaces this with the full Convex run screen implementation.
+# ──────────────────────────────────────────────────────────────────────────────
+
+<ConvexRunScreen>:
+    canvas.before:
+        Color:
+            rgba: theme.bg_dark
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: '16dp'
+        spacing: '12dp'
+
+        Label:
+            text: 'Convex Run Screen'
+            font_size: '24sp'
+            bold: True
+            color: (0.024, 0.714, 0.831, 1)
+            halign: 'center'
+            valign: 'middle'
+            text_size: self.size
+
+        Label:
+            text: 'Full implementation in Plan 02'
+            font_size: '14sp'
+            color: theme.text_dim
+            halign: 'center'
+            valign: 'middle'
+            text_size: self.size

@@ -62,9 +62,32 @@ _FLAT_PARAM_DEFS: List[Dict] = [
     {"label": "Counts/Rev D", "var": "ctsRevD", "unit": "cts", "group": "Calibration", "min": 1.0, "max": 1000000.0},
 ]
 
-# TODO: Convex Grind param_defs — placeholder copy of Flat.
-# Real DMC variable list will be provided by the customer in a later update.
-_CONVEX_PARAM_DEFS: List[Dict] = [d.copy() for d in _FLAT_PARAM_DEFS]
+# Placeholder — mirrors Flat Grind, pending customer convex specs.
+_CONVEX_PARAM_DEFS: List[Dict] = [
+    # Geometry group
+    {"label": "Knife Thickness", "var": "knfThk", "unit": "mm", "group": "Geometry", "min": 0.1, "max": 50.0},
+    {"label": "Edge Thickness", "var": "edgeThk", "unit": "mm", "group": "Geometry", "min": 0.01, "max": 10.0},
+    # Feedrates group
+    {"label": "Feed Rate A", "var": "fdA", "unit": "mm/s", "group": "Feedrates", "min": 0.1, "max": 500.0},
+    {"label": "Feed Rate B", "var": "fdB", "unit": "mm/s", "group": "Feedrates", "min": 0.1, "max": 500.0},
+    {"label": "Feed Rate C Down", "var": "fdCdn", "unit": "mm/s", "group": "Feedrates", "min": 0.1, "max": 500.0},
+    {"label": "Feed Rate C Up", "var": "fdCup", "unit": "mm/s", "group": "Feedrates", "min": 0.1, "max": 500.0},
+    {"label": "Feed Rate Park", "var": "fdPark", "unit": "mm/s", "group": "Feedrates", "min": 0.1, "max": 500.0},
+    {"label": "Feed Rate D", "var": "fdD", "unit": "mm/s", "group": "Feedrates", "min": 0.1, "max": 500.0},
+    # Calibration group (pitch/ratio/ctsRev x 4 axes)
+    {"label": "Pitch A", "var": "pitchA", "unit": "mm/rev", "group": "Calibration", "min": 0.001, "max": 100.0},
+    {"label": "Pitch B", "var": "pitchB", "unit": "mm/rev", "group": "Calibration", "min": 0.001, "max": 100.0},
+    {"label": "Pitch C", "var": "pitchC", "unit": "mm/rev", "group": "Calibration", "min": 0.001, "max": 100.0},
+    {"label": "Pitch D", "var": "pitchD", "unit": "deg/rev", "group": "Calibration", "min": 0.001, "max": 3600.0},
+    {"label": "Ratio A", "var": "ratioA", "unit": "", "group": "Calibration", "min": 0.001, "max": 1000.0},
+    {"label": "Ratio B", "var": "ratioB", "unit": "", "group": "Calibration", "min": 0.001, "max": 1000.0},
+    {"label": "Ratio C", "var": "ratioC", "unit": "", "group": "Calibration", "min": 0.001, "max": 1000.0},
+    {"label": "Ratio D", "var": "ratioD", "unit": "", "group": "Calibration", "min": 0.001, "max": 1000.0},
+    {"label": "Counts/Rev A", "var": "ctsRevA", "unit": "cts", "group": "Calibration", "min": 1.0, "max": 1000000.0},
+    {"label": "Counts/Rev B", "var": "ctsRevB", "unit": "cts", "group": "Calibration", "min": 1.0, "max": 1000000.0},
+    {"label": "Counts/Rev C", "var": "ctsRevC", "unit": "cts", "group": "Calibration", "min": 1.0, "max": 1000000.0},
+    {"label": "Counts/Rev D", "var": "ctsRevD", "unit": "cts", "group": "Calibration", "min": 1.0, "max": 1000000.0},
+]
 
 # Serration Grind param_defs — subset of Flat, D-axis entries removed, numSerr added.
 _D_AXIS_VARS = {"fdD", "pitchD", "ratioD", "ctsRevD"}
@@ -100,12 +123,11 @@ _REGISTRY: Dict[str, Dict] = {
         "axes": ["A", "B", "C", "D"],
         "has_bcomp": False,
         "param_defs": _CONVEX_PARAM_DEFS,
-        # TODO: Phase 22 will replace with real Convex screen classes.
-        "load_kv": "dmccodegui.screens.flat_grind.load_kv",
+        "load_kv": "dmccodegui.screens.convex.load_kv",
         "screen_classes": {
-            "run":        "dmccodegui.screens.flat_grind.FlatGrindRunScreen",
-            "axes_setup": "dmccodegui.screens.flat_grind.FlatGrindAxesSetupScreen",
-            "parameters": "dmccodegui.screens.flat_grind.FlatGrindParametersScreen",
+            "run":        "dmccodegui.screens.convex.ConvexRunScreen",
+            "axes_setup": "dmccodegui.screens.convex.ConvexAxesSetupScreen",
+            "parameters": "dmccodegui.screens.convex.ConvexParametersScreen",
         },
     },
     "3-Axes Serration Grind": {

@@ -291,3 +291,170 @@ def test_convex_load_kv_callable():
     assert callable(load_kv), (
         f"load_kv must be callable. Got type: {type(load_kv)}"
     )
+
+
+# ---------------------------------------------------------------------------
+# 13. ConvexRunScreen has all 4 axis Kivy properties
+# ---------------------------------------------------------------------------
+
+def test_convex_run_screen_has_all_4_axes():
+    """ConvexRunScreen has pos_a, pos_b, pos_c, pos_d as Kivy properties. [CONV-01]"""
+    from dmccodegui.screens.convex.run import ConvexRunScreen
+
+    s = ConvexRunScreen()
+    props = s.properties()
+
+    for axis_prop in ('pos_a', 'pos_b', 'pos_c', 'pos_d'):
+        assert axis_prop in props, (
+            f"ConvexRunScreen must have '{axis_prop}' as a Kivy property. "
+            f"Available properties: {sorted(props.keys())}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 14. ConvexRunScreen imports matplotlib
+# ---------------------------------------------------------------------------
+
+def test_convex_run_screen_has_matplotlib():
+    """screens/convex/run.py source contains a matplotlib import. [CONV-01]"""
+    import re
+
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    run_path = os.path.join(
+        project_root, 'src', 'dmccodegui', 'screens', 'convex', 'run.py'
+    )
+
+    assert os.path.exists(run_path), f"convex/run.py must exist at: {run_path}"
+
+    with open(run_path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+
+    # Find any non-comment line that imports matplotlib
+    matplotlib_import_found = any(
+        re.search(r'(?:from matplotlib|import matplotlib)', line)
+        and not line.lstrip().startswith('#')
+        for line in lines
+    )
+
+    assert matplotlib_import_found, (
+        "screens/convex/run.py must contain a matplotlib import (non-comment line). "
+        "ConvexRunScreen requires matplotlib for the live A/B position plot."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 15. ConvexRunScreen imports DeltaCBarChart from flat_grind.widgets
+# ---------------------------------------------------------------------------
+
+def test_convex_run_screen_has_delta_c_import():
+    """screens/convex/run.py source imports DeltaCBarChart from flat_grind.widgets. [CONV-01]"""
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    run_path = os.path.join(
+        project_root, 'src', 'dmccodegui', 'screens', 'convex', 'run.py'
+    )
+
+    assert os.path.exists(run_path), f"convex/run.py must exist at: {run_path}"
+
+    with open(run_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    assert 'DeltaCBarChart' in content, (
+        "screens/convex/run.py must import DeltaCBarChart. "
+        "ConvexRunScreen reuses the DeltaCBarChart from flat_grind.widgets."
+    )
+    assert 'flat_grind' in content and 'widgets' in content, (
+        "screens/convex/run.py must import DeltaCBarChart from flat_grind.widgets "
+        "(cross-package import is intentional per CONTEXT.md)."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 16. run.kv contains pos_d
+# ---------------------------------------------------------------------------
+
+def test_convex_run_kv_has_d_axis():
+    """ui/convex/run.kv contains 'pos_d' — D-axis position is displayed. [CONV-01]"""
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    kv_path = os.path.join(
+        project_root, 'src', 'dmccodegui', 'ui', 'convex', 'run.kv'
+    )
+
+    assert os.path.exists(kv_path), f"ui/convex/run.kv must exist at: {kv_path}"
+
+    with open(kv_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    assert 'pos_d' in content, (
+        "ui/convex/run.kv must contain 'pos_d' — "
+        "D-axis position must be bound in the Convex run layout."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 17. run.kv has ConvexAdjustPanel wired in with id: convex_adjust_panel
+# ---------------------------------------------------------------------------
+
+def test_convex_run_kv_has_convex_adjust_panel():
+    """ui/convex/run.kv contains 'convex_adjust_panel' id. [CONV-01]"""
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    kv_path = os.path.join(
+        project_root, 'src', 'dmccodegui', 'ui', 'convex', 'run.kv'
+    )
+
+    assert os.path.exists(kv_path), f"ui/convex/run.kv must exist at: {kv_path}"
+
+    with open(kv_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    assert 'convex_adjust_panel' in content, (
+        "ui/convex/run.kv must contain 'convex_adjust_panel' as a widget id. "
+        "The ConvexAdjustPanel must be wired into the Convex run layout."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 18. run.kv has MatplotFigure widget
+# ---------------------------------------------------------------------------
+
+def test_convex_run_kv_has_matplot_figure():
+    """ui/convex/run.kv contains 'MatplotFigure' — live A/B position plot widget. [CONV-01]"""
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    kv_path = os.path.join(
+        project_root, 'src', 'dmccodegui', 'ui', 'convex', 'run.kv'
+    )
+
+    assert os.path.exists(kv_path), f"ui/convex/run.kv must exist at: {kv_path}"
+
+    with open(kv_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    assert 'MatplotFigure' in content, (
+        "ui/convex/run.kv must contain 'MatplotFigure' widget. "
+        "The live A/B position plot is required in the Convex run layout."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 19. run.kv rule header is <ConvexRunScreen>, not <FlatGrindRunScreen>
+# ---------------------------------------------------------------------------
+
+def test_convex_run_kv_rule_header():
+    """ui/convex/run.kv has '<ConvexRunScreen>:' rule and no '<FlatGrindRunScreen>:'. [CONV-01]"""
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    kv_path = os.path.join(
+        project_root, 'src', 'dmccodegui', 'ui', 'convex', 'run.kv'
+    )
+
+    assert os.path.exists(kv_path), f"ui/convex/run.kv must exist at: {kv_path}"
+
+    with open(kv_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    assert '<ConvexRunScreen>' in content, (
+        "ui/convex/run.kv must contain '<ConvexRunScreen>' as the KV rule header. "
+        "Missing or incorrect rule header will prevent the widget from loading."
+    )
+    assert '<FlatGrindRunScreen>' not in content, (
+        "ui/convex/run.kv must NOT contain '<FlatGrindRunScreen>'. "
+        "KV rule name collision would cause the second definition to silently shadow the first."
+    )

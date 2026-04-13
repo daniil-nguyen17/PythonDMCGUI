@@ -444,6 +444,147 @@
                             height: max(self.texture_size[1], mg_log_scroll.height)
 
                 # ---------------------------------------------------------------
+                # AXIS POSITIONS (A=orange, B=purple, C=cyan, D=yellow)
+                # ---------------------------------------------------------------
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_y: None
+                    height: '130dp'
+                    padding: ['8dp', '4dp']
+                    spacing: '3dp'
+                    canvas.before:
+                        Color:
+                            rgba: theme.bg_panel
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [8,]
+                        Color:
+                            rgba: theme.border
+                        Line:
+                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                            width: 1.2
+
+                    Label:
+                        text: 'VI TRI TRUC (counts)'
+                        font_size: '11sp'
+                        bold: True
+                        color: theme.text_mid
+                        halign: 'left'
+                        valign: 'middle'
+                        text_size: self.size
+                        size_hint_y: None
+                        height: '18dp'
+
+                    # A axis row (orange)
+                    BoxLayout:
+                        id: pos_a_row
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: '24dp'
+                        spacing: '4dp'
+                        Label:
+                            text: 'A:'
+                            font_size: '11sp'
+                            bold: True
+                            color: 1.0, 0.60, 0.10, 1
+                            size_hint_x: None
+                            width: '22dp'
+                            halign: 'right'
+                            valign: 'middle'
+                            text_size: self.size
+                        Label:
+                            id: lbl_pos_a
+                            text: root.pos_a
+                            font_size: '13sp'
+                            bold: True
+                            color: 1.0, 0.60, 0.10, 1
+                            halign: 'left'
+                            valign: 'middle'
+                            text_size: self.size
+
+                    # B axis row (purple)
+                    BoxLayout:
+                        id: pos_b_row
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: '24dp'
+                        spacing: '4dp'
+                        Label:
+                            text: 'B:'
+                            font_size: '11sp'
+                            bold: True
+                            color: 0.73, 0.41, 1.0, 1
+                            size_hint_x: None
+                            width: '22dp'
+                            halign: 'right'
+                            valign: 'middle'
+                            text_size: self.size
+                        Label:
+                            id: lbl_pos_b
+                            text: root.pos_b
+                            font_size: '13sp'
+                            bold: True
+                            color: 0.73, 0.41, 1.0, 1
+                            halign: 'left'
+                            valign: 'middle'
+                            text_size: self.size
+
+                    # C axis row (cyan)
+                    BoxLayout:
+                        id: pos_c_row
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: '24dp'
+                        spacing: '4dp'
+                        Label:
+                            text: 'C:'
+                            font_size: '11sp'
+                            bold: True
+                            color: 0.024, 0.714, 0.831, 1
+                            size_hint_x: None
+                            width: '22dp'
+                            halign: 'right'
+                            valign: 'middle'
+                            text_size: self.size
+                        Label:
+                            id: lbl_pos_c
+                            text: root.pos_c
+                            font_size: '13sp'
+                            bold: True
+                            color: 0.024, 0.714, 0.831, 1
+                            halign: 'left'
+                            valign: 'middle'
+                            text_size: self.size
+
+                    # D axis row (yellow)
+                    BoxLayout:
+                        id: pos_d_row
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: '24dp'
+                        spacing: '4dp'
+                        Label:
+                            text: 'D:'
+                            font_size: '11sp'
+                            bold: True
+                            color: 1.0, 0.90, 0.10, 1
+                            size_hint_x: None
+                            width: '22dp'
+                            halign: 'right'
+                            valign: 'middle'
+                            text_size: self.size
+                        Label:
+                            id: lbl_pos_d
+                            text: root.pos_d
+                            font_size: '13sp'
+                            bold: True
+                            color: 1.0, 0.90, 0.10, 1
+                            halign: 'left'
+                            valign: 'middle'
+                            text_size: self.size
+
+                # ---------------------------------------------------------------
                 # STONE COMPENSATION
                 # ---------------------------------------------------------------
                 BoxLayout:

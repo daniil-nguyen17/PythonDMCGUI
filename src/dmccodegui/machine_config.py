@@ -66,12 +66,19 @@ _FLAT_PARAM_DEFS: List[Dict] = [
 # Real DMC variable list will be provided by the customer in a later update.
 _CONVEX_PARAM_DEFS: List[Dict] = [d.copy() for d in _FLAT_PARAM_DEFS]
 
-# TODO: Serration Grind param_defs — subset of Flat, D-axis entries removed.
-# Real DMC variable list will be provided by the customer in a later update.
+# Serration Grind param_defs — subset of Flat, D-axis entries removed, numSerr added.
 _D_AXIS_VARS = {"fdD", "pitchD", "ratioD", "ctsRevD"}
 _SERRATION_PARAM_DEFS: List[Dict] = [
     d.copy() for d in _FLAT_PARAM_DEFS if d["var"] not in _D_AXIS_VARS
 ]
+_SERRATION_PARAM_DEFS.append({
+    "label": "Num Serrations",
+    "var": "numSerr",
+    "unit": "",
+    "group": "Geometry",
+    "min": 1.0,
+    "max": 200.0,
+})
 
 # ---------------------------------------------------------------------------
 # Internal registry
@@ -105,12 +112,11 @@ _REGISTRY: Dict[str, Dict] = {
         "axes": ["A", "B", "C"],
         "has_bcomp": True,
         "param_defs": _SERRATION_PARAM_DEFS,
-        # TODO: Phase 21 will replace with real Serration screen classes.
-        "load_kv": "dmccodegui.screens.flat_grind.load_kv",
+        "load_kv": "dmccodegui.screens.serration.load_kv",
         "screen_classes": {
-            "run":        "dmccodegui.screens.flat_grind.FlatGrindRunScreen",
-            "axes_setup": "dmccodegui.screens.flat_grind.FlatGrindAxesSetupScreen",
-            "parameters": "dmccodegui.screens.flat_grind.FlatGrindParametersScreen",
+            "run":        "dmccodegui.screens.serration.SerrationRunScreen",
+            "axes_setup": "dmccodegui.screens.serration.SerrationAxesSetupScreen",
+            "parameters": "dmccodegui.screens.serration.SerrationParametersScreen",
         },
     },
 }

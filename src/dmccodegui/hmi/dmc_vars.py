@@ -143,3 +143,11 @@ POS_BUF_B: str = "bBuf"        # Ring buffer array for B-axis positions
 POS_BUF_C: str = "cBuf"        # Ring buffer array for C-axis positions
 POS_BUF_D: str = "dBuf"        # Ring buffer array for D-axis positions
 POS_BUF_SIZE: int = 300         # Ring buffer capacity
+
+# ---------------------------------------------------------------------------
+# Serration bComp array variable names
+# TODO: verify exact names against real Serration DMC program (customer to confirm)
+# ---------------------------------------------------------------------------
+
+BCOMP_ARRAY: str = "bComp"      # DMC array variable for per-serration B-axis compensation
+BCOMP_NUM_SERR: str = "numSerr" # DMC variable for number of serrations

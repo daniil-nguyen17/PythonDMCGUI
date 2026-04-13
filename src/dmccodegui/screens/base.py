@@ -170,23 +170,26 @@ class BaseRunScreen(Screen):
 
         Teardown order (locked):
         1. Stop position poll (cancel Clock interval).
-        2. Signal mg_reader thread to stop — set event only, do NOT join.
+        2. Unregister from app-wide MgReader (if registered via _mg_log_unreg).
         3. Close matplotlib figure.
         4. Unsubscribe from MachineState.
 
         Called by the screen loader on programmatic screen removal (Phase 20 swap).
-        The existing _stop_mg_reader() on on_leave keeps its join for normal navigation.
+        MgReader lifecycle is app-wide — only handler registration is screen-level.
         """
         # 1. Stop position poll
         if hasattr(self, '_stop_pos_poll'):
             logger.info("[%s] cleanup: stopping pos_poll", self.__class__.__name__)
             self._stop_pos_poll()
 
-        # 2. Signal mg_reader thread — set event, clear reference, do NOT join
-        if getattr(self, '_mg_stop_event', None) is not None:
-            logger.info("[%s] cleanup: signalling mg_stop_event", self.__class__.__name__)
-            self._mg_stop_event.set()
-        self._mg_thread = None  # type: ignore[attr-defined]
+        # 2. Unregister from app-wide MgReader (run screens register on_enter)
+        if getattr(self, '_mg_log_unreg', None) is not None:
+            logger.info("[%s] cleanup: unregistering mg_log_handler", self.__class__.__name__)
+            try:
+                self._mg_log_unreg()  # type: ignore[attr-defined]
+            except Exception:
+                pass
+            self._mg_log_unreg = None  # type: ignore[attr-defined]
 
         # 3. Close matplotlib figure
         fig = getattr(self, '_fig', None)

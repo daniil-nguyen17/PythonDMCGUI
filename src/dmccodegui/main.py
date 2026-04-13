@@ -47,6 +47,7 @@ try:
     from .screens.pin_overlay import PINOverlay
     from .theme_manager import theme as app_theme
     from .hmi.poll import ControllerPoller
+    from .hmi.mg_reader import MgReader
     from .hmi.dmc_vars import STATE_SETUP
     import dmccodegui.machine_config as mc
 except Exception:  # Allows running as a script: python src/dmccodegui/main.py
@@ -58,6 +59,7 @@ except Exception:  # Allows running as a script: python src/dmccodegui/main.py
     from dmccodegui.screens.pin_overlay import PINOverlay
     from dmccodegui.theme_manager import theme as app_theme
     from dmccodegui.hmi.poll import ControllerPoller
+    from dmccodegui.hmi.mg_reader import MgReader
     from dmccodegui.hmi.dmc_vars import STATE_SETUP
     import dmccodegui.machine_config as mc
 
@@ -114,6 +116,7 @@ class DMCApp(App):
         self._poll_cancel = None
         self._poller = None
         self._idle_event = None
+        self.mg_reader = MgReader()
         # AuthManager — path resolved at __init__ time so tests can override
         users_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "auth", "users.json"
@@ -230,6 +233,7 @@ class DMCApp(App):
         if self.controller.verify_connection():
             self.state.set_connected(True)
             self._start_poller()
+            self._start_mg_reader()
             self._preload_params()
             # Connection present — show machine type picker first if not configured,
             # then PIN overlay. Use callback chaining to guarantee order.
@@ -246,6 +250,7 @@ class DMCApp(App):
                             self.state.connected_address = addr
                             self.state.log(f"Connected to: {addr}")
                             self._start_poller()
+                            self._start_mg_reader()
                             self._preload_params()
                             # Auto-connect succeeded — startup flow (picker then PIN)
                             Clock.schedule_once(lambda *_: self._show_startup_flow(), 0)
@@ -500,6 +505,7 @@ class DMCApp(App):
     def _on_connect_from_setup(self) -> None:
         """Called when setup screen successfully connects. Show picker then PIN overlay."""
         self._start_poller()
+        self._start_mg_reader()
         self._preload_params()
         Clock.schedule_once(lambda *_: self._show_startup_flow(), 0)
         # Delay machType check to give poller time to establish connection
@@ -776,6 +782,22 @@ class DMCApp(App):
         if self._poller:
             self._poller.stop()
 
+    def _start_mg_reader(self) -> None:
+        """Start the app-wide MgReader using the controller's connected address."""
+        addr = getattr(self.state, 'connected_address', '') or ''
+        if not addr:
+            # Try to get address from controller directly
+            try:
+                addr = getattr(self.controller, '_address', '') or ''
+            except Exception:
+                pass
+        if addr:
+            self.mg_reader.start(addr)
+
+    def _stop_mg_reader(self) -> None:
+        """Stop the app-wide MgReader."""
+        self.mg_reader.stop()
+
     # ------------------------------------------------------------------
     # Controller poll (legacy — disabled; centralized poller handles this now)
     # ------------------------------------------------------------------
@@ -797,6 +819,7 @@ class DMCApp(App):
         if self._poll_cancel:
             self._poll_cancel()
         self._stop_poller()
+        self._stop_mg_reader()
         if self._idle_event:
             self._idle_event.cancel()
 
@@ -835,6 +858,7 @@ class DMCApp(App):
 
     def disconnect_and_refresh(self) -> None:
         self._stop_poller()
+        self._stop_mg_reader()
         def do_disc():
             self.controller.disconnect()
             def on_ui():

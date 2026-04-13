@@ -20,7 +20,6 @@ TODO: verify bComp array name against real Serration DMC program (customer to co
 from __future__ import annotations
 
 import logging
-import threading
 
 from kivy.clock import Clock
 from kivy.properties import (
@@ -105,8 +104,6 @@ class SerrationRunScreen(BaseRunScreen):
     _bcomp_panel: BCompPanel | None = None
     _pos_clock_event = None
     _pos_busy: bool = False
-    _mg_thread: threading.Thread | None = None
-    _mg_stop_event: threading.Event | None = None
     _disconnect_clock = None
     _disconnect_t0: float | None = None
     _cycle_start_time: float | None = None
@@ -145,8 +142,13 @@ class SerrationRunScreen(BaseRunScreen):
             panel.refresh_callback = self._read_bcomp_job
             self._read_bcomp_job()
 
-        # Start MG message reader
-        self._start_mg_reader()
+        # Register with app-wide MgReader for controller log messages
+        from kivy.app import App as _App
+        _app = _App.get_running_app()
+        if _app and hasattr(_app, 'mg_reader') and _app.mg_reader:
+            self._mg_log_unreg = _app.mg_reader.add_log_handler(self._on_mg_log)
+        else:
+            self._mg_log_unreg = None
 
     def on_leave(self, *args) -> None:
         """Called by Kivy when operator navigates away.
@@ -165,7 +167,10 @@ class SerrationRunScreen(BaseRunScreen):
             self._elapsed_clock_event.cancel()
             self._elapsed_clock_event = None
 
-        self._stop_mg_reader()
+        # Unregister from app-wide MgReader
+        if hasattr(self, '_mg_log_unreg') and self._mg_log_unreg:
+            self._mg_log_unreg()
+            self._mg_log_unreg = None
 
         # Restart the centralized poller for other screens
         from kivy.app import App
@@ -569,51 +574,13 @@ class SerrationRunScreen(BaseRunScreen):
         jobs.submit(_do)
 
     # -----------------------------------------------------------------------
-    # MG message reader (controller log)
+    # MG message handler (controller log) — called by app-wide MgReader
     # -----------------------------------------------------------------------
 
-    def _start_mg_reader(self) -> None:
-        """Start the MG (unsolicited message) reader thread for the controller log."""
-        if self._mg_thread is not None and self._mg_thread.is_alive():
-            return
-        self._mg_stop_event = threading.Event()
-        self._mg_thread = threading.Thread(
-            target=self._mg_reader_loop,
-            daemon=True,
-            name="SerrationMGReader",
-        )
-        self._mg_thread.start()
-
-    def _stop_mg_reader(self) -> None:
-        """Stop the MG message reader thread (join for normal navigation)."""
-        if self._mg_stop_event is not None:
-            self._mg_stop_event.set()
-        if self._mg_thread is not None:
-            self._mg_thread.join(timeout=1.0)
-            self._mg_thread = None
-        self._mg_stop_event = None
-
-    def _mg_reader_loop(self) -> None:
-        """Background thread: poll controller for unsolicited (MG) messages."""
-        stop = self._mg_stop_event
-        ctrl = self.controller
-        if ctrl is None or stop is None:
-            return
-
-        while not stop.is_set():
-            try:
-                msg = ctrl.message()
-                if msg:
-                    msg_strip = msg.strip()
-                    if msg_strip:
-                        def _append(msg_text=msg_strip):
-                            existing = self.mg_log_text
-                            lines = existing.split('\n') if existing else []
-                            lines.append(msg_text)
-                            if len(lines) > 100:
-                                lines = lines[-100:]
-                            self.mg_log_text = '\n'.join(lines)
-                        Clock.schedule_once(lambda *_, f=_append: f())
-            except Exception:
-                pass
-            stop.wait(0.1)
+    def _on_mg_log(self, text: str) -> None:
+        """Main thread: append a freeform MG log message (cap at 100 lines)."""
+        lines = self.mg_log_text.split('\n') if self.mg_log_text else []
+        lines.append(text)
+        if len(lines) > 100:
+            lines = lines[-100:]
+        self.mg_log_text = '\n'.join(lines)

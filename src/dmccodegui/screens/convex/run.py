@@ -8,7 +8,6 @@ KV FILE: ui/convex/run.kv
 """
 from __future__ import annotations
 
-import threading
 import time
 from collections import deque
 
@@ -178,8 +177,6 @@ class ConvexRunScreen(BaseRunScreen):
     _cpm_a_raw: float = 1200.0  # counts per mm — updated by _read_cpm_values
     _cpm_b_raw: float = 1200.0
     ## Toolpath preview disabled — was causing jobs queue blocking
-    _mg_thread: threading.Thread | None = None
-    _mg_stop_event: threading.Event | None = None
     _pos_clock_event = None  # lightweight position poll (replaces centralized poller on Run)
     _pos_busy: bool = False  # guard: skip tick if previous read still in flight
 
@@ -257,8 +254,13 @@ class ConvexRunScreen(BaseRunScreen):
         # Read startPtA/B and draw stone arcs (2 fast commands, FIFO after CPM)
         self._read_start_and_draw_stone()
 
-        # Start MG message reader (second gclib handle)
-        self._start_mg_reader()
+        # Register with app-wide MgReader for controller log messages
+        from kivy.app import App as _App
+        _app = _App.get_running_app()
+        if _app and hasattr(_app, 'mg_reader') and _app.mg_reader:
+            self._mg_log_unreg = _app.mg_reader.add_log_handler(self._append_mg_log)
+        else:
+            self._mg_log_unreg = None
 
     def on_leave(self, *args) -> None:
         """Called by Kivy when operator navigates away.
@@ -278,8 +280,10 @@ class ConvexRunScreen(BaseRunScreen):
         if self._plot_clock_event:
             self._plot_clock_event.cancel()
             self._plot_clock_event = None
-        # Stop MG message reader
-        self._stop_mg_reader()
+        # Unregister from app-wide MgReader
+        if hasattr(self, '_mg_log_unreg') and self._mg_log_unreg:
+            self._mg_log_unreg()
+            self._mg_log_unreg = None
 
         # Restart the centralized poller for other screens
         from kivy.app import App
@@ -1007,89 +1011,6 @@ class ConvexRunScreen(BaseRunScreen):
         self._fig.tight_layout(pad=0.5)
         if self._fig and self._fig.canvas:
             self._fig.canvas.draw_idle()
-
-    # -----------------------------------------------------------------------
-    # MG Message Reader — second gclib handle for unsolicited messages
-    #
-    # Uses --subscribe MG which configures the UDP unsolicited handle.
-    # HMI is the sole communicator — no GDK conflict.
-    # GMessage() takes NO arguments — timeout set via GTimeout().
-    # -----------------------------------------------------------------------
-
-    def _start_mg_reader(self) -> None:
-        """Open a second gclib handle subscribed to MG on a background thread."""
-        if self._mg_thread is not None:
-            return
-        if not self.controller or not self.controller.is_connected():
-            return
-
-        addr = getattr(self.controller, '_address', '')
-        if not addr:
-            return
-
-        self._mg_stop_event = threading.Event()
-        self._mg_thread = threading.Thread(
-            target=self._mg_reader_loop,
-            args=(addr, self._mg_stop_event),
-            daemon=True,
-        )
-        self._mg_thread.start()
-
-    def _stop_mg_reader(self) -> None:
-        """Signal the MG reader thread to stop and wait for it."""
-        if self._mg_stop_event is not None:
-            self._mg_stop_event.set()
-        if self._mg_thread is not None:
-            self._mg_thread.join(timeout=2.0)
-            self._mg_thread = None
-        self._mg_stop_event = None
-
-    def _mg_reader_loop(self, address: str, stop_event: threading.Event) -> None:
-        """Background thread: subscribe to MG via UDP and drain unsolicited messages.
-
-        GMessage() takes NO arguments — timeout controlled by GTimeout().
-        """
-        try:
-            import gclib  # type: ignore
-        except ImportError:
-            print("[ConvexRunScreen] MG reader: gclib not available")
-            return
-
-        handle = None
-        try:
-            handle = gclib.py()
-            handle.GOpen(f"{address} --subscribe MG")
-            handle.GTimeout(500)  # 500ms so loop checks stop_event regularly
-            print(f"[ConvexRunScreen] MG reader connected: {address} --subscribe MG")
-        except Exception as e:
-            print(f"[ConvexRunScreen] MG reader open failed: {e}")
-            if handle:
-                try:
-                    handle.GClose()
-                except Exception:
-                    pass
-            return
-
-        try:
-            while not stop_event.is_set():
-                try:
-                    msg = handle.GMessage()  # blocks up to 500ms (GTimeout)
-                    if msg:
-                        for line in msg.strip().split('\n'):
-                            line = line.strip()
-                            if line:
-                                Clock.schedule_once(
-                                    lambda *_, t=line: self._append_mg_log(t)
-                                )
-                except Exception:
-                    # Timeout or read error — just retry
-                    pass
-        finally:
-            try:
-                handle.GClose()
-            except Exception:
-                pass
-            print("[ConvexRunScreen] MG reader closed")
 
     def _append_mg_log(self, text: str) -> None:
         """Main thread: append MG message to the log (cap at 200 lines)."""

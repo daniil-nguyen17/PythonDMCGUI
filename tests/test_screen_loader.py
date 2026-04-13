@@ -92,6 +92,9 @@ class _BareApp:
         self._poll_cancel = None
         self._idle_event = None
         self._poller = None
+        # MgReader stub — no real MG thread in unit tests
+        from unittest.mock import MagicMock
+        self.mg_reader = MagicMock()
 
     def _add_machine_screens(self, sm):
         from dmccodegui.main import DMCApp
@@ -115,6 +118,10 @@ class _BareApp:
     def _stop_poller(self):
         if self._poller:
             self._poller.stop()
+
+    def _stop_mg_reader(self):
+        if hasattr(self, 'mg_reader') and self.mg_reader:
+            self.mg_reader.stop()
 
 
 def test_add_machine_screens_adds_run_axes_setup_parameters():

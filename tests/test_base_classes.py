@@ -460,31 +460,31 @@ def test_cleanup_base_run_screen_calls_stop_pos_poll():
     screen._stop_pos_poll.assert_called_once()
 
 
-def test_cleanup_base_run_screen_sets_mg_stop_event():
-    """BaseRunScreen.cleanup() calls _mg_stop_event.set() if event exists — non-blocking."""
+def test_cleanup_base_run_screen_calls_mg_log_unreg():
+    """BaseRunScreen.cleanup() calls _mg_log_unreg() if set — unregisters from app MgReader."""
+    from unittest.mock import MagicMock
     from dmccodegui.screens.base import BaseRunScreen
 
     screen = BaseRunScreen()
-    event = _MockEvent()
-    screen._mg_stop_event = event
-    screen._mg_thread = object()  # something truthy
+    unreg = MagicMock()
+    screen._mg_log_unreg = unreg
 
     screen.cleanup()
 
-    assert event.set_called, "_mg_stop_event.set() must be called during cleanup()"
+    unreg.assert_called_once()
 
 
-def test_cleanup_base_run_screen_clears_mg_thread_reference():
-    """BaseRunScreen.cleanup() sets _mg_thread to None (does not join)."""
+def test_cleanup_base_run_screen_clears_mg_log_unreg_reference():
+    """BaseRunScreen.cleanup() sets _mg_log_unreg to None after calling it."""
+    from unittest.mock import MagicMock
     from dmccodegui.screens.base import BaseRunScreen
 
     screen = BaseRunScreen()
-    screen._mg_stop_event = _MockEvent()
-    screen._mg_thread = object()
+    screen._mg_log_unreg = MagicMock()
 
     screen.cleanup()
 
-    assert screen._mg_thread is None, "_mg_thread must be cleared to None (no join)"
+    assert screen._mg_log_unreg is None, "_mg_log_unreg must be cleared to None after cleanup"
 
 
 def test_cleanup_base_run_screen_closes_fig():

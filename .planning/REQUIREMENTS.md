@@ -44,11 +44,11 @@ Requirements for multi-machine screen architecture and controller communication 
 
 ### Controller Communication
 
-- [ ] **COMM-01**: GRecord replaces individual MG position commands in poll loop (verify GRecord exists in wrapper first; check existing usage in screens before editing)
-- [ ] **COMM-02**: Remaining user variables (hmiState, ctSesKni, ctStnKni) batched into single MG command
+- [x] **COMM-01**: GRecord replaces individual MG position commands in poll loop (verify GRecord exists in wrapper first; check existing usage in screens before editing)
+- [x] **COMM-02**: Remaining user variables (hmiState, ctSesKni, ctStnKni) batched into single MG command
 - [x] **COMM-03**: DMC program emits structured MG messages at state transitions for sub-ms detection
 - [x] **COMM-04**: MG reader thread parses structured state messages and updates MachineState immediately
-- [ ] **COMM-05**: Production connections use --direct flag to bypass gcaps middleware
+- [x] **COMM-05**: Production connections use --direct flag to bypass gcaps middleware
 - [x] **COMM-06**: Explicit timeouts set on all gclib handles (primary: 1000ms, MG: 500ms)
 
 ## Future Requirements
@@ -97,11 +97,11 @@ Requirements for multi-machine screen architecture and controller communication 
 | CONV-02 | Phase 22 | Complete |
 | CONV-03 | Phase 22 | Complete |
 | CONV-04 | Phase 22 | Complete |
-| COMM-01 | Phase 23 | Pending |
-| COMM-02 | Phase 23 | Pending |
+| COMM-01 | Phase 23 | Complete |
+| COMM-02 | Phase 23 | Complete |
 | COMM-03 | Phase 23 | Complete |
 | COMM-04 | Phase 23 | Complete |
-| COMM-05 | Phase 23 | Pending |
+| COMM-05 | Phase 23 | Complete |
 | COMM-06 | Phase 23 | Complete |
 
 **Coverage:**

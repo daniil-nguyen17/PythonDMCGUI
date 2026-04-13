@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Multi-Machine
 status: unknown
-stopped_at: Completed 23-02-PLAN.md — MgReader module implemented
-last_updated: "2026-04-13T04:16:13.786Z"
+stopped_at: Completed 23-01-PLAN.md
+last_updated: "2026-04-13T04:20:12.028Z"
 last_activity: 2026-04-13 — Phase 22 Plan 02 complete; ConvexRunScreen full implementation, run.kv with MatplotFigure/DeltaC/ConvexAdjustPanel/D-axis rows, 19 tests passing
 progress:
   total_phases: 16
   completed_phases: 14
   total_plans: 30
-  completed_plans: 28
+  completed_plans: 29
 ---
 
 # Project State
@@ -80,6 +80,7 @@ Decisions affecting current work (v3.0):
 - [Phase 22-convex-screen-set]: Convex package fully independent (no flat_grind imports); _CONVEX_PARAM_DEFS explicit list literal with placeholder comment; registry updated to real Convex class paths
 - [Phase 22-convex-screen-set]: Convex run.kv adds D-axis position display rows not in flat_grind/run.kv — required for pos_d KV binding and pos_d_row serration visibility toggle
 - [Phase 23]: _classify_line is a @staticmethod for pure testability; _dispatch_message filters state/position from log handlers; _AXIS_PATTERN regex handles arbitrary KEY:VALUE pairs naturally
+- [Phase 23]: _TDA/_TDB/_TDC/_TDD (told position) used in BATCH_CMD; read_all_state() module-level for Plan 03 reuse; PRIMARY_FLAGS constant for testable GOpen assertions
 
 ### Critical Pitfalls (from research)
 
@@ -108,7 +109,7 @@ Decisions affecting current work (v3.0):
 
 ## Session Continuity
 
-Last session: 2026-04-13T04:16:13.783Z
-Stopped at: Completed 23-02-PLAN.md — MgReader module implemented
+Last session: 2026-04-13T04:20:12.024Z
+Stopped at: Completed 23-01-PLAN.md
 Resume file: None
 Next action: Plan Phase 20 — Screen Registry and Loader

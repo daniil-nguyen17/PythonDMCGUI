@@ -36,8 +36,9 @@ REM  MAIN: Wait loop ? poll buttons
 REM ============================================================
 #MAIN
 hmiState = 1;              ' IDLE set immediately so HMI stays in sync
+MG "STATE:", hmiState {F0}
 WT 100
-MG "SYSTEM READY - WAITING FOR INPUT"
+MG "IDLING FOR INPUT", "  A:", _TDA, "  B:", _TDB, "  C:", _TDC, "  D:", _TDD, "  hmiState:", hmiState {F0}, "  ctSesKni:", ctSesKni {F0}, "  ctStnKni:", ctStnKni {F0}
 
 #WtAtRt
 CB 1;                        
@@ -46,17 +47,21 @@ WT 100
 IF (@IN[29] = 0) | (hmiGrnd = 0);   ' GO GRIND button OR HMI trigger
   hmiGrnd = 1;                        ' reset HMI var first
   hmiState = 2;                        ' GRINDING
+  MG "STATE:", hmiState {F0}
   SB 1;
   JS #GRIND
   hmiState = 1;                        ' back to IDLE
+  MG "STATE:", hmiState {F0}
   JP #WtAtRt
 ENDIF
 
 IF (@IN[41] = 0) | (hmiSetp = 0);   ' SETUP button OR HMI trigger
   hmiSetp = 1;                        ' reset HMI var first
   hmiState = 3;                        ' SETUP
+  MG "STATE:", hmiState {F0}
   JS #SETUP
   hmiState = 1;                        ' back to IDLE
+  MG "STATE:", hmiState {F0}
   JP #WtAtRt
 ENDIF
 
@@ -147,15 +152,18 @@ IF (@IN[44] = 0) | (hmiNewS = 0);   ' new grind stone OR HMI trigger
   hmiNewS = 1;                        ' reset HMI var first
   JS #NEWSESS
 	hmiState=3
+  MG "STATE:", hmiState {F0}
   JP #SULOOP
 ENDIF
 ' --- BUTTON 25: RUN HOME ---
 IF (@IN[25] = 0) | (hmiHome = 0)
-  hmiHome = 1;                       
+  hmiHome = 1;
   hmiState = 4;                         ' HOMING
+  MG "STATE:", hmiState {F0}
   MG "STARTING HOMING SEQUENCE"
   JS #HOME
   hmiState = 3;                         ' back to SETUP
+  MG "STATE:", hmiState {F0}
   JP #SULOOP
 ENDIF
 
@@ -216,10 +224,11 @@ REM ============================================================
 REM  HOMING ROUTINE - all 4 axes
 REM ============================================================
 #HOME
-hmiState = 4;               
+hmiState = 4;
+MG "STATE:", hmiState {F0}
 SH ABCD
 SP 50000, 30000, 30000, 25000;
-HV 5000, 5000, 5000, 5000;
+HV 10000, 10000, 10000, 10000;
 
 HMC; BGC; AMC
 HMA; BGA; AMA
@@ -230,6 +239,7 @@ WT 2000
 DP 0, 0, 0, 0;
 MG "A B C D - ALL AXES HOMED and got 0"
 hmiState = 1;              ' back to IDLE (caller sets 3 if inside SULOOP)
+MG "STATE:", hmiState {F0}
 EN
 
 REM ============================================================
@@ -253,10 +263,10 @@ SPB = fdB * cpmB
 PAB=restPtB
 BGB; AMB
 MG "O VI TRI NGHI"
-MG "restPtA / A: ", restPtA , " or ", _TDA;
-MG "restPtB / B: ", restPtB , " or ", _TDB;
-MG "restPtC / C: ", restPtC , " or ", _TDC;
-MG "restPtD / D: ", restPtD , " or ", _TDD;
+MG "restPtA: ", restPtA , " or ", _TDA;
+MG "restPtB: ", restPtB , " or ", _TDB;
+MG "restPtC: ", restPtC , " or ", _TDC;
+MG "restPtD: ", restPtD , " or ", _TDD;
 EN
 
 REM ============================================================
@@ -332,8 +342,7 @@ EN
 
 REM ============================================================
 REM  SHOWPOS - track all 4 axis positions (runs on thread 1)
-REM  Updates aPos/bPos/cPos/dPos every 50ms for HMI polling.
-REM  Writes to ring buffer arrays for plot history.
+REM  Updates aPos/bPos/cPos/dPos every 50ms for HMI polling
 REM ============================================================
 #SHOWPOS
 WT 50

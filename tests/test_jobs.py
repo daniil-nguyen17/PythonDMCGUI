@@ -152,15 +152,16 @@ class TestResetHandle(unittest.TestCase):
         manager.attach_mock(driver.GClose, "GClose")
         manager.attach_mock(driver.GOpen, "GOpen")
         # Verify both were called
+        from dmccodegui.controller import PRIMARY_FLAGS
         driver.GClose.assert_called_once()
-        driver.GOpen.assert_called_once_with("192.168.0.1")
+        driver.GOpen.assert_called_once_with(f"192.168.0.1 {PRIMARY_FLAGS}")
         # Verify order: GClose index < GOpen index in call list
         gclose_idx = None
         gopen_idx = None
         for i, c in enumerate(driver.mock_calls):
             if c == call.GClose():
                 gclose_idx = i
-            elif c == call.GOpen("192.168.0.1"):
+            elif c == call.GOpen(f"192.168.0.1 {PRIMARY_FLAGS}"):
                 gopen_idx = i
         self.assertIsNotNone(gclose_idx, "GClose was not called")
         self.assertIsNotNone(gopen_idx, "GOpen was not called")
@@ -188,8 +189,9 @@ class TestResetHandle(unittest.TestCase):
 
         result = ctrl.reset_handle()
 
+        from dmccodegui.controller import PRIMARY_FLAGS
         self.assertTrue(result)
-        driver.GOpen.assert_called_once_with("10.0.0.5")
+        driver.GOpen.assert_called_once_with(f"10.0.0.5 {PRIMARY_FLAGS}")
 
     def test_reset_handle_returns_false_when_no_address(self):
         """reset_handle() with no stored address returns False immediately."""

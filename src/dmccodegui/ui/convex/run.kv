@@ -1,10 +1,8 @@
 #:import theme dmccodegui.theme_manager.theme
-
-# ──────────────────────────────────────────────────────────────────────────────
-# ConvexRunScreen — stub layout
-#
-# Plan 02 replaces this with the full Convex run screen implementation.
-# ──────────────────────────────────────────────────────────────────────────────
+#:import DeltaCBarChart dmccodegui.screens.flat_grind.widgets
+#:import run_module dmccodegui.screens.convex.run
+#:import kivy_matplotlib_widget kivy_matplotlib_widget
+#:import ConvexAdjustPanel dmccodegui.screens.convex.widgets.ConvexAdjustPanel
 
 <ConvexRunScreen>:
     canvas.before:
@@ -16,22 +14,551 @@
 
     BoxLayout:
         orientation: 'vertical'
-        padding: '16dp'
-        spacing: '12dp'
 
+        # -----------------------------------------------------------------------
+        # Disconnect banner (visible only when disconnected)
+        # -----------------------------------------------------------------------
         Label:
-            text: 'Convex Run Screen'
-            font_size: '24sp'
+            text: root.disconnect_banner
+            font_size: '16sp'
             bold: True
-            color: (0.024, 0.714, 0.831, 1)
+            color: 1, 1, 1, 1
+            size_hint_y: None
+            height: '40dp' if root.disconnect_banner else '0dp'
+            opacity: 1.0 if root.disconnect_banner else 0.0
             halign: 'center'
             valign: 'middle'
             text_size: self.size
+            canvas.before:
+                Color:
+                    rgba: (0.8, 0.1, 0.1, 1) if root.disconnect_banner else (0, 0, 0, 0)
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [4,]
 
-        Label:
-            text: 'Full implementation in Plan 02'
-            font_size: '14sp'
-            color: theme.text_dim
-            halign: 'center'
-            valign: 'middle'
-            text_size: self.size
+        # -----------------------------------------------------------------------
+        # Main content: LEFT (50%) + RIGHT (50%)
+        # -----------------------------------------------------------------------
+        BoxLayout:
+            orientation: 'horizontal'
+            spacing: '8dp'
+            padding: ['8dp', '8dp', '8dp', '4dp']
+
+            # ===================================================================
+            # LEFT COLUMN (50%) — plot + adjustment panels
+            # ===================================================================
+            BoxLayout:
+                size_hint_x: 0.5
+                orientation: 'vertical'
+                spacing: '8dp'
+
+                # Live A/B position plot
+                BoxLayout:
+                    canvas.before:
+                        Color:
+                            rgba: theme.bg_panel
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [8,]
+                        Color:
+                            rgba: theme.border
+                        Line:
+                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                            width: 1.2
+                    size_hint_y: 1
+                    padding: ['4dp', '4dp']
+
+                    MatplotFigure:
+                        id: ab_plot
+                        size_hint: 1, 1
+                        do_pan_x: False
+                        do_pan_y: False
+                        do_scale: False
+                        touch_mode: 'none'
+
+                # Delta-C: Knife Grind Adjustment (Flat/Convex only)
+                BoxLayout:
+                    id: delta_c_panel
+                    canvas.before:
+                        Color:
+                            rgba: theme.bg_panel
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [8,]
+                        Color:
+                            rgba: theme.border
+                        Line:
+                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                            width: 1.2
+                    size_hint_y: None
+                    height: '185dp'
+                    orientation: 'vertical'
+                    padding: '6dp'
+                    spacing: '3dp'
+
+                    # Header row: title + section count
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '28dp'
+
+                        Label:
+                            text: 'CHINH DO MAI TREN DAO'
+                            font_size: '11sp'
+                            color: theme.text_mid
+                            bold: True
+                            halign: 'left'
+                            text_size: self.size
+                            valign: 'middle'
+
+                        BoxLayout:
+                            size_hint_x: None
+                            width: '120dp'
+                            spacing: '4dp'
+
+                            Label:
+                                text: 'CHIA PHAN:'
+                                font_size: '11sp'
+                                color: theme.text_mid
+                                size_hint_x: None
+                                width: '60dp'
+                                halign: 'right'
+                                text_size: self.size
+                                valign: 'middle'
+
+                            Button:
+                                text: '-'
+                                size_hint_x: None
+                                width: '24dp'
+                                font_size: '14sp'
+                                background_normal: ''
+                                background_color: 0.1, 0.12, 0.16, 1
+                                on_release: root.on_section_count_change(root.section_count - 1)
+
+                            Label:
+                                id: section_count_label
+                                text: str(root.section_count)
+                                font_size: '13sp'
+                                color: theme.text_main
+                                bold: True
+                                size_hint_x: None
+                                width: '20dp'
+                                halign: 'center'
+                                text_size: self.size
+                                valign: 'middle'
+
+                            Button:
+                                text: '+'
+                                size_hint_x: None
+                                width: '24dp'
+                                font_size: '14sp'
+                                background_normal: ''
+                                background_color: 0.1, 0.12, 0.16, 1
+                                on_release: root.on_section_count_change(root.section_count + 1)
+
+                    # Up arrow
+                    Button:
+                        text: '\u25B2  + ' + str(run_module.DELTA_C_STEP)
+                        font_size: '12sp'
+                        bold: True
+                        background_normal: ''
+                        background_color: 0.02, 0.12, 0.06, 1
+                        color: 0.133, 0.773, 0.369, 1
+                        size_hint_y: None
+                        height: '28dp'
+                        on_release: root.on_adjust_up()
+
+                    # Bar chart
+                    DeltaCBarChart:
+                        id: delta_c_chart
+                        offsets: root.delta_c_offsets
+                        size_hint_y: None
+                        height: '90dp'
+
+                    # Down arrow
+                    Button:
+                        text: '\u25BC  - ' + str(run_module.DELTA_C_STEP)
+                        font_size: '12sp'
+                        bold: True
+                        background_normal: ''
+                        background_color: 0.15, 0.08, 0.02, 1
+                        color: 0.984, 0.573, 0.235, 1
+                        size_hint_y: None
+                        height: '28dp'
+                        on_release: root.on_adjust_down()
+
+                    # Controls row
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '30dp'
+                        spacing: '8dp'
+
+                        Label:
+                            text: 'DA CHON: ' + root.selected_section_value + ' cts'
+                            font_size: '11sp'
+                            color: theme.text_main
+                            halign: 'left'
+                            text_size: self.size
+                            valign: 'middle'
+                            size_hint_x: 0.4
+
+                        Button:
+                            text: 'XOA'
+                            font_size: '12sp'
+                            bold: True
+                            background_normal: ''
+                            background_color: 0.25, 0.08, 0.08, 1
+                            color: 0.95, 0.35, 0.35, 1
+                            size_hint_x: 0.25
+                            on_release: root.on_clear_delta_c()
+
+                        Button:
+                            text: 'LUU LAI'
+                            font_size: '12sp'
+                            bold: True
+                            background_normal: ''
+                            background_color: 0.118, 0.227, 0.373, 1
+                            color: 0.576, 0.773, 0.992, 1
+                            size_hint_x: 0.35
+                            on_release: root.on_apply_delta_c()
+
+                # Convex Adjust Panel (placeholder — below delta-C)
+                ConvexAdjustPanel:
+                    id: convex_adjust_panel
+                    size_hint_y: None
+                    height: '80dp'
+                    canvas.before:
+                        Color:
+                            rgba: theme.bg_panel
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [8,]
+                        Color:
+                            rgba: theme.border
+                        Line:
+                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                            width: 1.2
+
+                # GRIND PROGRESS (below convex adjust panel)
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_y: None
+                    height: '105dp'
+                    padding: ['8dp', '4dp']
+                    spacing: '3dp'
+                    canvas.before:
+                        Color:
+                            rgba: theme.bg_panel
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [8,]
+                        Color:
+                            rgba: theme.border
+                        Line:
+                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                            width: 1.2
+
+                    Label:
+                        text: 'QUA TRINH MAI DAO'
+                        font_size: '11sp'
+                        bold: True
+                        color: theme.text_mid
+                        halign: 'left'
+                        valign: 'middle'
+                        text_size: self.size
+                        size_hint_y: None
+                        height: '18dp'
+
+                    GridLayout:
+                        cols: 2
+                        spacing: '8dp'
+                        size_hint_y: None
+                        height: '40dp'
+
+                        BoxLayout:
+                            orientation: 'vertical'
+                            Label:
+                                text: 'THOI GIAN DA CHAY'
+                                font_size: '10sp'
+                                color: 0.396, 0.455, 0.545, 1
+                                halign: 'left'
+                                valign: 'bottom'
+                                text_size: self.size
+                            Label:
+                                id: lbl_elapsed
+                                text: root.cycle_elapsed
+                                font_size: '18sp'
+                                bold: True
+                                color: theme.text_main
+                                halign: 'left'
+                                valign: 'top'
+                                text_size: self.size
+
+                        BoxLayout:
+                            orientation: 'vertical'
+                            Label:
+                                text: 'THOI GIAN CON LAI'
+                                font_size: '10sp'
+                                color: 0.396, 0.455, 0.545, 1
+                                halign: 'left'
+                                valign: 'bottom'
+                                text_size: self.size
+                            Label:
+                                id: lbl_eta
+                                text: root.cycle_eta
+                                font_size: '18sp'
+                                bold: True
+                                color: theme.text_main
+                                halign: 'left'
+                                valign: 'top'
+                                text_size: self.size
+
+                    BoxLayout:
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: '24dp'
+                        spacing: '8dp'
+
+                        ProgressBar:
+                            id: cycle_progress
+                            min: 0
+                            max: 100
+                            value: root.cycle_completion_pct
+                            size_hint_y: None
+                            height: '10dp'
+                            pos_hint: {'center_y': 0.5}
+
+                        Label:
+                            text: '{0}%'.format(int(root.cycle_completion_pct))
+                            font_size: '11sp'
+                            bold: True
+                            color: 0.396, 0.455, 0.545, 1
+                            size_hint_x: None
+                            width: '36dp'
+                            halign: 'right'
+                            valign: 'middle'
+                            text_size: self.size
+
+                    GridLayout:
+                        cols: 2
+                        spacing: '8dp'
+                        size_hint_y: None
+                        height: '26dp'
+
+                        BoxLayout:
+                            orientation: 'horizontal'
+                            spacing: '4dp'
+                            Label:
+                                text: 'DAO TRONG CA:'
+                                font_size: '10sp'
+                                color: 0.396, 0.455, 0.545, 1
+                                halign: 'left'
+                                valign: 'middle'
+                                text_size: self.size
+                            Label:
+                                id: lbl_ses_knives
+                                text: root.session_knife_count
+                                font_size: '14sp'
+                                bold: True
+                                color: 0.235, 0.639, 0.996, 1
+                                halign: 'left'
+                                valign: 'middle'
+                                text_size: self.size
+
+                        BoxLayout:
+                            orientation: 'horizontal'
+                            spacing: '4dp'
+                            Label:
+                                text: 'DAO VOI DA:'
+                                font_size: '10sp'
+                                color: 0.396, 0.455, 0.545, 1
+                                halign: 'left'
+                                valign: 'middle'
+                                text_size: self.size
+                            Label:
+                                id: lbl_stn_knives
+                                text: root.stone_knife_count
+                                font_size: '14sp'
+                                bold: True
+                                color: theme.text_main
+                                halign: 'left'
+                                valign: 'middle'
+                                text_size: self.size
+
+            # ===================================================================
+            # RIGHT COLUMN (50%) — controller log + stone comp + grind progress
+            # ===================================================================
+            BoxLayout:
+                size_hint_x: 0.5
+                orientation: 'vertical'
+                spacing: '6dp'
+
+                # ---------------------------------------------------------------
+                # CONTROLLER LOG (fills available space)
+                # ---------------------------------------------------------------
+                BoxLayout:
+                    orientation: 'vertical'
+                    padding: ['8dp', '4dp']
+                    spacing: '2dp'
+                    canvas.before:
+                        Color:
+                            rgba: 0.05, 0.07, 0.10, 1
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [8,]
+                        Color:
+                            rgba: theme.border
+                        Line:
+                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                            width: 1.2
+
+                    Label:
+                        text: 'CONTROLLER LOG'
+                        font_size: '11sp'
+                        bold: True
+                        color: theme.text_mid
+                        halign: 'left'
+                        valign: 'middle'
+                        text_size: self.size
+                        size_hint_y: None
+                        height: '18dp'
+
+                    ScrollView:
+                        id: mg_log_scroll
+                        do_scroll_x: False
+
+                        Label:
+                            text: root.mg_log_text
+                            font_size: '28sp'
+                            font_name: 'Roboto'
+                            color: 0.4, 0.9, 0.4, 1
+                            halign: 'left'
+                            valign: 'bottom'
+                            text_size: self.width, None
+                            size_hint_y: None
+                            height: max(self.texture_size[1], mg_log_scroll.height)
+
+                # ---------------------------------------------------------------
+                # STONE COMPENSATION
+                # ---------------------------------------------------------------
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_y: None
+                    height: '140dp'
+                    padding: ['10dp', '6dp']
+                    spacing: '4dp'
+                    canvas.before:
+                        Color:
+                            rgba: theme.bg_panel
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [8,]
+                        Color:
+                            rgba: theme.border
+                        Line:
+                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                            width: 1.2
+
+                    BoxLayout:
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: '32dp'
+                        spacing: '8dp'
+
+                        Label:
+                            text: 'BU / BOT DA'
+                            font_size: '12sp'
+                            bold: True
+                            color: theme.text_mid
+                            halign: 'left'
+                            valign: 'middle'
+                            text_size: self.size
+                            size_hint_x: 0.5
+
+                        Label:
+                            id: start_pt_c_label
+                            text: root.start_pt_c
+                            font_size: '20sp'
+                            bold: True
+                            color: theme.text_main
+                            halign: 'right'
+                            valign: 'middle'
+                            text_size: self.size
+                            size_hint_x: 0.5
+
+                    Button:
+                        id: less_stone_btn
+                        text: 'BOT DA'
+                        font_size: '14sp'
+                        bold: True
+                        size_hint_y: None
+                        height: '40dp'
+                        background_normal: ''
+                        background_color: 0.15, 0.08, 0.02, 1
+                        color: 0.984, 0.573, 0.235, 1
+                        disabled: root.motion_active
+                        on_release: root.on_less_stone()
+
+                    Button:
+                        id: more_stone_btn
+                        text: 'THEM DA'
+                        font_size: '14sp'
+                        bold: True
+                        size_hint_y: None
+                        height: '40dp'
+                        background_normal: ''
+                        background_color: 0.02, 0.12, 0.06, 1
+                        color: 0.133, 0.773, 0.369, 1
+                        disabled: root.motion_active
+                        on_release: root.on_more_stone()
+
+                # (Grind progress in left column)
+
+        # -----------------------------------------------------------------------
+        # BOTTOM ACTION BAR (full width)
+        # -----------------------------------------------------------------------
+        BoxLayout:
+            orientation: 'horizontal'
+            size_hint_y: None
+            height: '72dp'
+            spacing: '12dp'
+            padding: ['12dp', '6dp', '12dp', '6dp']
+
+            canvas.before:
+                Color:
+                    rgba: theme.bg_panel
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+
+            Button:
+                id: start_grind_btn
+                text: 'BAT DAU MAI'
+                font_size: '16sp'
+                bold: True
+                size_hint_x: 1
+                background_normal: ''
+                background_color: 0.09, 0.40, 0.20, 1
+                color: 0.733, 0.969, 0.827, 1
+                disabled: root.motion_active
+                on_release: root.on_start_grind()
+
+            Button:
+                id: stop_btn
+                text: 'STOP'
+                font_size: '16sp'
+                bold: True
+                size_hint_x: 0.6
+                background_normal: ''
+                background_down: ''
+                background_color: (0.88, 0.06, 0.06, 1) if not self.disabled else (0.3, 0.1, 0.1, 1)
+                color: (1, 1, 1, 1) if not self.disabled else (0.5, 0.5, 0.5, 1)
+                opacity: 1.0 if root.motion_active else 0.0
+                disabled: not root.motion_active
+                on_release: root.on_stop()

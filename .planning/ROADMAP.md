@@ -266,7 +266,7 @@ Plans:
   2. The Convex Run page includes a convex-specific adjustment panel not present on the Flat Grind or Serration run screens
   3. The Convex Axes Setup screen shows all four axes (A, B, C, D) with correct labels for convex machine axis roles
   4. Convex param_defs are clearly marked as placeholder in machine_config comments — a code comment identifies which values need customer production specs before sign-off
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 22-01-PLAN.md — Convex package skeleton, thin subclasses, KV files, registry update, explicit _CONVEX_PARAM_DEFS, test scaffold
 - [ ] 22-02-PLAN.md — ConvexRunScreen with ConvexAdjustPanel, full run.kv, complete test coverage
@@ -313,7 +313,7 @@ Plans:
 | 19. Flat Grind Rename and KV Split | v3.0 | 2/2 | Complete | 2026-04-11 |
 | 20. Screen Registry and Loader | 2/2 | Complete    | 2026-04-11 | - |
 | 21. Serration Screen Set | 2/2 | Complete    | 2026-04-13 | - |
-| 22. Convex Screen Set | v3.0 | 0/TBD | Not started | - |
+| 22. Convex Screen Set | 1/2 | In Progress|  | - |
 | 23. Controller Communication Optimization | v3.0 | 0/TBD | Not started | - |
 
 ---

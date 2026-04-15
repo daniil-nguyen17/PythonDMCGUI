@@ -255,6 +255,9 @@ class ConvexRunScreen(BaseRunScreen):
         # Read startPtA/B and draw stone arcs (2 fast commands, FIFO after CPM)
         self._read_start_and_draw_stone()
 
+        # Read existing deltaC baseline from controller (profile/previous session)
+        self._read_delta_c_baseline()
+
         # Register with app-wide MgReader for controller log messages
         from kivy.app import App as _App
         _app = _App.get_running_app()
@@ -765,21 +768,31 @@ class ConvexRunScreen(BaseRunScreen):
                 self.selected_section_value = "0"
 
     def on_apply_delta_c(self) -> None:
-        """Convert section offsets to a deltaC array and send only changed indices.
+        """Add bar adjustments ON TOP of existing deltaC values and send to controller.
 
-        Compares the new values against the previously sent array to determine
-        which indices actually changed, then sends only those assignments.
-        Submits on the background job thread.
+        The deltaC array was loaded from a profile (CSV import or previous BV).
+        The bar offsets represent ADJUSTMENTS to that baseline — not replacements.
+        Final value = baseline + bar adjustment.
         """
         if not self.controller or not self.controller.is_connected():
             return
-        values = self._offsets_to_delta_c()
+        adjustments = self._offsets_to_delta_c()
         ctrl = self.controller
+
+        # Add adjustments on top of the baseline read from controller
+        baseline = getattr(self, '_controller_delta_c', None)
+        if baseline is None:
+            baseline = [0.0] * len(adjustments)
+
+        values = [0.0] * len(adjustments)
+        for i in range(len(adjustments)):
+            b = baseline[i] if i < len(baseline) else 0.0
+            values[i] = b + adjustments[i]
 
         # Compare against last-sent values to find changed indices
         prev = getattr(self, '_last_delta_c', None)
         if prev is None:
-            prev = [0.0] * len(values)
+            prev = list(baseline)
 
         changed: list[tuple[int, float]] = []
         for i, v in enumerate(values):
@@ -908,6 +921,27 @@ class ConvexRunScreen(BaseRunScreen):
     # -----------------------------------------------------------------------
     # Stone Compensation and CPM
     # -----------------------------------------------------------------------
+
+    def _read_delta_c_baseline(self) -> None:
+        """Read existing deltaC array from controller as baseline for bar adjustments."""
+        if not self.controller or not self.controller.is_connected():
+            return
+        ctrl = self.controller
+
+        def _do():
+            try:
+                raw_dc = ctrl.upload_array_auto("deltaC")
+                if raw_dc:
+                    baseline = [float(v) for v in raw_dc]
+                    def _apply(*_):
+                        self._controller_delta_c = baseline
+                        self._last_delta_c = list(baseline)
+                    Clock.schedule_once(_apply)
+                    print(f"[ConvexRunScreen] Read deltaC baseline: {len(baseline)} elements")
+            except Exception:
+                pass
+
+        jobs.submit(_do)
 
     def _read_start_pt_c(self) -> None:
         """Background: read startPtC from controller and update persistent label."""

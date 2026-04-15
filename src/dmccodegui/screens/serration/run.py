@@ -489,10 +489,13 @@ class SerrationRunScreen(BaseRunScreen):
         jobs.submit_urgent(do_stop)
 
     def on_shutdown(self) -> None:
-        """Shutdown sequence: BV (save all), enter setup, then home all axes.
+        """Shutdown: enter setup → home → wait for homing complete → BV.
 
-        Uses the one-shot HMI pattern — sends hmiSetp=0 to enter setup mode
-        (where hmiHome is polled), then hmiHome=0 to trigger homing.
+        Sequence:
+          1. hmiSetp=0 — enter setup mode (DMC goes to #SULOOP)
+          2. hmiHome=0 — trigger homing (DMC runs #HOME from #SULOOP)
+          3. Poll hmiState until it returns to 3 (SETUP) — homing done
+          4. BV — save all variables to NV memory
         """
         if not self.controller or not self.controller.is_connected():
             return
@@ -500,27 +503,45 @@ class SerrationRunScreen(BaseRunScreen):
             return
 
         from dmccodegui.hmi.dmc_vars import (
-            HMI_SETP, HMI_HOME, HMI_TRIGGER_FIRE,
+            HMI_SETP, HMI_HOME, HMI_TRIGGER_FIRE, HMI_STATE_VAR,
+            STATE_HOMING, STATE_SETUP,
         )
 
         self.motion_active = True  # Disable buttons during shutdown
 
         def _do_shutdown():
+            import time as _t
             ctrl = self.controller
             try:
-                # Step 1: Save all variables to NV
-                ctrl.cmd("BV")
-                logger.info("[Shutdown] BV done — variables saved")
-                import time; time.sleep(0.3)
-
-                # Step 2: Enter setup mode (so hmiHome is checked in #SULOOP)
+                # Step 1: Enter setup mode
                 ctrl.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}")
                 logger.info("[Shutdown] hmiSetp fired — entering setup")
-                time.sleep(0.5)
+                _t.sleep(0.5)
 
-                # Step 3: Trigger homing sequence
+                # Step 2: Trigger homing
                 ctrl.cmd(f"{HMI_HOME}={HMI_TRIGGER_FIRE}")
                 logger.info("[Shutdown] hmiHome fired — homing axes")
+
+                # Step 3: Wait for homing to complete (poll hmiState)
+                for _ in range(120):  # max 60 seconds
+                    _t.sleep(0.5)
+                    try:
+                        raw = ctrl.cmd(f"MG {HMI_STATE_VAR}").strip()
+                        state = int(float(raw))
+                        if state == STATE_SETUP:
+                            logger.info("[Shutdown] Homing complete — state back to SETUP")
+                            break
+                    except Exception:
+                        pass
+                else:
+                    logger.warning("[Shutdown] Homing timeout — proceeding with BV anyway")
+
+                # Step 4: Save all variables to NV
+                _t.sleep(0.3)
+                ctrl.cmd("BV")
+                logger.info("[Shutdown] BV done — all variables saved")
+
+                Clock.schedule_once(lambda *_: setattr(self, 'motion_active', False))
 
             except Exception as e:
                 msg = f"Shutdown failed: {e}"

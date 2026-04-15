@@ -9,17 +9,11 @@ REM        Increases as D angle increases (stone contact rises)
 REM    D = Knife tilt angle (convex bevel angle)
 REM        Sweeps from lowang to highang per grind pass
 REM
-REM  Motion Pattern Per Grind Pass (convex bevel):
-REM    1. D lifts to current angle step
-REM    2. C compensates up to maintain grinder contact
-REM    3. B adjusts for new angle (less B at higher angle)
-REM    4. A sweeps along full blade length at this angle
-REM    5. B retracts after A completes sweep
-REM    6. Repeat for each angle step until highang reached
 REM ============================================================
-REM  AUTO SUB ROUTINE - RUN AS SOON AS MACHINE IS TURNED ON
+REM  AUTO SUB  machType= 1 (flat grind) 2(serration) 3 (Convex grind)
 REM ============================================================
 #AUTO
+machType=1
 CB 1,2,3,4,5,6,7,8
 'JS #CONFIG
 'JS #PARAMS
@@ -30,15 +24,15 @@ XQ #SHOWPOS, 1
 XQ #UPDSPD, 2
 WT 500
 MG "AUTO INIT COMPLETE"
-
 REM ============================================================
 REM  MAIN: Wait loop ? poll buttons
 REM ============================================================
 #MAIN
 hmiState = 1;              ' IDLE set immediately so HMI stays in sync
-MG "STATE:", hmiState {F0}
+MG "STATE:", hmiState
 WT 100
-MG "IDLING FOR INPUT", "  A:", _TDA, "  B:", _TDB, "  C:", _TDC, "  D:", _TDD, "  hmiState:", hmiState {F0}, "  ctSesKni:", ctSesKni {F0}, "  ctStnKni:", ctStnKni {F0}
+MG "IDLING FOR INPUT", " A:", _TDA, " B:", _TDB, " C:", _TDC, " D:", _TDD
+MG " hmiState:", hmiState, "  ctSesKni:", ctSesKni, "  ctStnKni:", ctStnKni
 
 #WtAtRt
 CB 1;                        
@@ -47,21 +41,19 @@ WT 100
 IF (@IN[29] = 0) | (hmiGrnd = 0);   ' GO GRIND button OR HMI trigger
   hmiGrnd = 1;                        ' reset HMI var first
   hmiState = 2;                        ' GRINDING
-  MG "STATE:", hmiState {F0}
   SB 1;
   JS #GRIND
   hmiState = 1;                        ' back to IDLE
-  MG "STATE:", hmiState {F0}
+  MG "STATE:", hmiState
   JP #WtAtRt
 ENDIF
 
 IF (@IN[41] = 0) | (hmiSetp = 0);   ' SETUP button OR HMI trigger
   hmiSetp = 1;                        ' reset HMI var first
   hmiState = 3;                        ' SETUP
-  MG "STATE:", hmiState {F0}
   JS #SETUP
   hmiState = 1;                        ' back to IDLE
-  MG "STATE:", hmiState {F0}
+  MG "STATE:", hmiState
   JP #WtAtRt
 ENDIF
 
@@ -99,7 +91,6 @@ LM ABCD
 VS 5000
 VA 100000
 VD 100000
-MG "VECTOR START - LEAD IN"
 MG "  PRE-LI  A:", _TDA, "  B:", _TDB
 ' Feed remaining contour segments
 n = 0
@@ -152,18 +143,18 @@ IF (@IN[44] = 0) | (hmiNewS = 0);   ' new grind stone OR HMI trigger
   hmiNewS = 1;                        ' reset HMI var first
   JS #NEWSESS
 	hmiState=3
-  MG "STATE:", hmiState {F0}
+  MG "STATE:", hmiState
   JP #SULOOP
 ENDIF
 ' --- BUTTON 25: RUN HOME ---
 IF (@IN[25] = 0) | (hmiHome = 0)
   hmiHome = 1;
   hmiState = 4;                         ' HOMING
-  MG "STATE:", hmiState {F0}
+  MG "STATE:", hmiState
   MG "STARTING HOMING SEQUENCE"
   JS #HOME
   hmiState = 3;                         ' back to SETUP
-  MG "STATE:", hmiState {F0}
+  MG "STATE:", hmiState
   JP #SULOOP
 ENDIF
 
@@ -212,7 +203,6 @@ BV; WT 200
 EN
 
 #SETSTR
-' 0=A, 1=BR 3=C 4=D
 startPtA = _TDA; WT 50; MG "SET START A=", startPtA
 startPtB = _TDB; WT 50; MG "SET START B=", startPtB
 startPtC = _TDC; WT 50; MG "SET START C=", startPtC
@@ -225,7 +215,7 @@ REM  HOMING ROUTINE - all 4 axes
 REM ============================================================
 #HOME
 hmiState = 4;
-MG "STATE:", hmiState {F0}
+MG "STATE:", hmiState
 SH ABCD
 SP 50000, 30000, 30000, 25000;
 HV 10000, 10000, 10000, 10000;
@@ -239,7 +229,7 @@ WT 2000
 DP 0, 0, 0, 0;
 MG "A B C D - ALL AXES HOMED and got 0"
 hmiState = 1;              ' back to IDLE (caller sets 3 if inside SULOOP)
-MG "STATE:", hmiState {F0}
+MG "STATE:", hmiState
 EN
 
 REM ============================================================
@@ -324,7 +314,7 @@ MG "DA MAI MOI - dem dao thanh 0"
 JS #HOME;             
 ctSesKni = 0;                    ' reset knife count for new session
 ctStnKni = 0;                    ' reset stone knife count on new stone
-PRB = 140*cpmB
+PRB = 100*cpmB
 BGB; AMB;
 startPtC=firstC
 MG "DANG TRONG VI TRI THAY DA MAI, DANG CHO O CAT DAT"

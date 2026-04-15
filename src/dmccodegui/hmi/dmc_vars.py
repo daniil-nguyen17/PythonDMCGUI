@@ -153,6 +153,15 @@ BCOMP_ARRAY: str = "bComp"      # DMC array variable for per-serration B-axis co
 BCOMP_NUM_SERR: str = "numSerr" # DMC variable for number of serrations
 
 # ---------------------------------------------------------------------------
+# Serration-only infeed control variables (NOT used by Flat or Convex)
+# See "3 Axis Serration grind.dmc" #PARAMS / #VARCALC / #GRIND.
+# ---------------------------------------------------------------------------
+
+SERR_EDGE_LEFT: str = "edgeLef"  # mm - estimated remaining edge stock after flat grind (reference)
+SERR_GRIND_DP:  str = "grindDp"  # mm - B infeed past startPtB per tooth (actual bite depth)
+SERR_B_CLEAR:   str = "bClear"   # mm - extra B pullback after grinding for clearance
+
+# ---------------------------------------------------------------------------
 # Mega-batch MG command — reads all 8 poll values in a single controller call.
 # Uses _TD (told/desired position) NOT _TP (actual encoder position).
 # Response: 8 space-delimited floats: a, b, c, d, dmc_state, ses_kni, stn_kni, xq_raw

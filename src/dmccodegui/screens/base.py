@@ -77,37 +77,110 @@ class SetupScreenMixin:
         "axes_setup", "parameters", "profiles", "users", "diagnostics",
     })
 
-    def _enter_setup_if_needed(self) -> None:
-        """Fire hmiSetp=0 unless already in setup or the controller is in motion.
+    # ------------------------------------------------------------------
+    # App-wide poller helpers
+    # ------------------------------------------------------------------
+    # Setup pages do NOT need the 10 Hz centralized poll — jog_axis() polls
+    # _TD{axis} live while BG is active (see BaseAxesSetupScreen.jog_axis),
+    # and teach operations do explicit reads. Stopping the poller on setup
+    # entry frees the bus so setup commands (hmiSetp, PR/BG, teach writes)
+    # have no 10 Hz BATCH_CMD contention.
+    def _stop_app_poller(self) -> None:
+        from kivy.app import App  # noqa: PLC0415
+        app = App.get_running_app()
+        if app and hasattr(app, '_stop_poller'):
+            try:
+                app._stop_poller()
+            except Exception as exc:
+                logger.debug("[setup] _stop_poller failed: %s", exc)
 
-        Guards:
-          1. Skip if STATE_GRINDING or STATE_HOMING.
-          2. Skip if already in STATE_SETUP (sibling-screen navigation).
-          3. Skip if controller not connected.
+    def _start_app_poller(self) -> None:
+        from kivy.app import App  # noqa: PLC0415
+        app = App.get_running_app()
+        if app and hasattr(app, '_start_poller'):
+            try:
+                app._start_poller()
+            except Exception as exc:
+                logger.debug("[setup] _start_poller failed: %s", exc)
+
+    def _apply_dmc_state(self, dmc_state: int) -> None:
+        """Main thread: write dmc_state into MachineState.
+
+        While the app-wide poller is stopped (during setup), the mixin is the
+        only writer of state.dmc_state. This must be called after any direct
+        MG hmiState read so the jog gate (dmc_state == STATE_SETUP) unblocks.
+        """
+        if self.state is not None:  # type: ignore[attr-defined]
+            self.state.dmc_state = dmc_state  # type: ignore[attr-defined]
+            self.state.notify()  # type: ignore[attr-defined]
+
+    def _enter_setup_if_needed(self) -> None:
+        """Stop app-wide poller, confirm/enter setup mode via a fresh read.
+
+        Flow (background thread):
+          1. Stop the 10 Hz centralized poller (idempotent).
+          2. Read MG hmiState directly — do NOT trust self.state.dmc_state,
+             which may be stale (poller just restarted, or we came from a
+             screen that stopped it).
+          3. If STATE_GRINDING or STATE_HOMING, abort — can't enter setup
+             while in motion. Push the fresh state to MachineState anyway
+             so the UI reflects reality.
+          4. If not already STATE_SETUP, fire hmiSetp=0, sleep briefly,
+             re-read hmiState to confirm the transition.
+          5. Push the final state to MachineState on main thread so jog
+             and other setup-gated actions can see STATE_SETUP.
         """
         from ..hmi.dmc_vars import (  # noqa: PLC0415
             STATE_GRINDING, STATE_HOMING, STATE_SETUP,
-            HMI_SETP, HMI_TRIGGER_FIRE,
+            HMI_STATE_VAR, HMI_SETP, HMI_TRIGGER_FIRE,
         )
 
-        if (self.state is not None  # type: ignore[attr-defined]
-                and self.state.dmc_state in (STATE_GRINDING, STATE_HOMING)):  # type: ignore[attr-defined]
+        # Stop poller unconditionally — idempotent, noop if already stopped
+        self._stop_app_poller()
+
+        if not (self.controller and self.controller.is_connected()):  # type: ignore[attr-defined]
             return
 
-        if self.controller and self.controller.is_connected():  # type: ignore[attr-defined]
-            already_in_setup = (
-                self.state is not None  # type: ignore[attr-defined]
-                and self.state.dmc_state == STATE_SETUP  # type: ignore[attr-defined]
-            )
-            if not already_in_setup:
-                ctrl = self.controller  # type: ignore[attr-defined]
-                submit(lambda: ctrl.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}"))
+        ctrl = self.controller  # type: ignore[attr-defined]
+        cls_name = self.__class__.__name__
+
+        def do_enter():
+            import time  # noqa: PLC0415
+            try:
+                # Fresh read — stale MachineState cannot be trusted here
+                raw = ctrl.cmd(f"MG {HMI_STATE_VAR}").strip()
+                current = int(float(raw))
+
+                if current in (STATE_GRINDING, STATE_HOMING):
+                    logger.warning(
+                        "[%s] setup entry blocked — machine in motion (state=%d)",
+                        cls_name, current,
+                    )
+                    Clock.schedule_once(lambda *_, s=current: self._apply_dmc_state(s))
+                    return
+
+                if current != STATE_SETUP:
+                    ctrl.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}")
+                    # DMC transitions take a few ms — confirm via readback
+                    time.sleep(0.08)
+                    try:
+                        raw = ctrl.cmd(f"MG {HMI_STATE_VAR}").strip()
+                        current = int(float(raw))
+                    except Exception:
+                        pass  # keep previous `current` value
+
+                Clock.schedule_once(lambda *_, s=current: self._apply_dmc_state(s))
+            except Exception as exc:
+                logger.error("[%s] setup entry failed: %s", cls_name, exc)
+
+        submit(do_enter)
 
     def _exit_setup_if_needed(self) -> None:
-        """Fire hmiExSt=0 only when leaving to a non-setup screen.
+        """Fire hmiExSt=0 and restart app-wide poller when leaving setup area.
 
         Navigating between setup siblings (axes_setup <-> parameters) does NOT
-        fire exit-setup — the controller stays in STATE_SETUP the whole time.
+        fire exit-setup and does NOT restart the poller — the controller stays
+        in STATE_SETUP and the bus stays quiet the whole time.
         """
         from ..hmi.dmc_vars import HMI_EXIT_SETUP, HMI_TRIGGER_FIRE  # noqa: PLC0415
 
@@ -115,10 +188,15 @@ class SetupScreenMixin:
         if self.manager:  # type: ignore[attr-defined]
             next_screen = self.manager.current  # type: ignore[attr-defined]
 
-        if next_screen not in self._SETUP_SCREENS:
-            if self.controller and self.controller.is_connected():  # type: ignore[attr-defined]
-                ctrl = self.controller  # type: ignore[attr-defined]
-                submit(lambda: ctrl.cmd(f"{HMI_EXIT_SETUP}={HMI_TRIGGER_FIRE}"))
+        if next_screen in self._SETUP_SCREENS:
+            return  # sibling setup nav — keep poller stopped, stay in setup
+
+        if self.controller and self.controller.is_connected():  # type: ignore[attr-defined]
+            ctrl = self.controller  # type: ignore[attr-defined]
+            submit(lambda: ctrl.cmd(f"{HMI_EXIT_SETUP}={HMI_TRIGGER_FIRE}"))
+
+        # Leaving setup area entirely — resume centralized 10 Hz polling
+        self._start_app_poller()
 
 
 # ---------------------------------------------------------------------------

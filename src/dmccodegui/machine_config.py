@@ -102,6 +102,37 @@ _SERRATION_PARAM_DEFS.append({
     "min": 1.0,
     "max": 200.0,
 })
+# --- Serration-only infeed control params (NOT added to Flat/Convex defs) ---
+# startPtB is taught ~0.1 mm off the stone; grindDp is how far past that
+# point B plunges per tooth (the actual bite). bClear is extra pullback
+# for clearance while A steps to the next tooth. edgeLef is a reference
+# hint for the operator — not used by the DMC grind math.
+_SERRATION_PARAM_DEFS.extend([
+    {
+        "label": "Edge Left (ref)",
+        "var": "edgeLef",
+        "unit": "mm",
+        "group": "Geometry",
+        "min": 0.0,
+        "max": 5.0,
+    },
+    {
+        "label": "Grind Depth",
+        "var": "grindDp",
+        "unit": "mm",
+        "group": "Geometry",
+        "min": 0.0,
+        "max": 2.0,
+    },
+    {
+        "label": "B Clearance",
+        "var": "bClear",
+        "unit": "mm",
+        "group": "Geometry",
+        "min": 0.0,
+        "max": 5.0,
+    },
+])
 
 # ---------------------------------------------------------------------------
 # Internal registry

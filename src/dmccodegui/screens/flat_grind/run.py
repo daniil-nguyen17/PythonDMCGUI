@@ -401,7 +401,17 @@ class FlatGrindRunScreen(BaseRunScreen):
             except Exception:
                 pass
 
-            # 4. startPtA/B + contour arrays
+            # 4. Read existing deltaC array (baseline from profile/previous session)
+            existing_delta_c = None
+            try:
+                raw_dc = ctrl.upload_array_auto("deltaC")
+                if raw_dc:
+                    existing_delta_c = [float(v) for v in raw_dc]
+                    print(f"[FlatGrindRunScreen] Read existing deltaC: {len(existing_delta_c)} elements")
+            except Exception:
+                pass
+
+            # 5. startPtA/B + contour arrays
             start_a_mm, start_b_mm = None, None
             contour_a_mm, contour_b_mm = None, None
             try:
@@ -459,6 +469,14 @@ class FlatGrindRunScreen(BaseRunScreen):
                     self._draw_stone(
                         start_a_mm, start_b_mm, contour_a_mm, contour_b_mm
                     )
+
+                # Store baseline deltaC from controller (profile/previous session)
+                if existing_delta_c is not None:
+                    self._controller_delta_c = existing_delta_c
+                    self._last_delta_c = list(existing_delta_c)
+                else:
+                    self._controller_delta_c = [0.0] * DELTA_C_ARRAY_SIZE
+                    self._last_delta_c = [0.0] * DELTA_C_ARRAY_SIZE
 
                 # If already grinding when we enter, start polling
                 if self.cycle_running:
@@ -621,10 +639,13 @@ class FlatGrindRunScreen(BaseRunScreen):
         jobs.submit_urgent(do_stop)
 
     def on_shutdown(self) -> None:
-        """Shutdown sequence: BV (save all), enter setup, then home all axes.
+        """Shutdown: enter setup → home → wait for homing complete → BV.
 
-        Uses the one-shot HMI pattern — sends hmiSetp=0 to enter setup mode
-        (where hmiHome is polled), then hmiHome=0 to trigger homing.
+        Sequence:
+          1. hmiSetp=0 — enter setup mode (DMC goes to #SULOOP)
+          2. hmiHome=0 — trigger homing (DMC runs #HOME from #SULOOP)
+          3. Poll hmiState until it returns to 3 (SETUP) — homing done
+          4. BV — save all variables to NV memory
         """
         if not self.controller or not self.controller.is_connected():
             return
@@ -632,27 +653,46 @@ class FlatGrindRunScreen(BaseRunScreen):
             return
 
         from dmccodegui.hmi.dmc_vars import (
-            HMI_SETP, HMI_HOME, HMI_TRIGGER_FIRE,
+            HMI_SETP, HMI_HOME, HMI_TRIGGER_FIRE, HMI_STATE_VAR,
+            STATE_HOMING, STATE_SETUP,
         )
 
         self.motion_active = True  # Disable buttons during shutdown
 
         def _do_shutdown():
+            import time as _t
             ctrl = self.controller
             try:
-                # Step 1: Save all variables to NV
-                ctrl.cmd("BV")
-                print("[Shutdown] BV done — variables saved")
-                import time; time.sleep(0.3)
-
-                # Step 2: Enter setup mode (so hmiHome is checked in #SULOOP)
+                # Step 1: Enter setup mode
                 ctrl.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}")
                 print("[Shutdown] hmiSetp fired — entering setup")
-                time.sleep(0.5)
+                _t.sleep(0.5)
 
-                # Step 3: Trigger homing sequence
+                # Step 2: Trigger homing
                 ctrl.cmd(f"{HMI_HOME}={HMI_TRIGGER_FIRE}")
                 print("[Shutdown] hmiHome fired — homing axes")
+
+                # Step 3: Wait for homing to complete (poll hmiState)
+                # hmiState goes 4 (HOMING) during home, returns to 3 (SETUP) when done
+                for _ in range(120):  # max 60 seconds (120 × 0.5s)
+                    _t.sleep(0.5)
+                    try:
+                        raw = ctrl.cmd(f"MG {HMI_STATE_VAR}").strip()
+                        state = int(float(raw))
+                        if state == STATE_SETUP:
+                            print("[Shutdown] Homing complete — state back to SETUP")
+                            break
+                    except Exception:
+                        pass
+                else:
+                    print("[Shutdown] Homing timeout — proceeding with BV anyway")
+
+                # Step 4: Save all variables to NV
+                _t.sleep(0.3)
+                ctrl.cmd("BV")
+                print("[Shutdown] BV done — all variables saved")
+
+                Clock.schedule_once(lambda *_: setattr(self, 'motion_active', False))
 
             except Exception as e:
                 msg = f"Shutdown failed: {e}"
@@ -873,21 +913,32 @@ class FlatGrindRunScreen(BaseRunScreen):
                 self.selected_section_value = "0"
 
     def on_apply_delta_c(self) -> None:
-        """Convert section offsets to a deltaC array and send only changed indices.
+        """Add bar adjustments ON TOP of existing deltaC values and send to controller.
 
-        Compares the new values against the previously sent array to determine
-        which indices actually changed, then sends only those assignments.
-        Submits on the background job thread.
+        The deltaC array was loaded from a profile (CSV import or previous BV).
+        The bar offsets represent ADJUSTMENTS to that baseline — not replacements.
+        Final value = baseline + bar adjustment.
+        Only sends indices that actually changed from what's currently on the controller.
         """
         if not self.controller or not self.controller.is_connected():
             return
-        values = self._offsets_to_delta_c()
+        adjustments = self._offsets_to_delta_c()
         ctrl = self.controller
+
+        # Add adjustments on top of the baseline read from controller
+        baseline = getattr(self, '_controller_delta_c', None)
+        if baseline is None:
+            baseline = [0.0] * len(adjustments)
+
+        values = [0.0] * len(adjustments)
+        for i in range(len(adjustments)):
+            b = baseline[i] if i < len(baseline) else 0.0
+            values[i] = b + adjustments[i]
 
         # Compare against last-sent values to find changed indices
         prev = getattr(self, '_last_delta_c', None)
         if prev is None:
-            prev = [0.0] * len(values)
+            prev = list(baseline)
 
         changed: list[tuple[int, float]] = []
         for i, v in enumerate(values):

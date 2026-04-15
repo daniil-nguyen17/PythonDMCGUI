@@ -115,20 +115,27 @@ class SetupScreenMixin:
             self.state.notify()  # type: ignore[attr-defined]
 
     def _enter_setup_if_needed(self) -> None:
-        """Stop app-wide poller, confirm/enter setup mode via a fresh read.
+        """Stop app-wide poller, optimistically enter setup, then confirm via fresh read.
 
-        Flow (background thread):
+        Main-thread work (synchronous, happens before screen is fully visible):
           1. Stop the 10 Hz centralized poller (idempotent).
-          2. Read MG hmiState directly — do NOT trust self.state.dmc_state,
-             which may be stale (poller just restarted, or we came from a
-             screen that stopped it).
-          3. If STATE_GRINDING or STATE_HOMING, abort — can't enter setup
-             while in motion. Push the fresh state to MachineState anyway
-             so the UI reflects reality.
-          4. If not already STATE_SETUP, fire hmiSetp=0, sleep briefly,
-             re-read hmiState to confirm the transition.
-          5. Push the final state to MachineState on main thread so jog
-             and other setup-gated actions can see STATE_SETUP.
+          2. If cached state is NOT a motion state (GRINDING/HOMING), optimistically
+             set state.dmc_state = STATE_SETUP so the jog gate in BaseAxesSetupScreen
+             doesn't silently block the first click. The background job below will
+             correct it if reality differs.
+
+        Background-thread work (runs via jobs.submit):
+          3. Fresh-read MG hmiState — stale MachineState cannot be trusted here.
+          4. If STATE_GRINDING/HOMING, warn, push the REAL state back (un-do the
+             optimistic setup so jog is re-blocked), return.
+          5. If not already STATE_SETUP, fire hmiSetp=0, sleep briefly, re-read
+             to confirm the transition.
+          6. Push the confirmed state to MachineState on main thread.
+
+        Race we're fixing: without the optimistic main-thread set, users could
+        click a jog button within ~100-200 ms of entering the screen and have
+        it silently blocked because state.dmc_state was still stale from the
+        prior screen (usually STATE_IDLE).
         """
         from ..hmi.dmc_vars import (  # noqa: PLC0415
             STATE_GRINDING, STATE_HOMING, STATE_SETUP,
@@ -141,21 +148,30 @@ class SetupScreenMixin:
         if not (self.controller and self.controller.is_connected()):  # type: ignore[attr-defined]
             return
 
+        # Optimistic pre-set: if cached state isn't motion, mark as STATE_SETUP
+        # so jog_axis's gate unblocks immediately. Background job verifies.
+        if self.state is not None:  # type: ignore[attr-defined]
+            cached = getattr(self.state, 'dmc_state', None)  # type: ignore[attr-defined]
+            if cached not in (STATE_GRINDING, STATE_HOMING):
+                self._apply_dmc_state(STATE_SETUP)
+
         ctrl = self.controller  # type: ignore[attr-defined]
         cls_name = self.__class__.__name__
 
         def do_enter():
             import time  # noqa: PLC0415
             try:
-                # Fresh read — stale MachineState cannot be trusted here
+                # Fresh read — confirm or correct the optimistic pre-set
                 raw = ctrl.cmd(f"MG {HMI_STATE_VAR}").strip()
                 current = int(float(raw))
 
                 if current in (STATE_GRINDING, STATE_HOMING):
                     logger.warning(
-                        "[%s] setup entry blocked — machine in motion (state=%d)",
+                        "[%s] setup entry blocked — machine in motion (state=%d); "
+                        "correcting optimistic state",
                         cls_name, current,
                     )
+                    # Correct the optimistic pre-set: push the REAL state back
                     Clock.schedule_once(lambda *_, s=current: self._apply_dmc_state(s))
                     return
 
@@ -169,6 +185,7 @@ class SetupScreenMixin:
                     except Exception:
                         pass  # keep previous `current` value
 
+                # Final confirmed state (may equal optimistic, but always apply)
                 Clock.schedule_once(lambda *_, s=current: self._apply_dmc_state(s))
             except Exception as exc:
                 logger.error("[%s] setup entry failed: %s", cls_name, exc)
@@ -316,6 +333,10 @@ class BaseAxesSetupScreen(Screen, SetupScreenMixin):
         self._axis_cpm: dict[str, float] = {}
         self._cpm_ready: bool = False
         self._current_step_mm: float = 10.0
+        # Motion poll state — set True while _poll_motion_until_idle is running
+        # so overlapping calls (e.g. user clicking Rest then Start quickly) are
+        # ignored instead of stacking two polling loops on the jobs worker.
+        self._motion_poll_active: bool = False
 
     def on_pre_enter(self, *args) -> None:
         """Subscribe to MachineState and enter setup mode."""
@@ -480,6 +501,151 @@ class BaseAxesSetupScreen(Screen, SetupScreenMixin):
     def _log_jog_error(self, exc: Exception) -> None:
         """Log a jog error. Subclasses can override to surface in a cmd log widget."""
         logger.error("[%s] JOG ERROR: %s", self.__class__.__name__, exc)
+
+    # ------------------------------------------------------------------
+    # Motion polling — used after firing HMI goto triggers (Rest/Start)
+    # ------------------------------------------------------------------
+
+    def _push_live_pos(self, axis: str, val_str: str) -> None:
+        """Main-thread helper: push a live position reading to pos_current
+        (DictProperty) and the corresponding KV label imperatively.
+
+        Safe to call from background threads — schedules the real update
+        on the main thread via Clock.schedule_once.
+        """
+        def _update(*_):
+            if hasattr(self, 'pos_current'):
+                self.pos_current[axis] = val_str  # type: ignore[attr-defined]
+            lbl = self.ids.get(f"pos_{axis.lower()}")
+            if lbl:
+                lbl.text = val_str
+        Clock.schedule_once(_update)
+
+    def _poll_motion_until_idle(
+        self,
+        axis_list: list[str],
+        label: str,
+        timeout_sec: float = 60.0,
+    ) -> None:
+        """Background-thread poll loop that tracks a multi-axis move initiated
+        by a non-jog command (e.g. hmiGoRs / hmiGoSt triggers firing #GOREST / #GOSTR).
+
+        Phases:
+          1. Wait up to 500 ms for any axis's _BG to go non-zero. If motion
+             never starts, assume we're already at target and exit after a
+             final readback — no long timeout penalty.
+          2. Poll _TD{axis} and _BG{axis} for each axis at 10 Hz, updating
+             pos_current and the KV labels live, until ALL axes are idle
+             (_BG == 0) or timeout_sec elapses.
+          3. One final _TD readback per axis so labels settle at exact final
+             values, then log completion via _log_motion_complete (override
+             in subclass for UI log).
+
+        Re-entry guard: if _motion_poll_active is already True, logs and
+        returns immediately — the caller must wait for the active poll to
+        finish before starting another.
+
+        Args:
+            axis_list: Axis letters to track (e.g. ["A","B","C","D"] for flat).
+            label: Short label for log messages (e.g. "GOTO REST").
+            timeout_sec: Max seconds to wait for motion to complete.
+        """
+        if self._motion_poll_active:
+            logger.debug(
+                "[%s] _poll_motion_until_idle: already active, ignoring %s",
+                self.__class__.__name__, label,
+            )
+            return
+
+        ctrl = self.controller  # type: ignore[attr-defined]
+        if not ctrl or not ctrl.is_connected():
+            return
+
+        self._motion_poll_active = True
+        cls_name = self.__class__.__name__
+
+        def do_poll():
+            import time  # noqa: PLC0415
+            try:
+                # -- Phase 1: wait for motion to start (up to 500 ms) ------
+                started = False
+                for _ in range(5):
+                    time.sleep(0.1)
+                    for axis in axis_list:
+                        try:
+                            raw = ctrl.cmd(f"MG _BG{axis}").strip()
+                            if float(raw) != 0:
+                                started = True
+                                break
+                        except Exception:
+                            pass
+                    if started:
+                        break
+
+                if not started:
+                    # Motion never started — already at target. Do a final
+                    # readback so labels are accurate, then exit.
+                    for axis in axis_list:
+                        try:
+                            pos = ctrl.cmd(f"MG _TD{axis}").strip()
+                            self._push_live_pos(axis, f"{float(pos):.1f}")
+                        except Exception:
+                            pass
+                    Clock.schedule_once(
+                        lambda *_, l=label: self._log_motion_complete(l, "already at target")
+                    )
+                    return
+
+                # -- Phase 2: poll until all axes idle -----------------------
+                max_ticks = int(timeout_sec * 10)
+                for _ in range(max_ticks):
+                    time.sleep(0.1)
+                    all_idle = True
+                    for axis in axis_list:
+                        try:
+                            pos = ctrl.cmd(f"MG _TD{axis}").strip()
+                            self._push_live_pos(axis, f"{float(pos):.1f}")
+                        except Exception:
+                            pass
+                        try:
+                            raw = ctrl.cmd(f"MG _BG{axis}").strip()
+                            if float(raw) != 0:
+                                all_idle = False
+                        except Exception:
+                            pass
+                    if all_idle:
+                        break
+                else:
+                    # Fell through without breaking — we hit the timeout
+                    Clock.schedule_once(
+                        lambda *_, l=label: self._log_motion_complete(l, "TIMEOUT")
+                    )
+                    return
+
+                # -- Phase 3: final readback so labels settle exactly -------
+                for axis in axis_list:
+                    try:
+                        pos = ctrl.cmd(f"MG _TD{axis}").strip()
+                        self._push_live_pos(axis, f"{float(pos):.1f}")
+                    except Exception:
+                        pass
+                Clock.schedule_once(
+                    lambda *_, l=label: self._log_motion_complete(l, "done")
+                )
+            except Exception as exc:
+                logger.error("[%s] _poll_motion_until_idle failed: %s", cls_name, exc)
+                Clock.schedule_once(
+                    lambda *_, l=label, e=exc: self._log_motion_complete(l, f"ERROR: {e}")
+                )
+            finally:
+                self._motion_poll_active = False
+
+        submit(do_poll)
+
+    def _log_motion_complete(self, label: str, reason: str) -> None:
+        """Main-thread: log motion completion. Subclasses can override to
+        write to a cmd log widget instead of (or in addition to) the logger."""
+        logger.info("[%s] %s: %s", self.__class__.__name__, label, reason)
 
     def _schedule_cpm_read(self) -> None:
         """Schedule a CPM read from the controller for all axes.
@@ -700,14 +866,32 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
         the cards_container ScrollView. Each card has a colored header
         with group icon, name, and param count badge. Each param row
         has a dirty-dot indicator that lights up on change.
+
+        Layout rules:
+          - All cards are locked to the same fixed height (CARD_HEIGHT) and
+            width (size_hint_x=0.5) regardless of how many params they hold,
+            so paired rows always look aesthetically balanced.
+          - Each card's param rows live inside an inner ScrollView so cards
+            with lots of params (e.g. Calibration with 12) scroll internally
+            instead of stretching the whole layout.
+          - The outer page-level ScrollView still exists for when there are
+            more card rows than fit on screen.
         """
         from collections import OrderedDict  # noqa: PLC0415
         from kivy.graphics import Color, RoundedRectangle, Rectangle, Ellipse  # noqa: PLC0415
         from kivy.uix.boxlayout import BoxLayout  # noqa: PLC0415
         from kivy.uix.label import Label  # noqa: PLC0415
+        from kivy.uix.scrollview import ScrollView  # noqa: PLC0415
         from kivy.uix.textinput import TextInput  # noqa: PLC0415
         from kivy.uix.widget import Widget  # noqa: PLC0415
         from kivy.metrics import dp  # noqa: PLC0415
+
+        # Fixed card height — all cards share this regardless of param count.
+        # dp(480) = ~36 header + ~440 param area ≈ 10 param rows at 44 dp each
+        # visible before the inner ScrollView kicks in. Cards with fewer
+        # params simply have empty space below the last row; cards with more
+        # scroll internally.
+        CARD_HEIGHT = dp(480)
 
         # Group accent colors
         GROUP_COLORS: dict[str, list[float]] = {
@@ -752,16 +936,17 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
             accent = GROUP_COLORS.get(group_name, [0.5, 0.5, 0.5, 1])
             icon_char = GROUP_ICONS.get(group_name, "\u25cf")
 
-            # Card wrapper: stripe + card body
+            # Card wrapper: stripe + card body — FIXED HEIGHT so all cards
+            # are visually uniform in a pair row regardless of param count.
             card_wrapper = BoxLayout(
                 orientation='horizontal',
                 size_hint_y=None,
                 size_hint_x=0.5,
+                height=CARD_HEIGHT,
                 spacing=0,
             )
-            card_wrapper.bind(minimum_height=card_wrapper.setter('height'))
 
-            # Left accent stripe
+            # Left accent stripe — fills full card height via size_hint_y=1
             stripe = Widget(size_hint_x=None, width=dp(6), size_hint_y=1)
             with stripe.canvas.before:
                 Color(rgba=accent)
@@ -772,14 +957,14 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
             stripe.bind(size=lambda w, v, r=_rect: setattr(r, 'size', v))
             card_wrapper.add_widget(stripe)
 
-            # Card body
+            # Card body — fills the remaining horizontal space in the wrapper
+            # and stretches vertically to match CARD_HEIGHT (size_hint_y=1).
             card = BoxLayout(
                 orientation='vertical',
                 padding=[dp(12), dp(10), dp(12), dp(10)],
                 spacing=dp(4),
-                size_hint_y=None,
+                size_hint_y=1,
             )
-            card.bind(minimum_height=card.setter('height'))
 
             with card.canvas.before:
                 Color(rgba=theme.bg_panel)
@@ -835,6 +1020,25 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
             header_row.add_widget(count_lbl)
 
             card.add_widget(header_row)
+
+            # --- Inner ScrollView for param rows ---
+            # Cards with many params scroll internally; cards with few just
+            # show the rows at top with empty space below. Either way every
+            # card has the same outer height.
+            rows_scroll = ScrollView(
+                size_hint_y=1,
+                do_scroll_x=False,
+                bar_width=dp(4),
+                scroll_type=['bars', 'content'],
+            )
+            rows_box = BoxLayout(
+                orientation='vertical',
+                size_hint_y=None,
+                spacing=dp(4),
+            )
+            rows_box.bind(minimum_height=rows_box.setter('height'))
+            rows_scroll.add_widget(rows_box)
+            card.add_widget(rows_scroll)
 
             # --- Param rows ---
             for p in params:
@@ -912,26 +1116,33 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
                 self._dot_widgets[var_name] = dot
                 row.add_widget(dot)
 
-                card.add_widget(row)
+                # Param rows go into the inner ScrollView's rows_box,
+                # NOT directly onto the card (header still goes on card).
+                rows_box.add_widget(row)
 
             card_wrapper.add_widget(card)
             card_list.append(card_wrapper)
 
         # --- Arrange cards into 2-column rows ---
+        # Every card_wrapper is locked to CARD_HEIGHT, so the pair_row just
+        # pins to that same height. No more minimum_height gymnastics — the
+        # row height is known up-front.
         for i in range(0, len(card_list), 2):
             pair_row = BoxLayout(
                 orientation='horizontal',
                 size_hint_y=None,
+                height=CARD_HEIGHT,
                 spacing=dp(12),
             )
-            pair_row.bind(minimum_height=pair_row.setter('height'))
 
             pair_row.add_widget(card_list[i])
 
             if i + 1 < len(card_list):
                 pair_row.add_widget(card_list[i + 1])
             else:
-                # Odd number of groups — add spacer for the empty right column
+                # Odd number of groups — add spacer for the empty right column.
+                # size_hint_x=0.5 matches the card wrapper width so the single
+                # card on this row is the same width as paired cards on other rows.
                 spacer = Widget(size_hint_x=0.5)
                 pair_row.add_widget(spacer)
 

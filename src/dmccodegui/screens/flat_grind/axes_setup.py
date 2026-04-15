@@ -236,11 +236,42 @@ class FlatGrindAxesSetupScreen(BaseAxesSetupScreen):
     # -- Mode toggle -----------------------------------------------------------
 
     def set_mode(self, mode: str) -> None:
-        """Switch between 'rest' and 'start' mode. Updates saved-value labels
-        and save button text/color."""
+        """Switch between 'rest' and 'start' mode.
+
+        Updates saved-value labels and save button text/color, then auto-moves
+        all axes to the saved rest or start position so the user has a known
+        baseline before jogging. Any axis the user DOESN'T touch will be saved
+        back to its same (unchanged) position — avoiding the footgun where an
+        unrelated axis gets overwritten with whatever value it happened to be
+        at when the screen was opened.
+
+        Re-clicking the same mode (e.g. Rest -> Rest) is a no-op — we won't
+        undo the user's in-progress jogs.
+
+        If a previous goto-motion is still running, this call only updates the
+        mode UI and logs a message; it does NOT fire a second move. The user
+        must wait for the first motion to complete.
+        """
+        prev_mode = self._mode
         self._mode = mode
         self._update_saved_labels()
         self._update_save_button()
+
+        # Re-click same mode -> UI update only, no motion
+        if mode == prev_mode:
+            return
+
+        # Already moving -> UI update only, warn the user
+        if getattr(self, '_motion_poll_active', False):
+            self._log_cmd("Motion already in progress — wait for it to complete")
+            return
+
+        if mode == "rest":
+            self._log_cmd("Moving to saved REST points...")
+            self.go_to_rest_all()
+        elif mode == "start":
+            self._log_cmd("Moving to saved START points...")
+            self.go_to_start_all()
 
     def _update_position_labels(self) -> None:
         """Push pos_current values directly to KV label widgets.
@@ -462,16 +493,52 @@ class FlatGrindAxesSetupScreen(BaseAxesSetupScreen):
     # -- Quick actions ---------------------------------------------------------
 
     def go_to_rest_all(self) -> None:
-        """Fire HMI trigger to move all axes to rest position."""
+        """Fire HMI trigger to move all axes to rest position, then poll live.
+
+        The trigger fires #GOREST on the controller which moves C, B, A
+        sequentially. _poll_motion_until_idle tracks the move in the
+        background, pushing live _TD{axis} values into the position labels
+        until all axes idle or timeout.
+        """
         self._fire_hmi_trigger(HMI_GO_REST, "Go To Rest")
+        try:
+            axis_list = mc.get_axis_list()
+        except ValueError:
+            axis_list = ["A", "B", "C", "D"]
+        self._poll_motion_until_idle(axis_list, "GOTO REST")
 
     def go_to_start_all(self) -> None:
-        """Fire HMI trigger to move all axes to start position."""
+        """Fire HMI trigger to move all axes to start position, then poll live.
+
+        Same pattern as go_to_rest_all but fires #GOSTR on the controller.
+        """
         self._fire_hmi_trigger(HMI_GO_START, "Go To Start")
+        try:
+            axis_list = mc.get_axis_list()
+        except ValueError:
+            axis_list = ["A", "B", "C", "D"]
+        self._poll_motion_until_idle(axis_list, "GOTO START")
 
     def home_all(self) -> None:
-        """Fire HMI trigger to home all axes."""
+        """Fire HMI trigger to home all axes, then poll live position.
+
+        Note: #HOME changes state to STATE_HOMING which will cause
+        _poll_motion_until_idle to see _BG transitions correctly. After
+        homing completes, DMC sets state back to STATE_IDLE.
+        """
         self._fire_hmi_trigger(HMI_HOME, "Home All")
+        try:
+            axis_list = mc.get_axis_list()
+        except ValueError:
+            axis_list = ["A", "B", "C", "D"]
+        # Homing can take longer than a normal move — bump timeout to 120 s
+        self._poll_motion_until_idle(axis_list, "HOME ALL", timeout_sec=120.0)
+
+    # -- Motion log override ---------------------------------------------------
+
+    def _log_motion_complete(self, label: str, reason: str) -> None:
+        """Override base to surface motion completion in the cmd log widget."""
+        self._log_cmd(f"{label}: {reason}")
 
     def _fire_hmi_trigger(self, trigger_var: str, label: str) -> None:
         """Fire an HMI one-shot trigger via background thread."""
@@ -570,6 +637,17 @@ class FlatGrindAxesSetupScreen(BaseAxesSetupScreen):
                     print(f"[FlatGrindAxesSetupScreen] CPM {axis} parse failed: '{raw}', jog blocked for this axis")
             else:
                 print(f"[FlatGrindAxesSetupScreen] CPM {axis} read failed, jog blocked for this axis")
+
+        # --- TEMPORARY OVERRIDE: force cpmD=1000 for Flat Grind -----------
+        # The controller's D-axis CPM is unpredictable right now (D-axis
+        # calibration TBD). Hardcode 1000 so jog distance is consistent for
+        # testing. Revisit once pitchD/ratioD/ctsRevD are finalized on the
+        # controller, then remove this override and trust the MG cpmD read.
+        # NOTE: only applies in-HMI — the controller's own grind loop still
+        # uses whatever cpmD it computes from #VARCALC.
+        cpm_updates["D"] = 1000.0
+        print("[FlatGrindAxesSetupScreen] CPM D forced to 1000 (HMI override, Flat Grind only)")
+
         print(f"[FlatGrindAxesSetupScreen] CPM values from controller: {cpm_updates}")
 
         # -- 2. Rest points (active axes only) ---------------------------------

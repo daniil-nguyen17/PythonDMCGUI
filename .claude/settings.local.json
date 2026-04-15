@@ -10,7 +10,8 @@
       "Bash(node __TRACKED_VAR__/.claude/get-shit-done/bin/gsd-tools.cjs frontmatter validate .planning/phases/23-controller-communication-optimization/23-03-PLAN.md --schema plan)",
       "Bash(node __TRACKED_VAR__/.claude/get-shit-done/bin/gsd-tools.cjs verify plan-structure .planning/phases/23-controller-communication-optimization/23-01-PLAN.md)",
       "Bash(node __TRACKED_VAR__/.claude/get-shit-done/bin/gsd-tools.cjs verify plan-structure .planning/phases/23-controller-communication-optimization/23-02-PLAN.md)",
-      "Bash(node __TRACKED_VAR__/.claude/get-shit-done/bin/gsd-tools.cjs commit 'fix\\(23\\): revise plans based on checker feedback' --files .planning/phases/23-controller-communication-optimization/23-01-PLAN.md .planning/phases/23-controller-communication-optimization/23-02-PLAN.md .planning/phases/23-controller-communication-optimization/23-03-PLAN.md)"
+      "Bash(node __TRACKED_VAR__/.claude/get-shit-done/bin/gsd-tools.cjs commit 'fix\\(23\\): revise plans based on checker feedback' --files .planning/phases/23-controller-communication-optimization/23-01-PLAN.md .planning/phases/23-controller-communication-optimization/23-02-PLAN.md .planning/phases/23-controller-communication-optimization/23-03-PLAN.md)",
+      "Bash(ls \"C:/Users/danii/OneDrive/Desktop/PythonDMCGUI/\"*.dmc)"
     ]
   }
 }

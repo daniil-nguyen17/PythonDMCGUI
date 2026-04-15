@@ -77,8 +77,12 @@ KV_FILES = [
     "ui/base.kv",          # RootLayout - always last
 ]
 
-# machType DMC variable value -> machine type string
-# TODO: Verify mapping against DMC controller program on hardware
+# machType DMC variable value -> machine type string.
+# Each machine's DMC program sets machType in #AUTO on power-on:
+#   1 = 4-Axes Flat Grind      (4 Axis Stainless grind.dmc)
+#   2 = 3-Axes Serration Grind (3 Axis Serration grind.dmc)
+#   3 = 4-Axes Convex Grind    (Convex DMC — set machType=3 in #AUTO)
+# Read by _check_machine_type_mismatch() on every connect.
 _MACH_TYPE_MAP = {
     1: "4-Axes Flat Grind",
     2: "3-Axes Serration Grind",
@@ -286,15 +290,76 @@ class DMCApp(App):
     # ------------------------------------------------------------------
 
     def _show_startup_flow(self) -> None:
-        """Show mandatory machine type picker if not configured, then PIN overlay."""
-        if not mc.is_configured():
-            # First launch — force picker before PIN overlay
+        """Auto-detect machine type from controller if unconfigured, else continue.
+
+        Flow on first launch (unconfigured):
+          1. Try to read MG machType from the controller in a background job.
+          2. If the read succeeds and the value is a known machine type,
+             auto-select it via mc.set_active_type() and proceed to PIN.
+          3. If the read fails, the value is unknown, or the controller is
+             not connected, fall back to the manual picker (legacy path).
+
+        Flow when already configured:
+          - Skip auto-detect and go straight to PIN. _check_machine_type_mismatch
+            will fire 1 sec later and catch any mismatch between the saved config
+            and the actual controller.
+        """
+        if mc.is_configured():
+            self._show_pin_on_start()
+            return
+
+        # Unconfigured — try auto-detect from controller's machType first
+        ctrl = self.controller
+        if not ctrl or not ctrl.is_connected():
+            # No controller yet — fall back to manual picker
             self._show_machine_type_picker(
                 on_selected=lambda mtype: self._show_pin_on_start(),
                 force=True,
             )
-        else:
-            self._show_pin_on_start()
+            return
+
+        def _do_detect():
+            detected: str | None = None
+            try:
+                raw = ctrl.cmd("MG machType").strip()
+                mach_int = int(float(raw))
+                detected = _MACH_TYPE_MAP.get(mach_int)
+            except Exception:
+                detected = None
+
+            def _apply(*_):
+                if detected:
+                    # Auto-select and persist
+                    try:
+                        mc.set_active_type(detected)
+                        self.state.machine_type = detected
+                        self.state.notify()
+                        self._log_message(f"Auto-detected machine type: {detected}")
+                    except Exception as exc:
+                        self._log_message(f"Auto-detect apply failed: {exc}")
+                        # Fall through to manual picker
+                        self._show_machine_type_picker(
+                            on_selected=lambda mtype: self._show_pin_on_start(),
+                            force=True,
+                        )
+                        return
+                    # First-launch path: screens are not yet loaded for this type.
+                    # Load them inline so PIN + subsequent nav work without restart.
+                    try:
+                        self._load_machine_screens(detected)
+                    except Exception as exc:
+                        self._log_message(f"Screen load failed: {exc}")
+                    self._show_pin_on_start()
+                else:
+                    # Read failed or unknown value — manual picker fallback
+                    self._show_machine_type_picker(
+                        on_selected=lambda mtype: self._show_pin_on_start(),
+                        force=True,
+                    )
+
+            Clock.schedule_once(_apply)
+
+        jobs.submit(_do_detect)
 
     # ------------------------------------------------------------------
     # Machine type picker
@@ -343,56 +408,9 @@ class DMCApp(App):
             picker.dismiss()
             if callable(on_selected):
                 on_selected(mtype)
-            # First-launch: load machine screens inline so they are available
-            # immediately without a restart. Only needed when no 'run' screen
-            # exists yet (i.e. first configuration of the machine type).
-            try:
-                sm = self.root.ids.sm
-                has_run = any(getattr(s, "name", "") == "run" for s in sm.screens)
-                if not has_run:
-                    # Load machine KV before instantiating screens
-                    entry = mc._REGISTRY[mtype]
-                    _load_kv_fn = _resolve_dotted_path(entry["load_kv"])
-                    _load_kv_fn()
-                    self._add_machine_screens(sm)
-                    # Inject controller/state into newly added screens
-                    for screen in sm.screens:
-                        if hasattr(screen, "controller") and hasattr(screen, "state"):
-                            screen.controller = self.controller
-                            screen.state = self.state
-                else:
-                    # Machine type changed — requires app restart per Phase 20 spec
-                    from kivy.uix.modalview import ModalView
-                    restart_modal = ModalView(auto_dismiss=False, size_hint=(0.45, 0.3))
-                    restart_layout = BoxLayout(orientation="vertical", padding="20dp", spacing="12dp")
-                    restart_layout.add_widget(Label(
-                        text="Machine type changed.\nPlease restart the application.",
-                        font_size="18sp",
-                        halign="center",
-                    ))
-                    exit_btn = Button(
-                        text="Exit Now",
-                        size_hint_y=None,
-                        height="56dp",
-                        background_color=(0.1, 0.4, 0.2, 1),
-                    )
-
-                    def _do_exit(*_):
-                        restart_modal.dismiss()
-                        try:
-                            for screen in list(sm.screens):
-                                if hasattr(screen, "cleanup"):
-                                    screen.cleanup()
-                        except Exception:
-                            pass
-                        self.stop()
-
-                    exit_btn.bind(on_release=_do_exit)
-                    restart_layout.add_widget(exit_btn)
-                    restart_modal.add_widget(restart_layout)
-                    restart_modal.open()
-            except Exception:
-                pass
+            # Delegate screen-loading to the shared helper. This handles both
+            # the first-launch inline load and the type-change restart prompt.
+            self._load_machine_screens(mtype)
 
         # One button per machine type
         for mtype in mc.MACHINE_TYPES:
@@ -416,6 +434,72 @@ class DMCApp(App):
     # ------------------------------------------------------------------
     # Registry-driven machine screen loader
     # ------------------------------------------------------------------
+
+    def _load_machine_screens(self, mtype: str) -> None:
+        """Load machine-specific KV and screens inline for the chosen type.
+
+        Shared by the manual picker path and the auto-detect path. Called
+        after mc.set_active_type() has already been set.
+
+        Behavior:
+          - If no 'run' screen exists yet (first launch), load the machine KV
+            and instantiate/add screens, injecting controller and state.
+          - If a 'run' screen already exists (machine type CHANGED at runtime),
+            show the restart prompt per Phase 20 spec. Kivy can't cleanly
+            swap machine screen classes in-place.
+
+        Silent no-op on any exception — the caller is responsible for reporting.
+        """
+        try:
+            sm = self.root.ids.sm
+            has_run = any(getattr(s, "name", "") == "run" for s in sm.screens)
+            if not has_run:
+                # First launch — load KV and instantiate screens inline
+                entry = mc._REGISTRY[mtype]
+                _load_kv_fn = _resolve_dotted_path(entry["load_kv"])
+                _load_kv_fn()
+                self._add_machine_screens(sm)
+                # Inject controller/state into newly added screens
+                for screen in sm.screens:
+                    if hasattr(screen, "controller") and hasattr(screen, "state"):
+                        screen.controller = self.controller
+                        screen.state = self.state
+            else:
+                # Machine type changed at runtime — requires restart
+                from kivy.uix.modalview import ModalView
+                from kivy.uix.boxlayout import BoxLayout
+                from kivy.uix.label import Label
+                from kivy.uix.button import Button
+                restart_modal = ModalView(auto_dismiss=False, size_hint=(0.45, 0.3))
+                restart_layout = BoxLayout(orientation="vertical", padding="20dp", spacing="12dp")
+                restart_layout.add_widget(Label(
+                    text="Machine type changed.\nPlease restart the application.",
+                    font_size="18sp",
+                    halign="center",
+                ))
+                exit_btn = Button(
+                    text="Exit Now",
+                    size_hint_y=None,
+                    height="56dp",
+                    background_color=(0.1, 0.4, 0.2, 1),
+                )
+
+                def _do_exit(*_):
+                    restart_modal.dismiss()
+                    try:
+                        for screen in list(sm.screens):
+                            if hasattr(screen, "cleanup"):
+                                screen.cleanup()
+                    except Exception:
+                        pass
+                    self.stop()
+
+                exit_btn.bind(on_release=_do_exit)
+                restart_layout.add_widget(exit_btn)
+                restart_modal.add_widget(restart_layout)
+                restart_modal.open()
+        except Exception:
+            pass
 
     def _add_machine_screens(self, sm) -> None:
         """Instantiate machine-type screens from the registry and add to ScreenManager.

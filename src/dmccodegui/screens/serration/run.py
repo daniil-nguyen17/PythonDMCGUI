@@ -39,7 +39,7 @@ from ...hmi.dmc_vars import (
 from ...hmi.poll import read_all_state
 from ...utils import jobs
 from ..base import BaseRunScreen
-from .widgets import BCompPanel
+from .widgets import BCompPanel, CCompPanel, CCOMP_ARRAY_VAR
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +103,8 @@ class SerrationRunScreen(BaseRunScreen):
 
     _bcomp_values: list[float] = []
     _bcomp_panel: BCompPanel | None = None
+    _ccomp_values: list[float] = []
+    _ccomp_panel: CCompPanel | None = None
     _pos_clock_event = None
     _pos_busy: bool = False
     _mg_thread: threading.Thread | None = None
@@ -144,6 +146,14 @@ class SerrationRunScreen(BaseRunScreen):
             panel.save_callback = self._write_bcomp_element
             panel.refresh_callback = self._read_bcomp_job
             self._read_bcomp_job()
+
+        # Wire cComp panel callbacks and trigger initial read
+        cpanel = self.ids.get('ccomp_panel')
+        if cpanel is not None:
+            self._ccomp_panel = cpanel
+            cpanel.save_callback = self._write_ccomp_element
+            cpanel.refresh_callback = self._read_ccomp_job
+            self._read_ccomp_job()
 
         # Start per-screen MG reader (own gclib handle, --subscribe MG)
         self._start_mg_reader()
@@ -198,8 +208,11 @@ class SerrationRunScreen(BaseRunScreen):
                 self.pos_c = f"{int(c):,}"
                 self.session_knife_count = str(ses_kni)
                 self.stone_knife_count = str(stn_kni)
-                self.cycle_running = dmc_state == STATE_GRINDING
-                self.motion_active = dmc_state in (STATE_GRINDING, STATE_HOMING)
+                # Guard: don't overwrite if on_start_grind already fired
+                if not self.cycle_running:
+                    self.cycle_running = dmc_state == STATE_GRINDING
+                if not self.motion_active:
+                    self.motion_active = dmc_state in (STATE_GRINDING, STATE_HOMING)
                 # If already grinding when we enter, start polling
                 if self.cycle_running:
                     self._start_pos_poll()
@@ -378,8 +391,12 @@ class SerrationRunScreen(BaseRunScreen):
             )
             return
 
+        cancel = jobs.get_jobs().cancel_event
         values: list[float] = []
         for i in range(n):
+            if cancel.is_set():
+                logger.debug("[SerrationRunScreen] _read_bcomp: cancelled by urgent job at index %d", i)
+                return
             try:
                 raw_v = ctrl.cmd(f"MG {BCOMP_ARRAY}[{i}]").strip()
                 values.append(float(raw_v))
@@ -427,6 +444,90 @@ class SerrationRunScreen(BaseRunScreen):
                 logger.error(
                     "[SerrationRunScreen] _write_bcomp_element: failed to write %s[%d]: %s",
                     BCOMP_ARRAY, index, e
+                )
+
+        jobs.submit(_do)
+
+    # -----------------------------------------------------------------------
+    # cComp panel — read and write
+    # -----------------------------------------------------------------------
+
+    def _read_ccomp_job(self) -> None:
+        """Submit _read_ccomp as a background job."""
+        jobs.submit(self._read_ccomp)
+
+    def _read_ccomp(self) -> None:
+        """Background job: read numSerr then cComp[0..N-1] from controller.
+
+        Same pattern as _read_bcomp but for the C-axis curve compensation array.
+        cComp values are calculated by #CCBUILD on the controller but can be
+        read and fine-tuned here.
+        """
+        ctrl = self.controller
+        if not ctrl or not ctrl.is_connected():
+            logger.warning("[SerrationRunScreen] _read_ccomp: controller not connected")
+            return
+
+        try:
+            raw_n = ctrl.cmd(f"MG {BCOMP_NUM_SERR}").strip()
+            n = int(float(raw_n))
+        except Exception as e:
+            logger.warning("[SerrationRunScreen] _read_ccomp: failed to read numSerr: %s", e)
+            return
+
+        if n <= 0:
+            logger.warning("[SerrationRunScreen] _read_ccomp: numSerr=%s not positive", n)
+            return
+
+        cancel = jobs.get_jobs().cancel_event
+        values: list[float] = []
+        for i in range(n):
+            if cancel.is_set():
+                logger.debug("[SerrationRunScreen] _read_ccomp: cancelled by urgent job at index %d", i)
+                return
+            try:
+                raw_v = ctrl.cmd(f"MG {CCOMP_ARRAY_VAR}[{i}]").strip()
+                values.append(float(raw_v))
+            except Exception as e:
+                logger.warning(
+                    "[SerrationRunScreen] _read_ccomp: failed to read %s[%d]: %s",
+                    CCOMP_ARRAY_VAR, i, e
+                )
+                values.append(0.0)
+
+        def _apply(*_):
+            self._ccomp_values = values
+            if self._ccomp_panel is not None:
+                self._ccomp_panel.build_rows(values)
+
+        Clock.schedule_once(_apply)
+
+    def _write_ccomp_element(self, index: int, value_mm: float) -> None:
+        """Write a single cComp element to the controller.
+
+        Sends cComp[{index}]={value_mm:.4f} in a background job.
+        Same pattern as _write_bcomp_element.
+
+        Args:
+            index:    Zero-based serration index.
+            value_mm: Compensation value in mm, validated by CCompPanel._on_save().
+        """
+        if not self.controller or not self.controller.is_connected():
+            return
+        ctrl = self.controller
+
+        def _do():
+            cmd = f"{CCOMP_ARRAY_VAR}[{index}]={value_mm:.4f}"
+            try:
+                ctrl.cmd(cmd)
+                logger.debug(
+                    "[SerrationRunScreen] _write_ccomp_element: wrote %s[%d]=%.4f",
+                    CCOMP_ARRAY_VAR, index, value_mm
+                )
+            except Exception as e:
+                logger.error(
+                    "[SerrationRunScreen] _write_ccomp_element: failed to write %s[%d]: %s",
+                    CCOMP_ARRAY_VAR, index, e
                 )
 
         jobs.submit(_do)

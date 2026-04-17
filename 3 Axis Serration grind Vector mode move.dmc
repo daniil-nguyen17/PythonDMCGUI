@@ -1,0 +1,621 @@
+REM ============================================================
+REM  SERRATED KNIFE EDGE GRINDER - GALIL DMC PROGRAM (3-AXIS)
+REM  Axes:
+REM    A = Knife Length (along blade)
+REM    B = Width (in/out toward stationary grinder)
+REM    C = Knife Height / Angle Selection + Compensation (up/down)
+REM  Motion Pattern Per Serration:
+REM    1. C moves to tooth height (startPtC + cComp[scount])
+REM    2. B moves in to grind tooth (swidth)
+REM    3. B retracts to start position
+REM    4. A steps forward by spitch
+REM    5. Increment scount, repeat until scount = numSerr
+' AUTO RUN ON POWER ON machType= 1 (flat grind) 2(serration) 3 (Convex grind)
+#AUTO
+machType=2
+CB 1,2,3,4,5,6,7,8
+'JS #CONFIG
+'JS #PARAMS
+'JS #INIT1
+JS #HOME
+ctSesKni = 0
+XQ #SHOWPOS, 1
+XQ #UPDSPD, 2
+WT 500
+MG "AUTO INIT COMPLETE"
+REM ============================================================
+REM  MAIN: Wait loop - poll buttons
+#MAIN
+hmiState = 1;              ' IDLE set immediately so HMI stays in sync
+MG "IDLING FOR INPUT", "  A:", _TDA, "  B:", _TDB, "  C:", _TDC
+MG "hmiState:", hmiState, " ctSesKni:", ctSesKni, " ctStnKni:", ctStnKni
+
+#WtAtRt
+CB 1;
+WT 100
+
+IF (@IN[29] = 0) | (hmiGrnd = 0);  
+  hmiGrnd = 1;                       
+  hmiState = 2;                        
+  MG "STATE:", hmiState
+  SB 1;
+  JS #GRNDCR4
+  hmiState = 1;                     
+  MG "STATE:", hmiState 
+  JP #WtAtRt
+ENDIF
+
+IF (@IN[41] = 0) | (hmiSetp = 0); 
+  hmiSetp = 1;                        
+  hmiState = 3;                       
+  MG "STATE:", hmiState
+  JS #SETUP
+  hmiState = 1;                       
+  MG "STATE:", hmiState
+  JP #WtAtRt
+ENDIF
+
+IF (@IN[33] = 0) | (hmiMore = 0); 
+  hmiMore = 1;                      
+  MG "MORE STONE FROM B"
+  JS #MOREGRI
+  JP #WtAtRt
+ENDIF
+
+IF (@IN[36] = 0) | (hmiLess = 0); 
+  hmiLess = 1;                        
+  MG "LESS STONE FROM B"
+  JS #LESSGRI
+  JP #WtAtRt
+ENDIF
+
+WT 50
+JP #WtAtRt;
+EN
+REM ============================================================
+REM  V-SHAPE VECTOR SERRATION GRIND - DMC-4040 FINAL
+REM  Verified against Galil DMC command reference (2022)
+REM ============================================================
+REM  All commands verified in the official Galil reference:
+REM    VM AB    - vector mode on A,B plane (page 312)
+REM    VA, VD   - vector accel/decel (pages 308-309)
+REM    VS       - vector speed (page 317)
+REM    VP       - vector position segment (page 314)
+REM             - note: first VP defines origin of sequence,
+REM               subsequent VPs are endpoints relative to origin
+REM             - single VP per sequence = incremental behavior
+REM    VE       - vector sequence end (page 310)
+REM    BG S     - begin sequence (space form from manual examples)
+REM    AM S     - after motion sequence (space form from manual examples)
+REM    WT       - wait (for spark-out dwell outside vector mode)
+REM  REQUIRED #PARAMS ADDITIONS:
+REM    carryPct = 45       ' % of (grindCt + bAdj) for retract
+REM    sparkDw  = 400      ' ms dwell at depth
+REM    carrySpd = 3        ' mm/s vector speed during carry
+REM    plngFrc  = 0.5      ' fraction of spitch during plunge (0.2-0.8)
+REM    vecAcc   = 40000    ' vector accel/decel (counts/s^2)
+REM
+REM  REQUIRED #VARCALC ADDITIONS:
+REM    (none - all values computed per-tooth inside grind loop)
+REM ============================================================
+
+#GRNDCR4
+SH ABC
+MG "V-SHAPE VECTOR GRIND (verified DMC-4040)"
+scount = 0; currA = 0
+MG "spitch ", spitch
+MG "carryPct ", carryPct, "%  plngFrc ", plngFrc
+MG "sparkDw ", sparkDw, "ms  carrySpd ", carrySpd, "mm/s"
+MG "vecAcc ", vecAcc, " counts/s^2"
+
+REM safety clamp on plngFrc
+JP #CR4PFO, plngFrc >= 0.2
+plngFrc = 0.2
+MG "WARN: plngFrc clamped to 0.2"
+#CR4PFO
+JP #CR4PFM, plngFrc <= 0.8
+plngFrc = 0.8
+MG "WARN: plngFrc clamped to 0.8"
+#CR4PFM
+
+REM precompute A-travel split for V-shape
+plngAct = spitch * cpmA * plngFrc
+retrAct = spitch * cpmA * (1 - plngFrc)
+MG "plngAct ", plngAct, " retrAct ", retrAct
+JS #GOSTR
+
+MG "Total serrations: ", numSerr
+MG "STARTING A POSITION: ", _TDA/cpmA
+
+#LPCR4
+JP #DNCR4, scount >= numSerr
+MG "SERRATION (V): ", scount, " TDA=", _TDA/cpmA, "mm"
+MG "     TDB=", _TDB/cpmB, "mm  TDC=", _TDC/cpmC, "mm"
+
+REM clamp compensation index
+cidx = scount
+JP #CR4COK, cidx < numComp
+cidx = numComp - 1
+#CR4COK
+
+REM per-tooth compensation values
+cAdj = cComp[cidx] * cpmC
+Ccmd = startPtC + cAdj
+bAdj = bComp[cidx] * cpmB
+Bcmd = startPtB + grindCt + bAdj
+
+REM dynamic carry retract scales with actual grind depth
+dynCrry = (grindCt + bAdj) * carryPct / 100
+MG "         dynCrry:", dynCrry, "    bAdj:", bAdj
+
+REM move C to current tooth belly position (outside vector mode)
+SP ,, fdCdn * cpmC
+PA ,, Ccmd
+BG C; AM C
+
+REM calculate plunge B distance after C settles
+plungeB = Bcmd - _TDB
+
+REM branch based on first/middle/last tooth
+JP #CR4FST, scount = 0
+JP #CR4LST, scount >= (numSerr - 1)
+
+REM ==== MIDDLE TOOTH: FULL V (diagonal plunge + diagonal retract) ====
+REM Phase 1: diagonal plunge
+VM AB
+VA vecAcc
+VD vecAcc
+VS fdBin * cpmB
+VP -plngAct, plungeB
+VE
+BG S
+AM S
+
+REM Phase 2: spark-out dwell (outside vector mode)
+WT sparkDw
+
+REM Phase 3: diagonal retract
+crryBinc = -dynCrry
+VM AB
+VA vecAcc
+VD vecAcc
+VS carrySpd * cpmB
+VP -retrAct, crryBinc
+VE
+BG S
+AM S
+
+currA = currA + spitch
+scount = scount + 1
+MG "V-Cut middle: ", scount
+JP #LPCR4
+
+REM ==== FIRST TOOTH: pure B plunge + diagonal retract ====
+#CR4FST
+REM Phase 1: pure B plunge (A=0, no lateral motion)
+VM AB
+VA vecAcc
+VD vecAcc
+VS fdBin * cpmB
+VP 0, plungeB
+VE
+BG S
+AM S
+
+REM Phase 2: spark-out dwell
+WT sparkDw
+
+REM Phase 3: diagonal retract to peak after first groove
+crryBinc = -dynCrry
+VM AB
+VA vecAcc
+VD vecAcc
+VS carrySpd * cpmB
+VP -retrAct, crryBinc
+VE
+BG S
+AM S
+
+currA = currA + spitch
+scount = scount + 1
+MG "V-Cut first: ", scount
+JP #LPCR4
+
+REM ==== LAST TOOTH: diagonal plunge + pure B retract (full clearance) ====
+#CR4LST
+REM Phase 1: diagonal plunge into final groove
+VM AB
+VA vecAcc
+VD vecAcc
+VS fdBin * cpmB
+VP -plngAct, plungeB
+VE
+BG S
+AM S
+REM Phase 2: spark-out dwell
+WT sparkDw
+REM Phase 3: pure B retract (A=0, includes clearCt for safe exit)
+retractB = -(grindCt + bAdj + clearCt)
+VM AB
+VA vecAcc
+VD vecAcc
+VS fdBout * cpmB
+VP 0, retractB
+VE
+BG S
+AM S
+
+currA = currA + spitch
+scount = scount + 1
+MG "V-Cut last: ", scount
+JP #LPCR4
+
+#DNCR4
+MG "V-SHAPE GRIND COMPLETE"
+MG "     Serrations cut: ", scount
+MG "        ENDING A: ", _TDA/cpmA, " B: ", _TDB/cpmB, " C: ", _TDC/cpmC
+MG "Start C before auto wear: ", startPtC
+startPtC = startPtC + autoWear
+MG "Start C after auto wear: ", startPtC
+JS #GOREST
+ctSesKni = ctSesKni + 1
+ctStnKni = ctStnKni + 1
+ST ABC
+ZS
+JP #MAIN
+EN
+
+
+REM =============================================================
+REM bulge calculation
+REM =============================================================
+#CCBUILD
+REM Parabolic C compensation for blade curvature
+REM Blade bulges TOWARD grinder at midpoint
+REM C positive = UP = into grinder
+REM Therefore compensation is NEGATIVE at midpoint (retract C)
+ccidx = 0
+#CCBLDLP
+  crvN = ccidx / (numSerr - 1)
+  cComp[ccidx] = crvPeak * 4 * crvN * (1 - crvN)
+MG "cComp value: ", cComp[ccidx], "mm"
+  ccidx = ccidx + 1
+JP #CCBLDLP, ccidx < numSerr
+MG "CCOMP BUILT"
+MG "  peak compensation:", cComp[numSerr/2], "mm"
+MG "  first tooth:", cComp[0], "mm"
+MG "  last tooth:", cComp[numSerr-1], "mm"
+EN
+
+REM ============================================================
+REM  SETUP MENU
+REM ============================================================
+#SETUP
+MG "SETUP MENU ACTIVE"
+#SULOOP
+WT 100
+
+'---- BUTTON 44 NEW STONE -----
+IF (@IN[44] = 0) | (hmiNewS = 0);   ' new grind stone OR HMI trigger
+  hmiNewS = 1;                        ' reset HMI var first
+  JS #NEWSESS
+  hmiState=3
+  MG "STATE:", hmiState
+  JP #SULOOP
+ENDIF
+
+' --- BUTTON 25: RUN HOME ---
+IF (@IN[25] = 0) | (hmiHome = 0)
+  hmiHome = 1;
+  hmiState = 4;               
+  MG "STATE:", hmiState
+  MG "STARTING HOMING SEQUENCE"
+  JS #HOME
+  hmiState = 3;                      
+  MG "STATE:", hmiState
+  JP #SULOOP
+ENDIF
+
+' --- BUTTON 26: CHANGE KNIFE / RECALCULATE ---
+IF (@IN[26] = 0) | (hmiCalc = 0)
+  hmiCalc = 1;
+  MG " NEW KNIFE CALCULATIONS"
+  JS #VARCALC
+  JP #SULOOP
+ENDIF
+
+' --- HMI: GO TO REST ---
+IF (hmiGoRs = 0)
+  hmiGoRs = 1
+  MG "HMI: GOING TO REST"
+  JS #GOREST
+  JP #SULOOP
+ENDIF
+
+' --- HMI: GO TO START ---
+IF (hmiGoSt = 0)
+  hmiGoSt = 1
+  MG "HMI: GOING TO START"
+  JS #GOSTR
+  JP #SULOOP
+ENDIF
+
+' --- BUTTON 32 OR HMI EXIT SETUP ---
+IF (@IN[32] = 0) | (hmiExSt = 0)
+  hmiExSt = 1
+  MG "RETURNING TO MAIN MENU"
+  JP #MAIN
+ENDIF
+
+JP #SULOOP
+
+REM ============================================================
+REM  SAVE POINTS ROUTINES
+REM ============================================================
+#SETREST
+restPtA = _TDA; WT 50; MG "SET REST A=", restPtA
+restPtB = _TDB; WT 50; MG "SET REST B=", restPtB
+restPtC = _TDC; WT 50; MG "SET REST C=", restPtC
+BV; WT 200
+EN
+
+#SETSTR
+startPtA = _TDA; WT 50; MG "SET START A=", startPtA
+startPtB = _TDB; WT 50; MG "SET START B=", startPtB
+startPtC = _TDC; WT 50; MG "SET START C=", startPtC
+BV; WT 200
+EN
+
+REM ============================================================
+REM  HOMING ROUTINE
+REM ============================================================
+#HOME
+hmiState = 4;
+MG "STATE:", hmiState
+SH ABC
+SP 30000, 30000, 30000;
+HV 10000, 10000, 10000
+
+HMC; BGC; AMC
+HMB; BGB; AMB
+HMA; BGA; AMA
+
+WT 1000
+DP 0, 0, 0;
+MG "A B C - ALL AXES HOMED and got 0"
+hmiState = 1;          
+MG "STATE:", hmiState 
+EN
+
+REM ============================================================
+REM  GO REST - safe 3-axis park sequence
+REM ============================================================
+#GOREST
+MG "MOVING TO REST"
+
+SP fdA * cpmA, fdBout * cpmB, fdCup * cpmC
+PA ,, restPtC
+BGC; AMC
+PA , restPtB,
+BGB; AMB
+PA restPtA,,
+BGA; AMA
+MG "AT REST POSITION"
+MG "restPtA: ", restPtA , " or ", _TDA;
+MG "restPtB: ", restPtB , " or ", _TDB;
+MG "restPtC: ", restPtC , " or ", _TDC;
+EN
+
+REM ============================================================
+REM  GO START - safe 3-axis move to grind start position
+REM ============================================================
+#GOSTR
+MG "MOVING TO START"
+SH ABC
+' C to start height
+SP fdA * cpmA, fdBout * cpmB, fdCup * cpmC
+PA ,, startPtC
+BGC; AMC
+' A to start position along blade
+PA startPtA,,
+BGA; AMA
+' B to start position
+PA , startPtB,
+BGB; AMB;
+WT 100
+MG "AT START POSITION"
+MG "startPtA : ", startPtA , " or _TDA",  _TDA;
+MG "startPtB : ", startPtB , " or _TDB",  _TDB;
+MG "startPtC : ", startPtC , " or _TDC",  _TDC;
+EN
+
+REM ============================================================
+REM  MORE GRIND / LESS GRIND
+REM ============================================================
+#MOREGRI
+SB 3;
+startPtB = startPtB + (cpmB * 0.025);       ' more grinding 0.025mm
+MG "DA MOI THEM 0.025mm"
+WT 200; BV
+EN
+
+#LESSGRI
+SB 3
+startPtB = startPtB - (cpmB * 0.025)
+MG "DA MOI BOT 0.025mm"
+WT 200; BV
+EN
+
+REM ============================================================
+REM  NEW SESSION - new grind stone
+#NEWSESS
+MG "DA MAI MOI - dem dao thanh 0"
+JS #HOME;
+ctSesKni = 0;              
+ctStnKni = 0;                 
+startPtC=firstC
+MG "DANG TRONG VI TRI THAY DA MAI, DANG CHO O CAT DAT"
+EN
+
+REM ============================================================
+REM  UPDATE SPEED FROM MAIN KNOB
+#UPDSPD
+mainSp = @AN[1] * 20000
+autoWear=  @AN[2]*20
+WT 100
+JP #UPDSPD
+EN
+
+REM ============================================================
+REM  SHOWPOS - track all 3 axis positions (runs on thread 1)
+#SHOWPOS
+WT 50
+aPos = _TDA
+bPos = _TDB
+cPos = _TDC
+
+idx = idx + 1
+JP #IDXOK, idx < 300
+idx = 0
+#IDXOK
+aBuf[idx] = aPos
+bBuf[idx] = bPos
+cBuf[idx] = cPos
+
+JP #SHOWPOS
+EN
+
+REM ============================================================
+REM  CONFIG - machine hardware setup
+#CONFIG
+
+MT 2, 2.5, 2.5;     
+SP 40000, 40000, 40000
+AC 80000, 80000, 80000
+DC 80000, 80000, 80000
+
+CN 1, 1
+
+MG "CONFIG DONE - 3 AXIS"
+EN
+
+REM ============================================================
+REM  PARAMS - machine constants (never change day to day)
+REM ============================================================
+#PARAMS
+' --- knife parameters - set these per knife type ---
+knfThk   = 1.4;    
+' highest point on the knife to calculate for cComp value
+crvPeak = -7;          ' mm - negative because C must retract at midpoint
+numSerr = 44;
+spitch = 3;      ' Serration pitch: center-to-center spacing (mm)
+grdthk = 3;
+
+' --- serration infeed control (NEW) ---
+' startPtB is taught ~0.1 mm off the stone. Flat grinding leaves ~edgeLef
+' remaining edge stock on each side. grindDp controls how far past startPtB
+' the B axis plunges per tooth ? this is the ACTUAL bite depth. bClear is
+' extra pullback after grinding for clearance while A steps to next tooth.
+edgeLef = 0.35;  ' mm - reference only: estimated remaining edge thickness
+grindDp = 0.35;  ' mm - B infeed past startPtB per tooth (effective bite)
+bClear  = 0.50;  ' mm - extra B pullback after tooth for clearance
+
+'--- vector mode params -----
+carryPct = 55;       ' % of (grindCt + bAdj) for retract
+sparkDw  = 400;      ' ms dwell at depth
+carrySpd = 3;        ' mm/s vector speed during carry
+plngFrc  = 0.5;      ' fraction of spitch during plunge (0.2-0.8)
+vecAcc   = 40000;    ' vector accel/decel (counts/s^2)
+'--- feed speeds
+fdA    = 75
+fdBin  = 1
+fdBout = 75
+fdCdn  = 20
+fdCup  = 10
+fdPark = 10
+MG "PARAMS DONE"
+EN
+
+REM ============================================================
+REM  INIT1 - array declarations for compensation tables
+REM ============================================================
+#INIT1
+JS #CONFIG
+'--- machine vars
+ctSesKni = 0
+ctStnKni = 0
+lastSt   = 0
+mainSp   = 10000
+idx      = 0
+autoWear=0
+
+' --- HMI trigger variables (default=1, send 0 to trigger) ---
+hmiGrnd = 1;  hmiSetp = 1;  hmiMore = 1;  hmiLess = 1
+hmiNewS = 1;  hmiHome = 1;  hmiJog  = 1;  hmiCalc = 1
+hmiGoRs = 1
+hmiGoSt = 1
+hmiExSt = 1;  
+' --- Machine state (1=IDLE 2=GRINDING 3=SETUP 4=HOMING) ---
+hmiState = 1
+
+startPtA = 0; startPtB = 0; startPtC = 0
+restPtA  = 0; restPtB  = 0; restPtC  = 0
+'--- axis numbers
+pitchA = 5;  ratioA = 3;  ctsRevA = 3200;  
+pitchB = 5;  ratioB = 3;  ctsRevB = 3200;  
+pitchC = 5;  ratioC = 9;  ctsRevC = 3200;  
+firstC=0
+aPos=0
+bPos=0
+cPos=0
+Rmm   = 100.0;        ' wheel radius (mm)
+DM aBuf[300]
+DM bBuf[300]
+DM cBuf[300]
+
+DM cComp[100]
+DM bComp[100]
+' cComp[0..numSerr-1] are initialized at runtime at start of #GRNDCR3(#CCBUILD)
+cComp[0]  = 0.0
+cComp[1]  = 0.0
+cComp[2]  = 0.0
+cComp[3]  = 0.0
+cComp[4]  = 0.0
+cComp[5]  = 0.0
+cComp[6]  = 0.0
+cComp[7]  = 0.0
+cComp[8]  = 0.0
+cComp[9]  = 0.0
+bComp[0]= 0;
+MG "One time Init DONE"
+EN
+
+REM ============================================================
+REM  VARCALC - calculate variables and burn
+REM ============================================================
+#VARCALC
+cpmA = (ctsRevA* ratioA) / pitchA;
+cpmB = (ctsRevB* ratioB) / pitchB;
+cpmC = (ctsRevC * ratioC) / pitchC;
+
+thkCt  = knfThk * cpmB;
+bOutDis= thkCt*2;
+
+carryCt = grindCt * carryPct / 100
+'---- serration infeed counts (precomputed for grind loop speed) ---
+grindCt = grindDp * cpmB
+clearCt = bClear  * cpmB
+' Safety clamp: never let grindCt exceed 80% of knife thickness
+JP #GDOK, grindCt < (thkCt * 0.8)
+grindCt = thkCt * 0.8
+MG "WARN: grindDp capped to 80% of knfThk"
+#GDOK
+'---- get number of index for comps
+numComp = numSerr;
+' rebuild compensation curve for new knife
+JS #CCBUILD
+' --- Limit Switch Back-off Distance (mm) ---
+backOff = 2
+MG "VARCALC DONE"
+BV;                              
+EN

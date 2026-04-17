@@ -1,26 +1,25 @@
 """Serration-specific widgets.
 
-Contains the BCompPanel widget for the bComp (B-axis compensation)
-array display used by the Serration run screen.
+Contains the CompPanel base widget and its concrete subclasses BCompPanel
+(B-axis) and CCompPanel (C-axis / curve) for the Serration run screen.
+
+Each panel is a scrollable editable list of per-serration compensation values,
+with 1-based display labels (the backend still uses 0-based indices).
 
 Classes
 -------
+CompPanel
+    Abstract base: header + scrollable grid of index / value / save-button rows.
 BCompPanel
-    Scrollable editable list widget for the serration bComp compensation array.
-    Inherits from BoxLayout (vertical orientation).
+    B-axis compensation (operator-editable, persisted).
+CCompPanel
+    C-axis curve compensation (calculated by #CCBUILD on the controller,
+    editable here for fine-tuning).
 
 Constants
 ---------
-BCOMP_MIN_MM, BCOMP_MAX_MM
-    Valid range for individual bComp compensation values in mm.
-
-BCOMP_ARRAY_VAR
-    DMC variable name for the bComp array.
-    TODO: verify exact name against real Serration DMC program.
-
-BCOMP_NUM_SERR_VAR
-    DMC variable name for the number of serrations.
-    TODO: verify exact name against real Serration DMC program.
+COMP_MIN_MM, COMP_MAX_MM
+    Valid range for individual compensation values in mm (shared by B and C).
 """
 from __future__ import annotations
 
@@ -36,61 +35,65 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
 
 # ---------------------------------------------------------------------------
-# bComp bounds
+# Compensation bounds (shared by B and C panels)
 # ---------------------------------------------------------------------------
 
-BCOMP_MIN_MM: float = -5.0   # Minimum bComp compensation value in mm
-BCOMP_MAX_MM: float = 5.0    # Maximum bComp compensation value in mm
+COMP_MIN_MM: float = -5.0
+COMP_MAX_MM: float = 5.0
+
+# Legacy aliases used by external code
+BCOMP_MIN_MM = COMP_MIN_MM
+BCOMP_MAX_MM = COMP_MAX_MM
 
 # ---------------------------------------------------------------------------
 # DMC variable name constants
 # ---------------------------------------------------------------------------
 
-# TODO: verify name against real Serration DMC program (customer to confirm)
 BCOMP_ARRAY_VAR: str = "bComp"
-
-# TODO: verify name against real Serration DMC program (customer to confirm)
 BCOMP_NUM_SERR_VAR: str = "numSerr"
+CCOMP_ARRAY_VAR: str = "cComp"
 
 
 # ---------------------------------------------------------------------------
-# BCompPanel
+# CompPanel — shared base for BComp and CComp
 # ---------------------------------------------------------------------------
 
-class BCompPanel(BoxLayout):
-    """Scrollable editable list widget for the serration bComp compensation array.
+class CompPanel(BoxLayout):
+    """Scrollable editable list widget for a per-serration compensation array.
 
-    Displays per-serration B-axis compensation values as a scrollable list with
-    one row per serration. Each row has: an index label, an editable TextInput,
-    and a Save button.
+    Each row: 1-based display index (col 0, fixed width) + TextInput (col 1,
+    fills remaining space) + Save button (col 2, fixed width). The 1-based
+    display label avoids operator confusion; the backend save_callback still
+    receives the 0-based index.
 
-    The parent screen (SerrationRunScreen) wires save_callback and
-    refresh_callback before calling build_rows().
+    Subclasses set _title_prefix and _accent_color in their __init__ to
+    customize the header appearance.
 
     Properties
     ----------
     num_serrations : NumericProperty(0)
-        Current number of serrations. Updated by build_rows().
 
     Callbacks (set by parent screen)
-    ----------------------------------
-    save_callback : Callable[[int, float], None]
-        Called with (index, value_mm) when operator saves a valid row.
+    ---------------------------------
+    save_callback    : Callable[[int, float], None]
     refresh_callback : Callable[[], None]
-        Called when operator taps the "Read bComp" button.
     """
 
     num_serrations = NumericProperty(0)
 
-    # Callbacks wired by SerrationRunScreen on screen entry
     save_callback: Optional[Callable[[int, float], None]] = None
     refresh_callback: Optional[Callable[[], None]] = None
+
+    # Subclass overrides
+    _title_prefix: str = "Comp"
+    _accent_color: list[float] = [0.5, 0.5, 0.5, 1]
+    _refresh_btn_text: str = "Doc"
 
     def __init__(self, **kwargs):
         kwargs.setdefault('orientation', 'vertical')
         super().__init__(**kwargs)
 
-        # Header area: title label + "Read bComp" refresh button
+        # Header: title + refresh button
         header = BoxLayout(
             orientation='horizontal',
             size_hint_y=None,
@@ -99,10 +102,10 @@ class BCompPanel(BoxLayout):
         )
 
         self._title_label = Label(
-            text='bComp — Serrations: --',
+            text=f'{self._title_prefix} — Serrations: --',
             font_size='13sp',
             bold=True,
-            color=[0.024, 0.714, 0.831, 1],  # cyan accent
+            color=self._accent_color,
             halign='left',
             valign='middle',
         )
@@ -110,7 +113,7 @@ class BCompPanel(BoxLayout):
         header.add_widget(self._title_label)
 
         refresh_btn = Button(
-            text='Doc bComp',
+            text=self._refresh_btn_text,
             font_size='12sp',
             size_hint_x=None,
             width=dp(100),
@@ -123,8 +126,13 @@ class BCompPanel(BoxLayout):
 
         self.add_widget(header)
 
-        # Scrollable body with grid for rows
-        self._scroll = ScrollView(do_scroll_x=False)
+        # Scrollable body — 3-column grid with FIXED column widths so values
+        # align vertically across all rows regardless of digit count.
+        self._scroll = ScrollView(
+            do_scroll_x=False,
+            bar_width=dp(4),
+            scroll_type=['bars', 'content'],
+        )
         self._grid = GridLayout(
             cols=3,
             size_hint_y=None,
@@ -135,31 +143,41 @@ class BCompPanel(BoxLayout):
         self._scroll.add_widget(self._grid)
         self.add_widget(self._scroll)
 
+        # Store TextInput refs keyed by 0-based index for reliable lookup
+        self._ti_widgets: dict[int, TextInput] = {}
+
     def _on_refresh_pressed(self, *args) -> None:
-        """Delegate to refresh_callback if wired."""
         if self.refresh_callback is not None:
             self.refresh_callback()
 
     def build_rows(self, values: list[float]) -> None:
-        """Build or rebuild the compensation rows from the given values list.
+        """Build or rebuild compensation rows from the given values list.
 
-        Clears the grid, then creates one row per value in the list.
-        Each row: index label (col 0) + TextInput (col 1) + Save button (col 2).
+        Display labels are 1-based (1, 2, 3, ...) but save_callback receives
+        the original 0-based index.
 
         Args:
-            values: One float per serration. Length determines num_serrations.
+            values: One float per serration, 0-based.
         """
         self._grid.clear_widgets()
+        self._ti_widgets.clear()
         self.num_serrations = len(values)
-        self._title_label.text = f'bComp — Serrations: {len(values)}'
+        self._title_label.text = f'{self._title_prefix} — Serrations: {len(values)}'
+
+        # Fixed column widths for vertical alignment
+        IDX_W = dp(40)
+        SAVE_W = dp(56)
+        ROW_H = dp(40)
 
         for i, val in enumerate(values):
-            # Col 0: index label
+            # Col 0: 1-based index label — fixed width so numbers align
             idx_lbl = Label(
-                text=str(i),
+                text=str(i + 1),
                 font_size='12sp',
+                size_hint_x=None,
+                width=IDX_W,
                 size_hint_y=None,
-                height=dp(44),
+                height=ROW_H,
                 color=[0.396, 0.455, 0.545, 1],
                 halign='center',
                 valign='middle',
@@ -167,65 +185,53 @@ class BCompPanel(BoxLayout):
             idx_lbl.bind(size=idx_lbl.setter('text_size'))
             self._grid.add_widget(idx_lbl)
 
-            # Col 1: TextInput
+            # Col 1: TextInput — fills remaining width
             ti = TextInput(
                 text=f'{val:.4f}',
                 multiline=False,
                 input_filter='float',
                 font_size='13sp',
                 size_hint_y=None,
-                height=dp(44),
+                height=ROW_H,
                 halign='center',
             )
+            self._ti_widgets[i] = ti
             self._grid.add_widget(ti)
 
-            # Col 2: Save button — capture index and textinput by closure
+            # Col 2: Save button — fixed width
             save_btn = Button(
                 text='Luu',
                 font_size='12sp',
+                size_hint_x=None,
+                width=SAVE_W,
                 size_hint_y=None,
-                height=dp(44),
+                height=ROW_H,
                 background_normal='',
                 background_color=[0.09, 0.40, 0.20, 1],
                 color=[0.733, 0.969, 0.827, 1],
             )
-            # Bind with index capture
             save_btn.bind(
                 on_release=lambda btn, idx=i, field=ti: self._on_save(idx, field.text)
             )
             self._grid.add_widget(save_btn)
 
     def _on_save(self, index: int, text: str) -> None:
-        """Handle save action for a single compensation row.
-
-        Validates the text against BCOMP_MIN_MM / BCOMP_MAX_MM.
-        On valid input: calls save_callback(index, value_mm).
-        On invalid input: flashes the relevant TextInput red.
+        """Validate and dispatch save for a single row.
 
         Args:
-            index: Zero-based serration index.
-            text:  New value as string (from TextInput).
+            index: 0-based serration index (backend).
+            text:  New value string from the TextInput.
         """
-        # Locate the TextInput widget for this row (col 1 of row index*3)
-        grid_children = self._grid.children  # reversed order in Kivy
-        # Grid is row-major but Kivy stores children reversed
-        # Find the TextInput in the same row as the index label
-        total = len(grid_children)
-        # Each row has 3 widgets; row 'index' starts at grid position (total - 1 - index*3)
-        # We need to find the TextInput for this row
-        row_position = total - 1 - index * 3  # position of index label in reversed list
-        text_input = None
-        if row_position >= 1:
-            text_input = grid_children[row_position - 1]  # TextInput is next in reversed order
+        ti = self._ti_widgets.get(index)
 
         try:
             value_mm = float(text)
         except (ValueError, TypeError):
-            self._flash_error(text_input)
+            self._flash_error(ti)
             return
 
-        if not (BCOMP_MIN_MM <= value_mm <= BCOMP_MAX_MM):
-            self._flash_error(text_input)
+        if not (COMP_MIN_MM <= value_mm <= COMP_MAX_MM):
+            self._flash_error(ti)
             return
 
         if self.save_callback is not None:
@@ -242,3 +248,32 @@ class BCompPanel(BoxLayout):
             + Animation(background_color=original_color, duration=0.3)
         )
         anim.start(widget)
+
+
+# ---------------------------------------------------------------------------
+# BCompPanel — B-axis compensation
+# ---------------------------------------------------------------------------
+
+class BCompPanel(CompPanel):
+    """B-axis per-serration compensation panel (cyan accent)."""
+
+    _title_prefix = "bComp"
+    _accent_color = [0.024, 0.714, 0.831, 1]  # cyan
+    _refresh_btn_text = "Doc bComp"
+
+
+# ---------------------------------------------------------------------------
+# CCompPanel — C-axis curve compensation
+# ---------------------------------------------------------------------------
+
+class CCompPanel(CompPanel):
+    """C-axis per-serration curve compensation panel (orange accent).
+
+    Calculated by #CCBUILD on the controller from crvPeak and numSerr.
+    The HMI reads and displays the array, and lets the operator fine-tune
+    individual values and save them back.
+    """
+
+    _title_prefix = "cComp"
+    _accent_color = [0.980, 0.569, 0.043, 1]  # orange
+    _refresh_btn_text = "Doc cComp"

@@ -447,8 +447,11 @@ class FlatGrindRunScreen(BaseRunScreen):
                 self.pos_d = f"{int(d):,}"
                 self.session_knife_count = str(ses_kni)
                 self.stone_knife_count = str(stn_kni)
-                self.cycle_running = dmc_state == STATE_GRINDING
-                self.motion_active = dmc_state in (STATE_GRINDING, STATE_HOMING)
+                # Guard: don't overwrite if on_start_grind already fired
+                if not self.cycle_running:
+                    self.cycle_running = dmc_state == STATE_GRINDING
+                if not self.motion_active:
+                    self.motion_active = dmc_state in (STATE_GRINDING, STATE_HOMING)
 
                 # CPMs
                 for axis, cpm in cpm_results.items():

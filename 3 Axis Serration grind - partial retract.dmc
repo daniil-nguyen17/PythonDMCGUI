@@ -21,6 +21,7 @@ JS #HOME
 ctSesKni = 0
 XQ #SHOWPOS, 1
 XQ #UPDSPD, 2
+XQ #ZALOOP, 3
 WT 500
 MG "AUTO INIT COMPLETE"
 REM ============================================================
@@ -552,3 +553,10 @@ backOff = 2
 MG "VARCALC DONE"
 BV;                              
 EN
+#ZALOOP
+ZAA=hmiState
+ZAB=ctSesKni
+ZAC=ctStnKni
+ZAD=startPtC
+WT 10
+JP#ZALOOP

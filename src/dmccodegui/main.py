@@ -46,7 +46,7 @@ try:
     from . import screens as _screens  # noqa: F401 - ensure screen classes are registered with Factory
     from .screens.pin_overlay import PINOverlay
     from .theme_manager import theme as app_theme
-    from .hmi.poll import ControllerPoller
+    from .hmi.data_record import DataRecordListener, get_hmi_ip
     from .hmi.mg_reader import MgReader
     from .hmi.dmc_vars import STATE_SETUP
     import dmccodegui.machine_config as mc
@@ -58,7 +58,7 @@ except Exception:  # Allows running as a script: python src/dmccodegui/main.py
     import dmccodegui.screens as _screens  # type: ignore  # noqa: F401
     from dmccodegui.screens.pin_overlay import PINOverlay
     from dmccodegui.theme_manager import theme as app_theme
-    from dmccodegui.hmi.poll import ControllerPoller
+    from dmccodegui.hmi.data_record import DataRecordListener, get_hmi_ip
     from dmccodegui.hmi.mg_reader import MgReader
     from dmccodegui.hmi.dmc_vars import STATE_SETUP
     import dmccodegui.machine_config as mc
@@ -118,7 +118,7 @@ class DMCApp(App):
         self.state = MachineState()
         self.controller = GalilController()
         self._poll_cancel = None
-        self._poller = None
+        self._dr_listener = None
         self._idle_event = None
         self.mg_reader = MgReader()
         # AuthManager — path resolved at __init__ time so tests can override
@@ -228,7 +228,7 @@ class DMCApp(App):
         # Set initial screen to setup (connection screen)
         sm.current = 'setup'
 
-        # Polling is handled by ControllerPoller (started when controller connects)
+        # State streaming handled by DataRecordListener (started when controller connects)
 
         # Hook controller logger to push messages into state and show banner
         self.controller.set_logger(lambda msg: Clock.schedule_once(lambda *_: self._log_message(msg)))
@@ -236,7 +236,7 @@ class DMCApp(App):
         # Detect pre-existing connection (e.g., controller opened by previous run)
         if self.controller.verify_connection():
             self.state.set_connected(True)
-            self._start_poller()
+            self._start_dr()
             self._start_mg_reader()
             self._preload_params()
             # Connection present — show machine type picker first if not configured,
@@ -253,7 +253,7 @@ class DMCApp(App):
                         if ok:
                             self.state.connected_address = addr
                             self.state.log(f"Connected to: {addr}")
-                            self._start_poller()
+                            self._start_dr()
                             self._start_mg_reader()
                             self._preload_params()
                             # Auto-connect succeeded — startup flow (picker then PIN)
@@ -619,7 +619,7 @@ class DMCApp(App):
 
     def _on_connect_from_setup(self) -> None:
         """Called when setup screen successfully connects. Show picker then PIN overlay."""
-        self._start_poller()
+        self._start_dr()
         self._start_mg_reader()
         self._preload_params()
         Clock.schedule_once(lambda *_: self._show_startup_flow(), 0)
@@ -884,19 +884,23 @@ class DMCApp(App):
                 pass
 
     # ------------------------------------------------------------------
-    # Centralized controller poller (Phase 10)
+    # Data Record (DR) streaming — replaces ControllerPoller
     # ------------------------------------------------------------------
 
-    def _start_poller(self) -> None:
-        """Create and start the ControllerPoller if not already running."""
-        if self._poller is None:
-            self._poller = ControllerPoller(self.controller, self.state)
-        self._poller.start()
+    def _start_dr(self) -> None:
+        """Create and start the DataRecordListener if not already running."""
+        if self._dr_listener is None:
+            self._dr_listener = DataRecordListener(self.state)
+        if not self._dr_listener.is_running():
+            addr = self.state.connected_address or getattr(self.controller, '_address', '')
+            if addr:
+                hmi_ip = get_hmi_ip(addr)
+                self._dr_listener.start(self.controller, hmi_ip)
 
-    def _stop_poller(self) -> None:
-        """Stop the ControllerPoller if it is running."""
-        if self._poller:
-            self._poller.stop()
+    def _stop_dr(self) -> None:
+        """Stop the DataRecordListener if it is running."""
+        if self._dr_listener and self._dr_listener.is_running():
+            self._dr_listener.stop(self.controller)
 
     def _start_mg_reader(self) -> None:
         """Start the app-wide MgReader using the controller's connected address."""
@@ -938,7 +942,7 @@ class DMCApp(App):
         # Cancel timers and poller first — no more commands queued
         if self._poll_cancel:
             self._poll_cancel()
-        self._stop_poller()
+        self._stop_dr()
         self._stop_mg_reader()
         if self._idle_event:
             self._idle_event.cancel()
@@ -977,7 +981,7 @@ class DMCApp(App):
             pass
 
     def disconnect_and_refresh(self) -> None:
-        self._stop_poller()
+        self._stop_dr()
         self._stop_mg_reader()
         def do_disc():
             self.controller.disconnect()

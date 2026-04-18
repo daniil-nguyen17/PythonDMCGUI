@@ -11,7 +11,20 @@
       "Bash(node __TRACKED_VAR__/.claude/get-shit-done/bin/gsd-tools.cjs verify plan-structure .planning/phases/23-controller-communication-optimization/23-01-PLAN.md)",
       "Bash(node __TRACKED_VAR__/.claude/get-shit-done/bin/gsd-tools.cjs verify plan-structure .planning/phases/23-controller-communication-optimization/23-02-PLAN.md)",
       "Bash(node __TRACKED_VAR__/.claude/get-shit-done/bin/gsd-tools.cjs commit 'fix\\(23\\): revise plans based on checker feedback' --files .planning/phases/23-controller-communication-optimization/23-01-PLAN.md .planning/phases/23-controller-communication-optimization/23-02-PLAN.md .planning/phases/23-controller-communication-optimization/23-03-PLAN.md)",
-      "Bash(ls \"C:/Users/danii/OneDrive/Desktop/PythonDMCGUI/\"*.dmc)"
+      "Bash(ls \"C:/Users/danii/OneDrive/Desktop/PythonDMCGUI/\"*.dmc)",
+      "Bash(pip show:*)",
+      "Bash(pip install:*)",
+      "Bash(python -c ':*)",
+      "Bash(python -c \"import py_compile; py_compile.compile\\('src/dmccodegui/screens/convex/run.py', doraise=True\\)\")",
+      "Bash(python -c \"from dmccodegui.hmi.data_record import DataRecordListener, get_hmi_ip, calculate_offsets, find_available_handle; print\\('data_record.py imports OK'\\)\")",
+      "Bash(python -c \"from dmccodegui.hmi.dmc_vars import DR_UDP_PORT, DR_RATE_NORMAL, DR_RATE_GRIND, DR_DISCONNECT_TIMEOUT; print\\(f'DR constants OK: port={DR_UDP_PORT}, normal={DR_RATE_NORMAL}, grind={DR_RATE_GRIND}, timeout={DR_DISCONNECT_TIMEOUT}'\\)\")",
+      "Bash(python -c \"from dmccodegui.app_state import MachineState; s = MachineState\\(\\); print\\(f'start_pt_c field OK: {s.start_pt_c}'\\)\")",
+      "Bash(python3 -c \"from src.dmccodegui.hmi.poll import read_all_state\")",
+      "Bash(echo \"exit: $?\")",
+      "Bash(python -c \"from dmccodegui.hmi.poll import read_all_state; print\\('OK'\\)\")",
+      "Bash(python -c \"from dmccodegui.main import DMCApp; print\\('main imports OK'\\)\")",
+      "Bash(timeout 10 python -m dmccodegui.main)",
+      "Bash(timeout 8 python -m dmccodegui.main)"
     ]
   }
 }

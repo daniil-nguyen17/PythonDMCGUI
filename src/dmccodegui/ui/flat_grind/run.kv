@@ -1,5 +1,8 @@
 #:import theme dmccodegui.theme_manager.theme
 #:import DeltaCBarChart dmccodegui.screens.flat_grind.widgets
+#:import ImageButton dmccodegui.screens.flat_grind.widgets.ImageButton
+#:import ARROW_UP_IMG dmccodegui.screens.flat_grind.widgets.ARROW_UP_IMG
+#:import ARROW_DOWN_IMG dmccodegui.screens.flat_grind.widgets.ARROW_DOWN_IMG
 #:import run_module dmccodegui.screens.flat_grind.run
 #:import kivy_matplotlib_widget kivy_matplotlib_widget
 
@@ -169,16 +172,13 @@
                                 background_color: 0.1, 0.12, 0.16, 1
                                 on_release: root.on_section_count_change(root.section_count + 1)
 
-                    # Less grinding (subtract) — top matches BOT DA position
-                    Button:
-                        text: '\u25B2  BOT ' + str(run_module.DELTA_C_STEP)
-                        font_size: '12sp'
-                        bold: True
-                        background_normal: ''
-                        background_color: 0.15, 0.08, 0.02, 1
-                        color: 0.984, 0.573, 0.235, 1
+                    # Less grinding (subtract) — red down arrow
+                    ImageButton:
+                        source: ARROW_DOWN_IMG
                         size_hint_y: None
-                        height: '28dp'
+                        height: '36dp'
+                        allow_stretch: True
+                        keep_ratio: True
                         on_release: root.on_adjust_down()
 
                     # Bar chart
@@ -188,16 +188,13 @@
                         size_hint_y: None
                         height: '90dp'
 
-                    # More grinding (add) — bottom matches THEM DA position
-                    Button:
-                        text: '\u25BC  THEM ' + str(run_module.DELTA_C_STEP)
-                        font_size: '12sp'
-                        bold: True
-                        background_normal: ''
-                        background_color: 0.02, 0.12, 0.06, 1
-                        color: 0.133, 0.773, 0.369, 1
+                    # More grinding (add) — green up arrow
+                    ImageButton:
+                        source: ARROW_UP_IMG
                         size_hint_y: None
-                        height: '28dp'
+                        height: '36dp'
+                        allow_stretch: True
+                        keep_ratio: True
                         on_release: root.on_adjust_up()
 
                     # Controls row

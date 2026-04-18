@@ -48,6 +48,9 @@ class MachineState:
     # True when _XQ >= 0 (DMC program thread active on controller)
     program_running: bool = True
 
+    # Stone position — streamed via ZAD in the data record
+    start_pt_c: int = 0
+
     # Cached controller parameters — bulk-loaded on connect, refreshed per-screen
     cached_params: Dict[str, float] = field(default_factory=dict, repr=False)
 

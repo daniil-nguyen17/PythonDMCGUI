@@ -31,9 +31,7 @@ from ...hmi.dmc_vars import (
     STATE_GRINDING, STATE_HOMING,
     HMI_GRND, HMI_MORE, HMI_LESS, HMI_TRIGGER_FIRE,
     STARTPT_C,
-    POS_BUF_IDX, POS_BUF_A, POS_BUF_B, POS_BUF_SIZE,
 )
-from ...hmi.poll import read_all_state
 from ...utils import jobs
 import dmccodegui.machine_config as mc
 from ..base import BaseRunScreen
@@ -99,9 +97,10 @@ class ConvexRunScreen(BaseRunScreen):
     convex DMC variable specs.
 
     Threading model:
-      - MachineState.subscribe() delivers state changes from the centralized poller
-      - _apply_state() is the single path for updating all Kivy properties
+      - MachineState.subscribe() delivers state changes from DataRecordListener (UDP DR stream)
+      - _apply_state() is the single path for updating all Kivy properties (positions, plot, grind end)
       - Plot redraws run on a separate 5 Hz clock to protect E-STOP latency
+      - No MG-based position polling — all live data comes via DR stream
 
     Inherits controller/state ObjectProperties and subscribe/unsubscribe lifecycle
     from BaseRunScreen.
@@ -178,8 +177,7 @@ class ConvexRunScreen(BaseRunScreen):
     _cpm_a_raw: float = 1200.0  # counts per mm — updated by _read_cpm_values
     _cpm_b_raw: float = 1200.0
     ## Toolpath preview disabled — was causing jobs queue blocking
-    _pos_clock_event = None  # lightweight position poll (replaces centralized poller on Run)
-    _pos_busy: bool = False  # guard: skip tick if previous read still in flight
+    _was_grinding: bool = False  # track grind→idle transition for end-of-grind actions
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -230,18 +228,8 @@ class ConvexRunScreen(BaseRunScreen):
         # _on_state_change with current state immediately.
         super().on_pre_enter(*args)
 
-        # Stop the centralized poller — its 10 Hz MG traffic floods the
-        # controller bus and blocks GDK unsolicited message printing during grind.
-        from kivy.app import App
-        app = App.get_running_app()
-        if app and hasattr(app, '_stop_poller'):
-            app._stop_poller()
-
         # Apply machine-type-specific widget visibility first
         self._apply_machine_type_widgets()
-
-        # Start 5 Hz position poll — runs all the time on Run page (only 2 commands)
-        self._start_pos_poll()
 
         # Start 5 Hz plot redraw
         self._plot_clock_event = Clock.schedule_interval(self._tick_plot, 1.0 / PLOT_UPDATE_HZ)
@@ -277,7 +265,6 @@ class ConvexRunScreen(BaseRunScreen):
             self._disconnect_clock.cancel()
             self._disconnect_clock = None
             self._disconnect_t0 = None
-        self._stop_pos_poll()
         if self._elapsed_clock_event:
             self._elapsed_clock_event.cancel()
             self._elapsed_clock_event = None
@@ -288,12 +275,6 @@ class ConvexRunScreen(BaseRunScreen):
         if hasattr(self, '_mg_log_unreg') and self._mg_log_unreg:
             self._mg_log_unreg()
             self._mg_log_unreg = None
-
-        # Restart the centralized poller for other screens
-        from kivy.app import App
-        app = App.get_running_app()
-        if app and hasattr(app, '_start_poller'):
-            app._start_poller()
 
         # BaseRunScreen.on_leave unsubscribes from MachineState
         super().on_leave(*args)
@@ -394,7 +375,24 @@ class ConvexRunScreen(BaseRunScreen):
                     self._tick_disconnect_banner, 1.0
                 )
 
-        # Note: plot buffer feeding moved to _tick_pos() which reads positions directly
+        # Feed plot buffer during grind (positions come from DR stream via MachineState)
+        if s.dmc_state == STATE_GRINDING:
+            a_val = s.pos.get("A")
+            b_val = s.pos.get("B")
+            if a_val is not None and b_val is not None:
+                self._plot_buf_x.append(a_val)
+                self._plot_buf_y.append(b_val)
+
+        # Update start_pt_c from DR stream
+        if s.start_pt_c is not None:
+            self.start_pt_c = f"Stone Pos: {s.start_pt_c:,}"
+
+        # Detect grind end: was grinding, now idle
+        was = self._was_grinding
+        self._was_grinding = s.dmc_state == STATE_GRINDING
+        if was and not self._was_grinding:
+            self._stop_elapsed()
+            self._read_start_pt_c()  # TCP one-shot confirmation after wear
 
     def _tick_disconnect_banner(self, dt: float) -> None:
         """1 Hz callback: update disconnect elapsed time banner."""
@@ -410,31 +408,8 @@ class ConvexRunScreen(BaseRunScreen):
         self.pos_c = "---"
         self.pos_d = "---"
 
-    # -----------------------------------------------------------------------
-    # Lightweight position poll — only runs during grind cycle
-    # -----------------------------------------------------------------------
-
-    def _start_pos_poll(self) -> None:
-        """Start 5 Hz position polling. Called on screen entry."""
-        if self._pos_clock_event is not None:
-            return
-        self._pos_clock_event = Clock.schedule_interval(self._tick_pos, 1.0 / PLOT_UPDATE_HZ)
-
-    def _stop_pos_poll(self) -> None:
-        """Stop position polling. Called when grind ends or on_leave."""
-        if self._pos_clock_event is not None:
-            self._pos_clock_event.cancel()
-            self._pos_clock_event = None
-        self._pos_busy = False
-
-    def _set_poll_rate(self, hz: float) -> None:
-        """Switch position poll rate (e.g., 5 Hz idle, 1 Hz during grind)."""
-        if self._pos_clock_event is not None:
-            self._pos_clock_event.cancel()
-        self._pos_clock_event = Clock.schedule_interval(self._tick_pos, 1.0 / hz)
-
     def _tick_elapsed(self, dt: float) -> None:
-        """1 Hz clock: update elapsed time display only. ETA/progress driven by _tick_pos."""
+        """1 Hz clock: update elapsed time display only."""
         if self._cycle_start_time is None:
             return
         elapsed = time.monotonic() - self._cycle_start_time
@@ -450,68 +425,6 @@ class ConvexRunScreen(BaseRunScreen):
             self.cycle_completion_pct = 100
             self.cycle_eta = "00:00"
             self._cycle_start_time = None
-
-    def _tick_pos(self, dt: float) -> None:
-        """5 Hz clock: read positions + state from controller in background.
-
-        Uses a busy guard to prevent job pileup — if the previous read is still
-        in the jobs queue or in-flight, this tick is skipped. This prevents the
-        FIFO queue from backing up and blocking operator commands.
-
-        Uses read_all_state() for a single batched MG command covering all 8 values.
-        """
-        if self._pos_busy:
-            return  # previous read still in flight — skip this tick
-        if not self.controller or not self.controller.is_connected():
-            return
-        ctrl = self.controller
-        self._pos_busy = True
-
-        def _do():
-            from ...utils.jobs import get_jobs
-            cancel = get_jobs().cancel_event
-
-            result = read_all_state(ctrl)
-            if result is None:
-                self._pos_busy = False
-                return
-
-            # Bail early if urgent job is waiting (e.g., Start Grind)
-            if cancel.is_set():
-                self._pos_busy = False
-                return
-
-            a, b, c, d, dmc_state, ses_kni, stn_kni, program_running = result
-
-            def _apply(*_):
-                self._pos_busy = False  # ready for next tick
-                # Update positions on screen
-                self.pos_a = f"{int(a):,}"
-                self.pos_b = f"{int(b):,}"
-                self.pos_c = f"{int(c):,}"
-                self.pos_d = f"{int(d):,}"
-                # Feed plot buffer only during grind
-                if dmc_state == STATE_GRINDING:
-                    self._plot_buf_x.append(a)
-                    self._plot_buf_y.append(b)
-                # Update state-driven properties
-                self.session_knife_count = str(ses_kni)
-                self.stone_knife_count = str(stn_kni)
-                was_grinding = self.cycle_running
-                new_cycle = dmc_state == STATE_GRINDING
-                if self.cycle_running != new_cycle:
-                    self.cycle_running = new_cycle
-                new_motion = dmc_state in (STATE_GRINDING, STATE_HOMING)
-                if self.motion_active != new_motion:
-                    self.motion_active = new_motion
-                # Detect grind end: was grinding, now idle
-                if was_grinding and not self.cycle_running:
-                    self._stop_elapsed()
-                    self._set_poll_rate(PLOT_UPDATE_HZ)  # restore 5 Hz
-                    self._read_start_pt_c()  # refresh Stone Pos after auto wear
-            Clock.schedule_once(_apply)
-
-        jobs.submit(_do)
 
     def _configure_plot_axes(self) -> None:
         """Style the A/B position plot axes to match machine orientation.
@@ -579,7 +492,7 @@ class ConvexRunScreen(BaseRunScreen):
         if not self.controller or not self.controller.is_connected():
             return
         # Guard: don't fire hmiGrnd if already in motion or cycle running
-        # Uses self.motion_active (updated by _tick_pos) not self.state.dmc_state (stale)
+        # Uses self.motion_active (updated by _apply_state) not self.state.dmc_state (stale)
         if self.motion_active or self.cycle_running:
             return
 
@@ -603,7 +516,7 @@ class ConvexRunScreen(BaseRunScreen):
             self._elapsed_clock_event = Clock.schedule_interval(self._tick_elapsed, 1.0)
 
         # Send grind command via submit_urgent — preempts any queued polls,
-        # fires instantly. cancel_event causes in-flight _tick_pos to bail early.
+        # fires instantly.
         def _fire():
             try:
                 self.controller.cmd(f"{HMI_GRND}={HMI_TRIGGER_FIRE}")
@@ -612,9 +525,6 @@ class ConvexRunScreen(BaseRunScreen):
                 Clock.schedule_once(lambda *_, m=msg: self._alert(m))
 
         jobs.submit_urgent(_fire)
-
-        # Reduce poll rate during grind — free command channel for triggers
-        self._set_poll_rate(1.0)
 
     def on_more_stone(self) -> None:
         """Send hmiMore=0 then read startPtC after 400ms delay to update persistent label.

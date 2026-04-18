@@ -82,26 +82,13 @@ class SetupScreenMixin:
     # ------------------------------------------------------------------
     # Setup pages do NOT need the 10 Hz centralized poll — jog_axis() polls
     # _TD{axis} live while BG is active (see BaseAxesSetupScreen.jog_axis),
-    # and teach operations do explicit reads. Stopping the poller on setup
-    # entry frees the bus so setup commands (hmiSetp, PR/BG, teach writes)
-    # have no 10 Hz BATCH_CMD contention.
+    # DR streaming uses UDP — no TCP contention with setup commands.
+    # These are kept as no-ops to preserve call sites in setup/parameter screens.
     def _stop_app_poller(self) -> None:
-        from kivy.app import App  # noqa: PLC0415
-        app = App.get_running_app()
-        if app and hasattr(app, '_stop_poller'):
-            try:
-                app._stop_poller()
-            except Exception as exc:
-                logger.debug("[setup] _stop_poller failed: %s", exc)
+        pass  # DR uses UDP — no TCP contention, no need to stop
 
     def _start_app_poller(self) -> None:
-        from kivy.app import App  # noqa: PLC0415
-        app = App.get_running_app()
-        if app and hasattr(app, '_start_poller'):
-            try:
-                app._start_poller()
-            except Exception as exc:
-                logger.debug("[setup] _start_poller failed: %s", exc)
+        pass  # DR listener runs continuously
 
     def _apply_dmc_state(self, dmc_state: int) -> None:
         """Main thread: write dmc_state into MachineState.
@@ -198,8 +185,12 @@ class SetupScreenMixin:
         Navigating between setup siblings (axes_setup <-> parameters) does NOT
         fire exit-setup and does NOT restart the poller — the controller stays
         in STATE_SETUP and the bus stays quiet the whole time.
+
+        After firing hmiExSt, we set state.dmc_state to STATE_IDLE because the
+        DMC jumps to #MAIN which sets hmiState=1.  Without #ZALOOP running, DR
+        cannot overwrite dmc_state (ZAA=0 is filtered), so we must do it here.
         """
-        from ..hmi.dmc_vars import HMI_EXIT_SETUP, HMI_TRIGGER_FIRE  # noqa: PLC0415
+        from ..hmi.dmc_vars import HMI_EXIT_SETUP, HMI_TRIGGER_FIRE, STATE_IDLE  # noqa: PLC0415
 
         next_screen = ""
         if self.manager:  # type: ignore[attr-defined]
@@ -212,7 +203,10 @@ class SetupScreenMixin:
             ctrl = self.controller  # type: ignore[attr-defined]
             submit(lambda: ctrl.cmd(f"{HMI_EXIT_SETUP}={HMI_TRIGGER_FIRE}"))
 
-        # Leaving setup area entirely — resume centralized 10 Hz polling
+        # Update state immediately — DMC transitions to IDLE after hmiExSt
+        self._apply_dmc_state(STATE_IDLE)
+
+        # Leaving setup area entirely — resume centralized polling (no-op with DR)
         self._start_app_poller()
 
 

@@ -32,7 +32,7 @@ from kivy.properties import (
 from ...hmi.dmc_vars import (
     STATE_GRINDING, STATE_HOMING,
     HMI_GRND, HMI_MORE, HMI_LESS, HMI_TRIGGER_FIRE,
-    STARTPT_C,
+    STARTPT_B,
     BCOMP_ARRAY, BCOMP_NUM_SERR,
     CT_SES_KNI, CT_STN_KNI,
 )
@@ -103,8 +103,10 @@ class SerrationRunScreen(BaseRunScreen):
 
     _bcomp_values: list[float] = []
     _bcomp_panel: BCompPanel | None = None
+    _bcomp_viz = None
     _ccomp_values: list[float] = []
     _ccomp_panel: CCompPanel | None = None
+    _ccomp_viz = None
     _pos_clock_event = None
     _pos_busy: bool = False
     _mg_thread: threading.Thread | None = None
@@ -123,7 +125,7 @@ class SerrationRunScreen(BaseRunScreen):
         """Called by Kivy when operator navigates to this screen.
 
         Subscribes to MachineState (via BaseRunScreen), starts position poll,
-        reads startPtC, wires bComp panel callbacks, and auto-reads bComp.
+        reads startPtB, wires bComp panel callbacks, and auto-reads bComp.
         """
         super().on_pre_enter(*args)
 
@@ -136,22 +138,24 @@ class SerrationRunScreen(BaseRunScreen):
         # One-shot read to populate UI (no continuous polling until grind starts)
         self._do_one_shot_read()
 
-        # Read startPtC so the Stone Compensation label is populated on entry
+        # Read startPtB so the Stone Compensation label is populated on entry
         self._read_start_pt_c()
 
-        # Wire bComp panel callbacks and trigger initial read
+        # Wire bComp panel + visualization and trigger initial read
         panel = self.ids.get('bcomp_panel')
+        self._bcomp_viz = self.ids.get('bcomp_viz')
         if panel is not None:
             self._bcomp_panel = panel
-            panel.save_callback = self._write_bcomp_element
+            panel.save_callback = self._on_bcomp_save
             panel.refresh_callback = self._read_bcomp_job
             self._read_bcomp_job()
 
-        # Wire cComp panel callbacks and trigger initial read
+        # Wire cComp panel + visualization and trigger initial read
         cpanel = self.ids.get('ccomp_panel')
+        self._ccomp_viz = self.ids.get('ccomp_viz')
         if cpanel is not None:
             self._ccomp_panel = cpanel
-            cpanel.save_callback = self._write_ccomp_element
+            cpanel.save_callback = self._on_ccomp_save
             cpanel.refresh_callback = self._read_ccomp_job
             self._read_ccomp_job()
 
@@ -191,12 +195,19 @@ class SerrationRunScreen(BaseRunScreen):
     # -----------------------------------------------------------------------
 
     def _do_one_shot_read(self) -> None:
-        """Single read of positions + state to populate UI on page load."""
+        """Single read of positions + state to populate UI on page load.
+
+        Includes a short delay to let the controller finish processing
+        hmiExSt (setup exit) before reading state — avoids reading stale
+        dmc_state=SETUP when returning from a setup screen.
+        """
         if not self.controller or not self.controller.is_connected():
             return
         ctrl = self.controller
 
         def _do():
+            import time as _time
+            _time.sleep(0.15)  # let hmiExSt transition complete
             result = read_all_state(ctrl)
             if result is None:
                 return
@@ -413,8 +424,18 @@ class SerrationRunScreen(BaseRunScreen):
             self._bcomp_values = values
             if self._bcomp_panel is not None:
                 self._bcomp_panel.build_rows(values)
+            if self._bcomp_viz is not None:
+                self._bcomp_viz.update_dots(values)
 
         Clock.schedule_once(_apply)
+
+    def _on_bcomp_save(self, index: int, value_mm: float) -> None:
+        """Callback from bComp panel: update local cache + viz, then write."""
+        if 0 <= index < len(self._bcomp_values):
+            self._bcomp_values[index] = value_mm
+        if self._bcomp_viz is not None:
+            self._bcomp_viz.update_dots(self._bcomp_values)
+        self._write_bcomp_element(index, value_mm)
 
     def _write_bcomp_element(self, index: int, value_mm: float) -> None:
         """Write a single bComp element to the controller.
@@ -432,19 +453,34 @@ class SerrationRunScreen(BaseRunScreen):
             return
         ctrl = self.controller
 
+        panel = self._bcomp_panel
+
         def _do():
             cmd = f"{BCOMP_ARRAY}[{index}]={value_mm:.4f}"
             try:
                 ctrl.cmd(cmd)
-                logger.debug(
-                    "[SerrationRunScreen] _write_bcomp_element: wrote %s[%d]=%.4f",
-                    BCOMP_ARRAY, index, value_mm
-                )
             except Exception as e:
-                logger.error(
-                    "[SerrationRunScreen] _write_bcomp_element: failed to write %s[%d]: %s",
-                    BCOMP_ARRAY, index, e
-                )
+                # Handle broken — try reset + retry once
+                if "write error" in str(e).lower() or "read error" in str(e).lower():
+                    logger.warning("[SerrationRunScreen] bComp write error — resetting handle and retrying")
+                    try:
+                        ctrl.reset_handle()
+                        ctrl.cmd(cmd)
+                    except Exception as e2:
+                        logger.error("[SerrationRunScreen] bComp retry failed: %s", e2)
+                        if panel is not None:
+                            Clock.schedule_once(lambda *_: panel.flash_result(index, False))
+                        return
+                else:
+                    logger.error("[SerrationRunScreen] _write_bcomp_element: failed %s[%d]: %s",
+                                 BCOMP_ARRAY, index, e)
+                    if panel is not None:
+                        Clock.schedule_once(lambda *_: panel.flash_result(index, False))
+                    return
+            logger.debug("[SerrationRunScreen] _write_bcomp_element: wrote %s[%d]=%.4f",
+                         BCOMP_ARRAY, index, value_mm)
+            if panel is not None:
+                Clock.schedule_once(lambda *_: panel.flash_result(index, True))
 
         jobs.submit(_do)
 
@@ -499,8 +535,18 @@ class SerrationRunScreen(BaseRunScreen):
             self._ccomp_values = values
             if self._ccomp_panel is not None:
                 self._ccomp_panel.build_rows(values)
+            if self._ccomp_viz is not None:
+                self._ccomp_viz.update_dots(values)
 
         Clock.schedule_once(_apply)
+
+    def _on_ccomp_save(self, index: int, value_mm: float) -> None:
+        """Callback from cComp panel: update local cache + viz, then write."""
+        if 0 <= index < len(self._ccomp_values):
+            self._ccomp_values[index] = value_mm
+        if self._ccomp_viz is not None:
+            self._ccomp_viz.update_dots(self._ccomp_values)
+        self._write_ccomp_element(index, value_mm)
 
     def _write_ccomp_element(self, index: int, value_mm: float) -> None:
         """Write a single cComp element to the controller.
@@ -516,19 +562,34 @@ class SerrationRunScreen(BaseRunScreen):
             return
         ctrl = self.controller
 
+        panel = self._ccomp_panel
+
         def _do():
             cmd = f"{CCOMP_ARRAY_VAR}[{index}]={value_mm:.4f}"
             try:
                 ctrl.cmd(cmd)
-                logger.debug(
-                    "[SerrationRunScreen] _write_ccomp_element: wrote %s[%d]=%.4f",
-                    CCOMP_ARRAY_VAR, index, value_mm
-                )
             except Exception as e:
-                logger.error(
-                    "[SerrationRunScreen] _write_ccomp_element: failed to write %s[%d]: %s",
-                    CCOMP_ARRAY_VAR, index, e
-                )
+                # Handle broken — try reset + retry once
+                if "write error" in str(e).lower() or "read error" in str(e).lower():
+                    logger.warning("[SerrationRunScreen] cComp write error — resetting handle and retrying")
+                    try:
+                        ctrl.reset_handle()
+                        ctrl.cmd(cmd)
+                    except Exception as e2:
+                        logger.error("[SerrationRunScreen] cComp retry failed: %s", e2)
+                        if panel is not None:
+                            Clock.schedule_once(lambda *_: panel.flash_result(index, False))
+                        return
+                else:
+                    logger.error("[SerrationRunScreen] _write_ccomp_element: failed %s[%d]: %s",
+                                 CCOMP_ARRAY_VAR, index, e)
+                    if panel is not None:
+                        Clock.schedule_once(lambda *_: panel.flash_result(index, False))
+                    return
+            logger.debug("[SerrationRunScreen] _write_ccomp_element: wrote %s[%d]=%.4f",
+                         CCOMP_ARRAY_VAR, index, value_mm)
+            if panel is not None:
+                Clock.schedule_once(lambda *_: panel.flash_result(index, True))
 
         jobs.submit(_do)
 
@@ -565,7 +626,7 @@ class SerrationRunScreen(BaseRunScreen):
             try:
                 self.controller.cmd(f"{HMI_GRND}={HMI_TRIGGER_FIRE}")
             except Exception as e:
-                Clock.schedule_once(lambda *_: logger.error("Start grind failed: %s", e))
+                Clock.schedule_once(lambda *_, err=e: logger.error("Start grind failed: %s", err))
 
         jobs.submit_urgent(_fire)
 
@@ -585,7 +646,7 @@ class SerrationRunScreen(BaseRunScreen):
             try:
                 self.controller.cmd("ST ABCD")
             except Exception as e:
-                Clock.schedule_once(lambda *_: logger.error("Stop failed: %s", e))
+                Clock.schedule_once(lambda *_, err=e: logger.error("Stop failed: %s", err))
 
         jobs.submit_urgent(do_stop)
 
@@ -638,8 +699,14 @@ class SerrationRunScreen(BaseRunScreen):
                     logger.warning("[Shutdown] Homing timeout — proceeding with BV anyway")
 
                 # Step 4: Save all variables to NV
-                _t.sleep(0.3)
-                ctrl.cmd("BV")
+                # BV can take several seconds after homing — wait then retry once
+                _t.sleep(1.0)
+                try:
+                    ctrl.cmd("BV")
+                except Exception:
+                    logger.warning("[Shutdown] BV first attempt timed out — retrying")
+                    _t.sleep(2.0)
+                    ctrl.cmd("BV")
                 logger.info("[Shutdown] BV done — all variables saved")
 
                 Clock.schedule_once(lambda *_: setattr(self, 'motion_active', False))
@@ -653,10 +720,10 @@ class SerrationRunScreen(BaseRunScreen):
         jobs.submit(_do_shutdown)
 
     def on_more_stone(self) -> None:
-        """Send hmiMore=0 then read startPtC after 400ms delay to update label.
+        """Send hmiMore=0 then read startPtB after delay to update label.
 
-        Fires the HMI_MORE trigger, sleeps 400ms for the DMC #MOREGRI subroutine to
-        complete, then reads startPtC and updates the persistent start_pt_c label.
+        Fires the HMI_MORE trigger, sleeps 800ms for the DMC subroutine to
+        complete, then reads startPtB and updates the stone compensation label.
         """
         if not self.controller or not self.controller.is_connected():
             return
@@ -665,11 +732,11 @@ class SerrationRunScreen(BaseRunScreen):
         def _fire():
             import time as _time
             try:
-                before_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
+                before_raw = ctrl.cmd(f"MG {STARTPT_B}").strip()
                 before = int(float(before_raw))
-                logger.debug("[SerrationRunScreen] More stone — startPtC BEFORE: %s", before)
+                logger.debug("[SerrationRunScreen] More stone — startPtB BEFORE: %s", before)
             except Exception as e:
-                logger.debug("[SerrationRunScreen] More stone — failed to read startPtC before: %s", e)
+                logger.debug("[SerrationRunScreen] More stone — failed to read startPtB before: %s", e)
 
             try:
                 ctrl.cmd(f"{HMI_MORE}={HMI_TRIGGER_FIRE}")
@@ -677,27 +744,27 @@ class SerrationRunScreen(BaseRunScreen):
                 logger.error("[SerrationRunScreen] More stone failed: %s", e)
                 return
 
-            _time.sleep(0.4)
-
-            try:
-                after_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
-                after = int(float(after_raw))
-                logger.debug("[SerrationRunScreen] More stone — startPtC AFTER: %s", after)
-                Clock.schedule_once(
-                    lambda *_, v=after: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
-                )
-            except Exception as e:
-                logger.debug("[SerrationRunScreen] More stone — failed to read startPtC after: %s", e)
+            # Wait for DMC subroutine to finish, then retry readback
+            for attempt in range(3):
+                _time.sleep(1.0)
+                try:
+                    after_raw = ctrl.cmd(f"MG {STARTPT_B}").strip()
+                    after = int(float(after_raw))
+                    logger.debug("[SerrationRunScreen] More stone — startPtB AFTER: %s", after)
+                    Clock.schedule_once(
+                        lambda *_, v=after: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
+                    )
+                    break
+                except Exception as e:
+                    logger.debug("[SerrationRunScreen] More stone — readback attempt %d failed: %s", attempt + 1, e)
 
         from ...utils.jobs import submit_urgent
         submit_urgent(_fire)
 
     def on_less_stone(self) -> None:
-        """Send hmiLess=0 then read startPtC after 400ms delay to update label.
+        """Send hmiLess=0 then read startPtB after delay to update label.
 
-        Mirror of on_more_stone but fires HMI_LESS. Sleeps 400ms for the DMC
-        #LESSGRI subroutine to complete, then reads startPtC and updates the
-        persistent start_pt_c label.
+        Mirror of on_more_stone but fires HMI_LESS.
         """
         if not self.controller or not self.controller.is_connected():
             return
@@ -706,11 +773,11 @@ class SerrationRunScreen(BaseRunScreen):
         def _fire():
             import time as _time
             try:
-                before_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
+                before_raw = ctrl.cmd(f"MG {STARTPT_B}").strip()
                 before = int(float(before_raw))
-                logger.debug("[SerrationRunScreen] Less stone — startPtC BEFORE: %s", before)
+                logger.debug("[SerrationRunScreen] Less stone — startPtB BEFORE: %s", before)
             except Exception as e:
-                logger.debug("[SerrationRunScreen] Less stone — failed to read startPtC before: %s", e)
+                logger.debug("[SerrationRunScreen] Less stone — failed to read startPtB before: %s", e)
 
             try:
                 ctrl.cmd(f"{HMI_LESS}={HMI_TRIGGER_FIRE}")
@@ -718,17 +785,19 @@ class SerrationRunScreen(BaseRunScreen):
                 logger.error("[SerrationRunScreen] Less stone failed: %s", e)
                 return
 
-            _time.sleep(0.4)
-
-            try:
-                after_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
-                after = int(float(after_raw))
-                logger.debug("[SerrationRunScreen] Less stone — startPtC AFTER: %s", after)
-                Clock.schedule_once(
-                    lambda *_, v=after: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
-                )
-            except Exception as e:
-                logger.debug("[SerrationRunScreen] Less stone — failed to read startPtC after: %s", e)
+            # Wait for DMC subroutine to finish, then retry readback
+            for attempt in range(3):
+                _time.sleep(1.0)
+                try:
+                    after_raw = ctrl.cmd(f"MG {STARTPT_B}").strip()
+                    after = int(float(after_raw))
+                    logger.debug("[SerrationRunScreen] Less stone — startPtB AFTER: %s", after)
+                    Clock.schedule_once(
+                        lambda *_, v=after: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
+                    )
+                    break
+                except Exception as e:
+                    logger.debug("[SerrationRunScreen] Less stone — readback attempt %d failed: %s", attempt + 1, e)
 
         from ...utils.jobs import submit_urgent
         submit_urgent(_fire)
@@ -738,14 +807,14 @@ class SerrationRunScreen(BaseRunScreen):
     # -----------------------------------------------------------------------
 
     def _read_start_pt_c(self) -> None:
-        """Background: read startPtC from controller and update persistent label."""
+        """Background: read startPtB from controller and update stone comp label."""
         if not self.controller or not self.controller.is_connected():
             return
         ctrl = self.controller
 
         def _do():
             try:
-                raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
+                raw = ctrl.cmd(f"MG {STARTPT_B}").strip()
                 val = int(float(raw))
                 Clock.schedule_once(
                     lambda *_, v=val: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
@@ -754,6 +823,23 @@ class SerrationRunScreen(BaseRunScreen):
                 Clock.schedule_once(lambda *_: setattr(self, 'start_pt_c', '---'))
 
         jobs.submit(_do)
+
+    # -----------------------------------------------------------------------
+    # Alert helper
+    # -----------------------------------------------------------------------
+
+    def _alert(self, message: str) -> None:
+        """Push a message to the app-wide banner ticker."""
+        try:
+            from kivy.app import App
+            app = App.get_running_app()
+            if app and hasattr(app, "_log_message"):
+                app._log_message(message)
+                return
+        except Exception:
+            pass
+        if self.state:
+            self.state.log(message)
 
     # -----------------------------------------------------------------------
     # MG message handler (controller log) — called by app-wide MgReader

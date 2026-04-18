@@ -162,10 +162,19 @@ SERR_GRIND_DP:  str = "grindDp"  # mm - B infeed past startPtB per tooth (actual
 SERR_B_CLEAR:   str = "bClear"   # mm - extra B pullback after grinding for clearance
 
 # ---------------------------------------------------------------------------
-# Mega-batch MG command — reads all 8 poll values in a single controller call.
-# Uses _TD (told/desired position) NOT _TP (actual encoder position).
-# Response: 8 space-delimited floats: a, b, c, d, dmc_state, ses_kni, stn_kni, xq_raw
-# CRITICAL: Do NOT change _TDA/_TDB/_TDC/_TDD to _TPA/_TPB/_TPC/_TPD.
+# Data Record (DR) streaming configuration
+# The controller streams binary status packets over a separate UDP socket.
+# This eliminates all TCP command-channel contention with button presses.
+# See docs/data-record-migration.md for full architecture.
+# ---------------------------------------------------------------------------
+
+DR_UDP_PORT: int = 2048              # Default UDP port for DR streaming
+DR_RATE_NORMAL: int = 200            # 5 Hz (samples between DR packets, 1ms each)
+DR_RATE_GRIND: int = 100             # 10 Hz during grinding
+DR_DISCONNECT_TIMEOUT: float = 4.0   # seconds with no packet → disconnect
+
+# ---------------------------------------------------------------------------
+# Legacy: Mega-batch MG command (kept for rollback — will be removed)
 # ---------------------------------------------------------------------------
 
 BATCH_CMD: str = (

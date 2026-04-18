@@ -31,10 +31,27 @@ stone_window_for_index(center, array_size, window)
 """
 from __future__ import annotations
 
+import os as _os
+
 from kivy.core.text import Label as CoreLabel
 from kivy.graphics import Color, Rectangle
 from kivy.properties import ListProperty, NumericProperty
+from kivy.uix.behaviors import ButtonBehavior
+from kivy.uix.image import Image
 from kivy.uix.widget import Widget
+
+# Arrow image assets
+_ASSETS_DIR = _os.path.join(
+    _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))),
+    'assets', 'images',
+)
+ARROW_UP_IMG: str = _os.path.join(_ASSETS_DIR, 'arrow-up-green.png')
+ARROW_DOWN_IMG: str = _os.path.join(_ASSETS_DIR, 'arrow-down-red.png')
+
+
+class ImageButton(ButtonBehavior, Image):
+    """Image that acts as a tappable button. Used for deltaC up/down arrows."""
+    pass
 
 # ---------------------------------------------------------------------------
 # Delta-C constants

@@ -21,6 +21,7 @@ JS #HOME
 ctSesKni = 0
 XQ #SHOWPOS, 1
 XQ #UPDSPD, 2
+XQ #ZALOOP, 3
 WT 500
 MG "AUTO INIT COMPLETE"
 REM ============================================================
@@ -101,7 +102,7 @@ REM ============================================================
 
 #GRNDCR4
 SH ABC
-MG "V-SHAPE VECTOR GRIND (verified DMC-4040)"
+MG "V-SHAPE VECTOR GRIND"
 scount = 0; currA = 0
 MG "spitch ", spitch
 MG "carryPct ", carryPct, "%  plngFrc ", plngFrc
@@ -254,9 +255,9 @@ JP #LPCR4
 MG "V-SHAPE GRIND COMPLETE"
 MG "     Serrations cut: ", scount
 MG "        ENDING A: ", _TDA/cpmA, " B: ", _TDB/cpmB, " C: ", _TDC/cpmC
-MG "Start C before auto wear: ", startPtC
-startPtC = startPtC + autoWear
-MG "Start C after auto wear: ", startPtC
+MG "Start C before auto wear: ", startPtB
+startPtB = startPtB + autoWear
+MG "Start C after auto wear: ", startPtB
 JS #GOREST
 ctSesKni = ctSesKni + 1
 ctStnKni = ctStnKni + 1
@@ -619,3 +620,10 @@ backOff = 2
 MG "VARCALC DONE"
 BV;                              
 EN
+#ZALOOP
+ZAA=hmiState
+ZAB=ctSesKni
+ZAC=ctStnKni
+ZAD=startPtC
+WT 10
+JP#ZALOOP

@@ -129,12 +129,6 @@ class SerrationRunScreen(BaseRunScreen):
         """
         super().on_pre_enter(*args)
 
-        # Stop the centralized poller — frees controller bus for MG messages
-        from kivy.app import App
-        app = App.get_running_app()
-        if app and hasattr(app, '_stop_poller'):
-            app._stop_poller()
-
         # One-shot read to populate UI (no continuous polling until grind starts)
         self._do_one_shot_read()
 
@@ -181,12 +175,6 @@ class SerrationRunScreen(BaseRunScreen):
 
         # Stop per-screen MG reader thread
         self._stop_mg_reader()
-
-        # Restart the centralized poller for other screens
-        from kivy.app import App
-        app = App.get_running_app()
-        if app and hasattr(app, '_start_poller'):
-            app._start_poller()
 
         super().on_leave(*args)
 

@@ -24,7 +24,8 @@
       "Bash(python -c \"from dmccodegui.hmi.poll import read_all_state; print\\('OK'\\)\")",
       "Bash(python -c \"from dmccodegui.main import DMCApp; print\\('main imports OK'\\)\")",
       "Bash(timeout 10 python -m dmccodegui.main)",
-      "Bash(timeout 8 python -m dmccodegui.main)"
+      "Bash(timeout 8 python -m dmccodegui.main)",
+      "Bash(python -c \"from src.dmccodegui.screens.base import BaseAxesSetupScreen, BaseParametersScreen; print\\('OK'\\)\")"
     ]
   }
 }

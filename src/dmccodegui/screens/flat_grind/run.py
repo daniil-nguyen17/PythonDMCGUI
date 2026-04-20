@@ -33,7 +33,10 @@ import dmccodegui.machine_config as mc
 from ..base import BaseRunScreen
 from .widgets import (
     DeltaCBarChart,
+    ImageButton,
     _BaseBarChart,
+    ARROW_UP_IMG,
+    ARROW_DOWN_IMG,
     DELTA_C_WRITABLE_START,
     DELTA_C_WRITABLE_END,
     DELTA_C_ARRAY_SIZE,
@@ -192,6 +195,8 @@ class FlatGrindRunScreen(BaseRunScreen):
         if chart is not None:
             chart.bind(selected_index=self._on_chart_selection_changed)
 
+        self._rebuild_section_buttons(max(1, int(self.section_count)))
+
         plot_wgt = self.ids.get("ab_plot")
         if plot_wgt is not None:
             self._fig = Figure(figsize=(4, 3), facecolor=BG_PANEL_HEX)
@@ -221,12 +226,6 @@ class FlatGrindRunScreen(BaseRunScreen):
         """
         # BaseRunScreen.on_pre_enter subscribes to MachineState (disconnect detection)
         super().on_pre_enter(*args)
-
-        # Stop the centralized poller — frees controller bus for MG messages
-        from kivy.app import App
-        app = App.get_running_app()
-        if app and hasattr(app, '_stop_poller'):
-            app._stop_poller()
 
         # Apply machine-type-specific widget visibility
         self._apply_machine_type_widgets()
@@ -261,12 +260,6 @@ class FlatGrindRunScreen(BaseRunScreen):
             self._plot_clock_event = None
         # Stop per-screen MG reader thread
         self._stop_mg_reader()
-
-        # Restart the centralized poller for other screens
-        from kivy.app import App
-        app = App.get_running_app()
-        if app and hasattr(app, '_start_poller'):
-            app._start_poller()
 
         # BaseRunScreen.on_leave unsubscribes from MachineState
         super().on_leave(*args)
@@ -606,7 +599,7 @@ class FlatGrindRunScreen(BaseRunScreen):
         ax.invert_xaxis()   # positive (heel) on left, 0 (tip) on right
         ax.invert_yaxis()   # negative on top, positive on bottom
         ax.grid(False)
-        self._fig.tight_layout(pad=0.5)
+        self._fig.subplots_adjust(left=0.12, right=0.97, top=0.97, bottom=0.18)
 
     def _tick_plot(self, dt: float) -> None:
         """5 Hz Kivy clock: redraw the live A/B trace in mm. Main thread only."""
@@ -858,6 +851,69 @@ class FlatGrindRunScreen(BaseRunScreen):
         self.section_count = clamped
         old = list(self.delta_c_offsets)
         self.delta_c_offsets = (old + [0.0] * clamped)[:clamped]
+        self._rebuild_section_buttons(clamped)
+
+    def _rebuild_section_buttons(self, n: int) -> None:
+        """Rebuild per-section up/down arrow buttons to match the bar count.
+
+        Images are flipped 180° so subtract arrows point up and add arrows
+        point down, matching the bar direction they affect.
+        """
+        from kivy.graphics import PushMatrix, PopMatrix, Rotate
+
+        up_row = self.ids.get("adjust_up_row")
+        down_row = self.ids.get("adjust_down_row")
+        if up_row is None or down_row is None:
+            return
+
+        up_row.clear_widgets()
+        down_row.clear_widgets()
+
+        def _flip_widget(widget):
+            """Rotate a widget 180° around its centre."""
+            with widget.canvas.before:
+                PushMatrix()
+                rot = Rotate(angle=180)
+            with widget.canvas.after:
+                PopMatrix()
+            def _update_origin(*_a, w=widget, r=rot):
+                r.origin = w.center
+            widget.bind(pos=_update_origin, size=_update_origin)
+
+        for i in range(n):
+            # Subtract row (top): red down-arrow image flipped → points up
+            down_btn = ImageButton(
+                source=ARROW_DOWN_IMG,
+                size_hint=(1, 1),
+                allow_stretch=True,
+                keep_ratio=True,
+            )
+            _flip_widget(down_btn)
+            down_btn.bind(on_release=lambda btn, idx=i: self._adjust_section(idx, -1))
+            down_row.add_widget(down_btn)
+
+            # Add row (bottom): green up-arrow image flipped → points down
+            up_btn = ImageButton(
+                source=ARROW_UP_IMG,
+                size_hint=(1, 1),
+                allow_stretch=True,
+                keep_ratio=True,
+            )
+            _flip_widget(up_btn)
+            up_btn.bind(on_release=lambda btn, idx=i: self._adjust_section(idx, 1))
+            up_row.add_widget(up_btn)
+
+    def _adjust_section(self, index: int, direction: int) -> None:
+        """Adjust a specific section's offset and select it on the chart."""
+        chart = self.ids.get("delta_c_chart")
+        if chart is not None:
+            chart.selected_index = index
+        if index < 0 or index >= len(self.delta_c_offsets):
+            return
+        offsets = list(self.delta_c_offsets)
+        offsets[index] += direction * DELTA_C_STEP
+        self.delta_c_offsets = offsets
+        self.selected_section_value = str(int(self.delta_c_offsets[index]))
 
     def _on_chart_selection_changed(self, chart_widget, selected_index: int) -> None:
         """Observer bound to delta_c_chart.selected_index via on_kv_post.
@@ -1284,7 +1340,7 @@ class FlatGrindRunScreen(BaseRunScreen):
         )
         txt._startpt_label = True
 
-        self._fig.tight_layout(pad=0.5)
+        self._fig.subplots_adjust(left=0.12, right=0.97, top=0.97, bottom=0.18)
         if self._fig and self._fig.canvas:
             self._fig.canvas.draw_idle()
 

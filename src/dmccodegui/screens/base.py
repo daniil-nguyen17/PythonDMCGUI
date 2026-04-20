@@ -353,9 +353,33 @@ class BaseAxesSetupScreen(Screen, SetupScreenMixin):
                 self.__class__.__name__,
             )
 
+    _prev_connected: bool = True  # track transitions
+
     def _on_state_change(self, state) -> None:
-        """Called on every MachineState update. Override in subclasses."""
-        pass
+        """React to MachineState updates — disconnect safety + position refresh.
+
+        On disconnect: cancel active motion polling (safety), log warning.
+        On reconnect: log info.
+        Subclasses may override but should call super()._on_state_change(state).
+        """
+        connected = getattr(state, 'connected', False)
+        was_connected = self._prev_connected
+
+        if was_connected and not connected:
+            # Disconnected while on setup screen — cancel any active jog/motion poll
+            logger.warning(
+                "[%s] Controller disconnected while on axes-setup screen",
+                self.__class__.__name__,
+            )
+            self._motion_poll_active = False
+
+        elif not was_connected and connected:
+            logger.info(
+                "[%s] Controller reconnected on axes-setup screen",
+                self.__class__.__name__,
+            )
+
+        self._prev_connected = connected
 
     def cleanup(self) -> None:
         """Tear down resources owned by this axes-setup screen. Idempotent.
@@ -750,9 +774,28 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
                 self.__class__.__name__,
             )
 
+    _prev_connected: bool = True  # track transitions
+
     def _on_state_change(self, state) -> None:
-        """Called on every MachineState update. Override in subclasses."""
-        pass
+        """React to MachineState updates — log disconnect/reconnect.
+
+        Subclasses may override but should call super()._on_state_change(state).
+        """
+        connected = getattr(state, 'connected', False)
+        was_connected = self._prev_connected
+
+        if was_connected and not connected:
+            logger.warning(
+                "[%s] Controller disconnected while on parameters screen",
+                self.__class__.__name__,
+            )
+        elif not was_connected and connected:
+            logger.info(
+                "[%s] Controller reconnected on parameters screen",
+                self.__class__.__name__,
+            )
+
+        self._prev_connected = connected
 
     def cleanup(self) -> None:
         """Tear down resources owned by this parameters screen. Idempotent.

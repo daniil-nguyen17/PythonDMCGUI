@@ -231,7 +231,8 @@ class DeltaCBarChart(_BaseBarChart):
     """
 
     STEP: int = DELTA_C_STEP
-    _LABEL_HEIGHT: int = 18  # px reserved at bottom for labels
+    _LABEL_HEIGHT: int = 18   # px reserved at bottom for segment labels
+    _TOP_LABEL_HEIGHT: int = 16  # px reserved at top for index range labels
 
     def _draw(self) -> None:
         self.canvas.clear()
@@ -241,13 +242,22 @@ class DeltaCBarChart(_BaseBarChart):
             return
 
         label_h = self._LABEL_HEIGHT
+        top_label_h = self._TOP_LABEL_HEIGHT
         bar_w = self.width / n
-        # Reserve label_h at bottom for segment labels
-        chart_top = self.y + self.height
+        # Reserve space at bottom for segment labels and top for index ranges
+        chart_top = self.y + self.height - top_label_h
         chart_bottom = self.y + label_h
         chart_h = chart_top - chart_bottom
         mid_y = chart_bottom + chart_h / 2.0
         half_h = chart_h / 2.0
+
+        # Pre-compute index ranges per bar
+        chunk = DELTA_C_ARRAY_SIZE // n if n > 0 else DELTA_C_ARRAY_SIZE
+        ranges: list[tuple[int, int]] = []
+        for i in range(n):
+            seg_first = i * chunk
+            seg_last = (seg_first + chunk - 1) if i < n - 1 else (DELTA_C_ARRAY_SIZE - 1)
+            ranges.append((seg_first, seg_last))
 
         with self.canvas:
             # Zero baseline
@@ -262,7 +272,8 @@ class DeltaCBarChart(_BaseBarChart):
                     raw_h = 0.0
                 bar_h = max(10.0, raw_h)
 
-                if i == int(self.selected_index):
+                is_selected = i == int(self.selected_index)
+                if is_selected:
                     Color(1.0, 0.65, 0.0, 1)
                 else:
                     Color(0.235, 0.510, 0.960, 1)
@@ -272,6 +283,24 @@ class DeltaCBarChart(_BaseBarChart):
                     Rectangle(pos=(bar_x + 1, mid_y), size=(bar_w - 2, bar_h))
                 else:
                     Rectangle(pos=(bar_x + 1, mid_y - bar_h), size=(bar_w - 2, bar_h))
+
+            # Index range labels above each bar (only for selected bar)
+            sel = int(self.selected_index)
+            if sel >= 0 and sel < n:
+                seg_first, seg_last = ranges[sel]
+                range_text = f'{seg_first} - {seg_last}'
+                Color(1.0, 0.75, 0.2, 1)
+                rlbl = CoreLabel(text=range_text, font_size=11, bold=True)
+                rlbl.refresh()
+                rtex = rlbl.texture
+                rx = self.x + sel * bar_w + (bar_w - rtex.width) / 2.0
+                # Clamp within widget bounds
+                rx = max(self.x, min(rx, self.x + self.width - rtex.width))
+                Rectangle(
+                    texture=rtex,
+                    pos=(rx, chart_top + 1),
+                    size=rtex.size,
+                )
 
             # Segment number labels under each bar
             Color(0.7, 0.7, 0.7, 1)
@@ -304,11 +333,8 @@ class DeltaCBarChart(_BaseBarChart):
             )
 
             # Stone window overlay — shows which indices are under the stone
-            sel = int(self.selected_index)
             if sel >= 0 and n > 0:
-                chunk = DELTA_C_ARRAY_SIZE // n
-                seg_first = sel * chunk
-                seg_last = (seg_first + chunk - 1) if sel < n - 1 else (DELTA_C_ARRAY_SIZE - 1)
+                seg_first, seg_last = ranges[sel]
                 seg_center = (seg_first + seg_last) // 2
 
                 win_start, win_end = stone_window_for_index(seg_center)

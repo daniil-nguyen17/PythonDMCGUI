@@ -65,11 +65,12 @@
                             size: self.size
                             radius: [8,]
                         Color:
-                            rgba: theme.border
+                            rgba: 0.0, 0.8, 0.8, 0.8
                         Line:
                             rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
-                            width: 1.2
-                    size_hint_y: 1
+                            width: 1.4
+                    size_hint_y: None
+                    height: '400dp'
                     padding: ['4dp', '4dp']
 
                     MatplotFigure:
@@ -91,121 +92,121 @@
                             size: self.size
                             radius: [8,]
                         Color:
-                            rgba: theme.border
+                            rgba: 1.0, 0.55, 0.0, 0.8
                         Line:
                             rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
-                            width: 1.2
-                    size_hint_y: None
-                    height: '185dp'
+                            width: 1.4
+                    size_hint_y: 1
                     orientation: 'vertical'
                     padding: '6dp'
                     spacing: '3dp'
 
-                    # Header row: title + section count
+                    # Header: title + controls centered below
                     BoxLayout:
                         size_hint_y: None
                         height: '28dp'
+                        spacing: '8dp'
 
                         Label:
-                            text: 'CHINH DO MAI TREN DAO'
-                            font_size: '11sp'
+                            text: 'CHỈNH SỬA ĐỘ DÀY KHI MÀI DAO'
+                            font_size: '16sp'
                             color: theme.text_mid
                             bold: True
-                            halign: 'left'
+                            halign: 'center'
                             text_size: self.size
                             valign: 'middle'
+
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '32dp'
+                        spacing: '8dp'
+                        padding: ['20dp', '0dp']
+
+                        Widget:
 
                         # Mode toggle
                         Button:
                             text: root.comp_mode.upper()
                             size_hint_x: None
-                            width: '100dp'
-                            font_size: '10sp'
+                            width: '110dp'
+                            font_size: '14sp'
                             bold: True
                             background_normal: ''
                             background_color: (0.024, 0.714, 0.831, 0.7) if root.comp_mode == 'cumulative' else (0.659, 0.333, 0.965, 0.7)
                             color: theme.text_main
                             on_release: root.toggle_comp_mode()
 
-                        BoxLayout:
+                        Label:
+                            text: 'CHIA PHẦN TRÊN DAO ĐỂ CHỈNH SỬA:'
+                            font_size: '14sp'
+                            color: theme.text_mid
                             size_hint_x: None
-                            width: '120dp'
-                            spacing: '4dp'
+                            width: '320dp'
+                            halign: 'right'
+                            text_size: self.size
+                            valign: 'middle'
 
-                            Label:
-                                text: 'CHIA PHAN:'
-                                font_size: '11sp'
-                                color: theme.text_mid
-                                size_hint_x: None
-                                width: '60dp'
-                                halign: 'right'
-                                text_size: self.size
-                                valign: 'middle'
+                        Button:
+                            text: '-'
+                            size_hint_x: None
+                            width: '30dp'
+                            font_size: '20sp'
+                            background_normal: ''
+                            background_color: 0.1, 0.12, 0.16, 1
+                            on_release: root.on_section_count_change(root.section_count - 1)
 
-                            Button:
-                                text: '-'
-                                size_hint_x: None
-                                width: '24dp'
-                                font_size: '14sp'
-                                background_normal: ''
-                                background_color: 0.1, 0.12, 0.16, 1
-                                on_release: root.on_section_count_change(root.section_count - 1)
+                        Label:
+                            id: section_count_label
+                            text: str(root.section_count)
+                            font_size: '19sp'
+                            color: theme.text_main
+                            bold: True
+                            size_hint_x: None
+                            width: '24dp'
+                            halign: 'center'
+                            text_size: self.size
+                            valign: 'middle'
 
-                            Label:
-                                id: section_count_label
-                                text: str(root.section_count)
-                                font_size: '13sp'
-                                color: theme.text_main
-                                bold: True
-                                size_hint_x: None
-                                width: '20dp'
-                                halign: 'center'
-                                text_size: self.size
-                                valign: 'middle'
+                        Button:
+                            text: '+'
+                            size_hint_x: None
+                            width: '30dp'
+                            font_size: '20sp'
+                            background_normal: ''
+                            background_color: 0.1, 0.12, 0.16, 1
+                            on_release: root.on_section_count_change(root.section_count + 1)
 
-                            Button:
-                                text: '+'
-                                size_hint_x: None
-                                width: '24dp'
-                                font_size: '14sp'
-                                background_normal: ''
-                                background_color: 0.1, 0.12, 0.16, 1
-                                on_release: root.on_section_count_change(root.section_count + 1)
+                        Widget:
 
-                    # Less grinding (subtract) — red down arrow
-                    ImageButton:
-                        source: ARROW_DOWN_IMG
+                    # Less grinding (subtract) — per-section arrows (flipped up)
+                    BoxLayout:
+                        id: adjust_down_row
                         size_hint_y: None
-                        height: '36dp'
-                        allow_stretch: True
-                        keep_ratio: True
-                        on_release: root.on_adjust_down()
+                        height: '40dp'
+                        spacing: '2dp'
 
                     # Bar chart
                     DeltaCBarChart:
                         id: delta_c_chart
                         offsets: root.delta_c_offsets
-                        size_hint_y: None
-                        height: '90dp'
+                        size_hint_y: 1
 
-                    # More grinding (add) — green up arrow
-                    ImageButton:
-                        source: ARROW_UP_IMG
+                    # More grinding (add) — per-section arrows (flipped down)
+                    BoxLayout:
+                        id: adjust_up_row
                         size_hint_y: None
-                        height: '36dp'
-                        allow_stretch: True
-                        keep_ratio: True
-                        on_release: root.on_adjust_up()
+                        height: '40dp'
+                        spacing: '2dp'
 
                     # Controls row
                     BoxLayout:
                         size_hint_y: None
-                        height: '30dp'
+                        height: '38dp'
                         spacing: '8dp'
 
                         Label:
-                            text: 'DA CHON: ' + root.selected_section_value + ' cts'
-                            font_size: '11sp'
+                            text: 'ĐÃ CHỌN: ' + root.selected_section_value + ' cts'
+                            font_size: '16sp'
                             color: theme.text_main
                             halign: 'left'
                             text_size: self.size
@@ -213,8 +214,8 @@
                             size_hint_x: 0.4
 
                         Button:
-                            text: 'XOA'
-                            font_size: '12sp'
+                            text: 'XÓA'
+                            font_size: '18sp'
                             bold: True
                             background_normal: ''
                             background_color: 0.25, 0.08, 0.08, 1
@@ -223,8 +224,8 @@
                             on_release: root.on_clear_delta_c()
 
                         Button:
-                            text: 'LUU LAI'
-                            font_size: '12sp'
+                            text: 'LƯU LẠI'
+                            font_size: '18sp'
                             bold: True
                             background_normal: ''
                             background_color: 0.118, 0.227, 0.373, 1
@@ -236,7 +237,7 @@
                 BoxLayout:
                     orientation: 'vertical'
                     size_hint_y: None
-                    height: '105dp'
+                    height: '165dp'
                     padding: ['8dp', '4dp']
                     spacing: '3dp'
                     canvas.before:
@@ -247,65 +248,68 @@
                             size: self.size
                             radius: [8,]
                         Color:
-                            rgba: theme.border
+                            rgba: 0.2, 0.9, 0.3, 0.8
                         Line:
                             rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
-                            width: 1.2
+                            width: 1.4
 
                     Label:
-                        text: 'QUA TRINH MAI DAO'
-                        font_size: '11sp'
+                        text: 'QUÁ TRÌNH MÀI DAO'
+                        font_size: '16sp'
                         bold: True
                         color: theme.text_mid
                         halign: 'left'
                         valign: 'middle'
                         text_size: self.size
                         size_hint_y: None
-                        height: '18dp'
+                        height: '22dp'
 
                     GridLayout:
                         cols: 2
                         spacing: '8dp'
-                        size_hint_y: None
-                        height: '40dp'
+                        size_hint_y: 1
 
                         BoxLayout:
                             orientation: 'vertical'
                             Label:
-                                text: 'THOI GIAN DA CHAY'
-                                font_size: '10sp'
+                                text: 'THỜI GIAN ĐÃ CHẠY'
+                                font_size: '15sp'
                                 color: 0.396, 0.455, 0.545, 1
                                 halign: 'left'
                                 valign: 'bottom'
                                 text_size: self.size
+                                size_hint_y: 0.35
                             Label:
                                 id: lbl_elapsed
                                 text: root.cycle_elapsed
-                                font_size: '18sp'
+                                font_size: '27sp'
                                 bold: True
                                 color: theme.text_main
                                 halign: 'left'
                                 valign: 'top'
                                 text_size: self.size
+                                size_hint_y: 0.65
 
                         BoxLayout:
                             orientation: 'vertical'
                             Label:
-                                text: 'THOI GIAN CON LAI'
-                                font_size: '10sp'
+                                text: 'THỜI GIAN CÒN LẠI'
+                                font_size: '15sp'
                                 color: 0.396, 0.455, 0.545, 1
                                 halign: 'left'
                                 valign: 'bottom'
                                 text_size: self.size
+                                size_hint_y: 0.35
                             Label:
                                 id: lbl_eta
                                 text: root.cycle_eta
-                                font_size: '18sp'
+                                font_size: '27sp'
                                 bold: True
                                 color: theme.text_main
                                 halign: 'left'
                                 valign: 'top'
                                 text_size: self.size
+                                size_hint_y: 0.65
 
                     BoxLayout:
                         orientation: 'horizontal'
@@ -319,16 +323,16 @@
                             max: 100
                             value: root.cycle_completion_pct
                             size_hint_y: None
-                            height: '10dp'
+                            height: '12dp'
                             pos_hint: {'center_y': 0.5}
 
                         Label:
                             text: '{0}%'.format(int(root.cycle_completion_pct))
-                            font_size: '11sp'
+                            font_size: '16sp'
                             bold: True
                             color: 0.396, 0.455, 0.545, 1
                             size_hint_x: None
-                            width: '36dp'
+                            width: '44dp'
                             halign: 'right'
                             valign: 'middle'
                             text_size: self.size
@@ -337,14 +341,14 @@
                         cols: 2
                         spacing: '8dp'
                         size_hint_y: None
-                        height: '26dp'
+                        height: '30dp'
 
                         BoxLayout:
                             orientation: 'horizontal'
                             spacing: '4dp'
                             Label:
-                                text: 'DAO TRONG CA:'
-                                font_size: '10sp'
+                                text: 'DAO ĐÃ MÀI TRONG CA:'
+                                font_size: '15sp'
                                 color: 0.396, 0.455, 0.545, 1
                                 halign: 'left'
                                 valign: 'middle'
@@ -352,7 +356,7 @@
                             Label:
                                 id: lbl_ses_knives
                                 text: root.session_knife_count
-                                font_size: '14sp'
+                                font_size: '21sp'
                                 bold: True
                                 color: 0.235, 0.639, 0.996, 1
                                 halign: 'left'
@@ -363,8 +367,8 @@
                             orientation: 'horizontal'
                             spacing: '4dp'
                             Label:
-                                text: 'DAO VOI DA:'
-                                font_size: '10sp'
+                                text: 'DAO ĐÃ MÀI VỚI ĐÁ HIỆN TẠI:'
+                                font_size: '15sp'
                                 color: 0.396, 0.455, 0.545, 1
                                 halign: 'left'
                                 valign: 'middle'
@@ -372,7 +376,7 @@
                             Label:
                                 id: lbl_stn_knives
                                 text: root.stone_knife_count
-                                font_size: '14sp'
+                                font_size: '21sp'
                                 bold: True
                                 color: theme.text_main
                                 halign: 'left'
@@ -388,10 +392,11 @@
                 spacing: '6dp'
 
                 # ---------------------------------------------------------------
-                # CONTROLLER LOG (fills available space)
+                # CONTROLLER LOG
                 # ---------------------------------------------------------------
                 BoxLayout:
                     orientation: 'vertical'
+                    size_hint_y: 0.55
                     padding: ['8dp', '4dp']
                     spacing: '2dp'
                     canvas.before:
@@ -402,13 +407,13 @@
                             size: self.size
                             radius: [8,]
                         Color:
-                            rgba: theme.border
+                            rgba: 0.9, 0.2, 0.9, 0.8
                         Line:
                             rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
-                            width: 1.2
+                            width: 1.4
 
                     Label:
-                        text: 'CONTROLLER LOG'
+                        text: 'THÔNG TIN TỪ BỘ ĐIỀU KHIỂN'
                         font_size: '11sp'
                         bold: True
                         color: theme.text_mid
@@ -438,8 +443,7 @@
                 # ---------------------------------------------------------------
                 BoxLayout:
                     orientation: 'vertical'
-                    size_hint_y: None
-                    height: '140dp'
+                    size_hint_y: 0.45
                     padding: ['10dp', '6dp']
                     spacing: '4dp'
                     canvas.before:
@@ -450,10 +454,10 @@
                             size: self.size
                             radius: [8,]
                         Color:
-                            rgba: theme.border
+                            rgba: 0.9, 0.9, 0.2, 0.8
                         Line:
                             rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
-                            width: 1.2
+                            width: 1.4
 
                     BoxLayout:
                         orientation: 'horizontal'
@@ -462,8 +466,8 @@
                         spacing: '8dp'
 
                         Label:
-                            text: 'BU / BOT DA'
-                            font_size: '12sp'
+                            text: 'BÙ ĐÁ - BỚT ĐÁ BẰNG TAY'
+                            font_size: '16sp'
                             bold: True
                             color: theme.text_mid
                             halign: 'left'
@@ -474,7 +478,7 @@
                         Label:
                             id: start_pt_c_label
                             text: root.start_pt_c
-                            font_size: '20sp'
+                            font_size: '24sp'
                             bold: True
                             color: theme.text_main
                             halign: 'right'
@@ -484,11 +488,10 @@
 
                     Button:
                         id: less_stone_btn
-                        text: 'BOT DA'
-                        font_size: '14sp'
+                        text: 'BỚT ĐÁ'
+                        font_size: '18sp'
                         bold: True
-                        size_hint_y: None
-                        height: '40dp'
+                        size_hint_y: 1
                         background_normal: ''
                         background_color: 0.15, 0.08, 0.02, 1
                         color: 0.984, 0.573, 0.235, 1
@@ -497,11 +500,10 @@
 
                     Button:
                         id: more_stone_btn
-                        text: 'THEM DA'
-                        font_size: '14sp'
+                        text: 'BÙ ĐÁ'
+                        font_size: '18sp'
                         bold: True
-                        size_hint_y: None
-                        height: '40dp'
+                        size_hint_y: 1
                         background_normal: ''
                         background_color: 0.02, 0.12, 0.06, 1
                         color: 0.133, 0.773, 0.369, 1
@@ -529,7 +531,7 @@
 
             Button:
                 id: start_grind_btn
-                text: 'BAT DAU MAI'
+                text: 'BẮT ĐẦU MÀI'
                 font_size: '16sp'
                 bold: True
                 size_hint_x: 1
@@ -541,7 +543,7 @@
 
             Button:
                 id: shutdown_btn
-                text: 'TAT MAY'
+                text: 'TẮT MÁY'
                 font_size: '16sp'
                 bold: True
                 size_hint_x: 0.6

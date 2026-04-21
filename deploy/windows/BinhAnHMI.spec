@@ -11,6 +11,7 @@ import pathlib
 
 from kivy_deps import sdl2, glew, angle
 from kivy.tools.packaging.pyinstaller_hooks import hookspath, runtime_hooks, get_deps_minimal
+import kivy_matplotlib_widget
 
 # Repo root is two directories above this spec file.
 # All source paths are resolved relative to the repo root so the spec works
@@ -49,9 +50,11 @@ a = Analysis(
     [str(SRC / 'dmccodegui' / '__main__.py')],
     pathex=[str(SRC)],
     datas=[
-        # KV files — root UI level (diagnostics.kv is excluded from KV_FILES in
-        # main.py so including it in the bundle is harmless)
-        (str(SRC / 'dmccodegui' / 'ui' / '*.kv'),             'dmccodegui/ui'),
+        # KV files — root UI level (diagnostics.kv excluded from production)
+        *[(str(SRC / 'dmccodegui' / 'ui' / f), 'dmccodegui/ui')
+          for f in ('axes_setup.kv', 'base.kv', 'parameters.kv', 'pin_overlay.kv',
+                    'profiles.kv', 'run.kv', 'setup.kv', 'status_bar.kv',
+                    'tab_bar.kv', 'theme.kv', 'users.kv')],
         # Machine-type sub-directories
         (str(SRC / 'dmccodegui' / 'ui' / 'flat_grind' / '*.kv'), 'dmccodegui/ui/flat_grind'),
         (str(SRC / 'dmccodegui' / 'ui' / 'serration' / '*.kv'),  'dmccodegui/ui/serration'),
@@ -67,6 +70,9 @@ a = Analysis(
              'dmccodegui/assets/fonts/Noto_Sans/static'),
         (str(SRC / 'dmccodegui' / 'assets' / 'fonts' / 'Noto_Sans' / 'static' / 'NotoSans-BoldItalic.ttf'),
              'dmccodegui/assets/fonts/Noto_Sans/static'),
+        # kivy_matplotlib_widget ships a custom font it registers at import time
+        (str(pathlib.Path(kivy_matplotlib_widget.__file__).parent / 'fonts' / 'NavigationIcons.ttf'),
+             'kivy_matplotlib_widget/fonts'),
     ],
     hookspath=hookspath(),
     runtime_hooks=runtime_hooks(),

@@ -74,7 +74,7 @@ class SetupScreenMixin:
     """
 
     _SETUP_SCREENS: frozenset = frozenset({
-        "axes_setup", "parameters", "profiles", "users", "diagnostics",
+        "axes_setup", "parameters", "profiles", "users",
     })
 
     # ------------------------------------------------------------------

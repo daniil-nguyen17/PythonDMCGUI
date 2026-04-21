@@ -1,198 +1,174 @@
 # Feature Landscape
 
-**Domain:** Industrial HMI — per-machine-type screen set refactor (v3.0 Multi-Machine)
-**Researched:** 2026-04-11
-**Confidence:** HIGH (based on direct codebase analysis of existing machine_config.py, run.py,
-axes_setup.py, parameters.py, main.py, and established Kivy ScreenManager/Builder patterns)
+**Domain:** Industrial Python HMI — Packaging & Deployment (v4.0)
+**Researched:** 2026-04-21
+**Confidence:** HIGH (Windows installer, Pi systemd patterns) / MEDIUM (update mechanisms, logging)
 
-> **Scope note:** This document supersedes the v2.0 FEATURES.md for the v3.0 milestone.
-> v2.0 features (HMI-to-controller wiring, XQ calls, hmi variable pattern, live polling,
-> stone compensation, jog/teach, parameters write path) are already built and validated.
-> This document covers only what is needed to refactor into per-machine-type screen sets.
+> **Scope note:** This supersedes the v3.0 FEATURES.md (which covered the multi-machine screen
+> refactor). v4.0's goal is getting the working HMI into installable bundles for Windows 11
+> and Raspberry Pi. All prior HMI functionality (PIN auth, live plots, per-machine screens,
+> controller comms) is already built — this document covers only packaging and deployment features.
 
 ---
 
-## Feature Landscape
+## Table Stakes
 
-### Table Stakes (Users Expect These)
-
-Features that make the per-machine refactor actually work. Missing any of these means either
-the wrong screens load for a machine type, or fine-tuning one machine breaks another.
+Features that make the deployment usable. Missing any of these means operators cannot
+run the machine, support cannot troubleshoot remotely, or the app is stranded when it crashes.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Per-machine Run screen classes | Each machine type needs independent Run layout without `if is_serration()` branches. Serration has bComp controls; Convex has no D-axis. Sharing one class means any Serration-specific change risks breaking Flat Grind. | MEDIUM | Split `RunScreen` into `FlatGrindRunScreen`, `SerrationRunScreen`, `ConvexRunScreen`. Each inherits a shared `BaseRunScreen` mixin for common poll loop, plot, E-STOP, cycle controls. Machine-specific sections (bComp strip, deltaC bar, axis count) live only in their subclass. |
-| Per-machine Axes Setup screen classes | Axis sidebar depends on axis count (A/B/C/D vs A/B/C). D-axis row show/hide is currently done in `_rebuild_axis_rows()` on every `on_pre_enter`. Per-machine subclass eliminates the runtime branch. | MEDIUM | Split `AxesSetupScreen` into `FlatGrindAxesSetupScreen`, `SerrationAxesSetupScreen`, `ConvexAxesSetupScreen`. Serration subclass simply never renders the D row — no runtime `get_axis_list()` query needed. |
-| Per-machine Parameters screen classes | Param defs differ by machine type (Serration drops D-axis vars). Currently `ParametersScreen.on_pre_enter()` calls `mc.get_param_defs()` dynamically. Per-machine subclass bakes the correct defs in at class definition. | MEDIUM | Split `ParametersScreen` into `FlatGrindParametersScreen`, `SerrationParametersScreen`, `ConvexParametersScreen`. Each subclass provides a class-level `PARAM_DEFS` constant pointing to the correct `machine_config._*_PARAM_DEFS`. |
-| Per-machine .kv files for each screen | Layout independence requires each screen subclass to have its own `.kv` file. Sharing a `.kv` file forces both machines to accept layout compromises from the other. | MEDIUM | Create `ui/flat_grind_run.kv`, `ui/serration_run.kv`, `ui/convex_run.kv` (same for axes_setup and parameters). Main .kv loader list in `main.py:KV_FILES` loads all of them at startup. |
-| Machine detection on connect loads correct screen set | When a controller is connected, the HMI must swap to the screen set matching that machine's type. Currently `machine_config.get_active_type()` is read at startup from settings.json, but the ScreenManager always has the same screens regardless. | HIGH | A screen registry/loader replaces the current single-screen approach. On machine type selection (picker or settings.json), `ScreenManager.current` is pointed at `flat_grind_run` / `serration_run` / `convex_run` etc. Tab bar route names update accordingly. |
-| Tab bar routes updated per machine type | The tab bar currently hard-codes screen names (`run`, `axes_setup`, `parameters`). With per-machine screens, the run tab must route to `flat_grind_run` or `serration_run` depending on detected type. | MEDIUM | Add a `set_machine_type(mtype)` method on `TabBar` that remaps route names without changing the visible tab labels. The method is called once after machine type is confirmed — same timing as the existing `state.machine_type = mtype` line in `main.py`. |
-| Flat Grind screens preserved as-is | Existing Flat Grind behavior is 90% validated on hardware. The refactor must not change any Flat Grind logic — only extract it into named subclasses. | LOW | Rename `RunScreen` → `FlatGrindRunScreen`, `AxesSetupScreen` → `FlatGrindAxesSetupScreen`, `ParametersScreen` → `FlatGrindParametersScreen`. Update `.kv` `<RunScreen>` rule to `<FlatGrindRunScreen>` etc. No functional changes. |
-| Shared controller comms layer unchanged | `GalilController`, `JobThread`, `ControllerPoller`, `dmc_vars.py`, `poll.py`, and `app_state.py` must not be touched. All three machine types share the same Galil controller model and communication protocol. | LOW | Enforced by keeping all comms in the base layer. Subclasses call the same `jobs.submit()`, `controller.cmd()`, `state.*` APIs. Only the screen-level Python classes and `.kv` files change. |
-| Auth, PIN overlay, tab bar, status bar shared across machines | The role system (Operator/Setup/Admin), PIN overlay, tab visibility gates, and status bar are machine-independent. They must continue to work identically regardless of which screen set is loaded. | LOW | These widgets are already independent of `RunScreen` / `AxesSetupScreen`. No changes needed — confirmed by the fact that `pin_overlay.py`, `tab_bar.py`, and `status_bar.py` contain zero references to machine type. |
-| First-launch machine type picker still works | The mandatory picker on first launch (when settings.json has no `machine_type`) must route to the correct screen set after selection. Currently it calls `mc.set_active_type()` then shows the PIN overlay — but does not update the ScreenManager's active screen names. | LOW | After `mc.set_active_type(mtype)`, the startup flow must also call the new screen loader to switch the ScreenManager's current screen to the correct machine's run screen. |
+| Windows: self-contained .exe bundle | Operators won't have Python installed. Windows must "just work" out of a folder or installer. | MEDIUM | PyInstaller produces a one-folder or one-file bundle. Kivy has official hooks (`kivy.tools.packaging.pyinstaller_hooks`). gclib is a C DLL — must be included via `datas` in the spec file. Matplotlib and kivy_matplotlib_widget require explicit hiddenimports. |
+| Windows: Start Menu and Desktop shortcuts | Every Windows app creates shortcuts. Missing shortcuts means "where did it install?" calls. | LOW | Inno Setup handles shortcut creation declaratively. NSIS is an alternative but requires scripted logic. Either wraps the PyInstaller output folder and creates `[Icons]` entries. |
+| Windows: Add/Remove Programs entry | Users expect to see the app in "Apps & Features" and be able to uninstall cleanly. | LOW | Inno Setup creates the Uninstall registry entry automatically. This is zero extra work once Inno Setup is chosen. |
+| Pi: virtual environment with all deps | Pi OS Bookworm (2023+) REQUIRES pip installs to go into a venv. System-wide pip is blocked. Installing without a venv will fail silently or error. | LOW | `python3 -m venv --system-site-packages ~/dmc_gui_env`. Use `--system-site-packages` to inherit apt-installed packages (e.g., system OpenGL libs needed by Kivy). Install deps via `~/dmc_gui_env/bin/pip install -r requirements.txt`. |
+| Pi: systemd service with auto-restart | If the app crashes (which it will in field conditions), operators will not know how to restart it. Restart must be automatic. | LOW | `Restart=on-failure` + `RestartSec=3` in the unit file covers the majority of crash scenarios. `StartLimitIntervalSec=60` + `StartLimitBurst=5` prevents infinite restart loops on fatal errors. |
+| Pi: fullscreen kiosk, no desktop access | Operators must not be able to reach the desktop, file manager, or terminal. The app must own the screen. | MEDIUM | Two approaches: (1) autologin user with `.bashrc` launching the app, or (2) systemd user service that starts before the desktop loads. On Pi OS Bookworm (Wayland), a systemd service or XDG autostart file works. The app itself sets `Config.set('graphics', 'fullscreen', 'auto')` before importing Kivy's Window — this is already established in main.py's pattern. |
+| Rotating log file | Field deployments cannot tolerate unbounded log growth on a 16 GB SD card or Windows drive. A crashed app leaves no trace without logs. | LOW | Python's `logging.handlers.RotatingFileHandler` — 5 MB per file, keep 3 backups = 15 MB max. Write to `~/.dmc_gui/logs/app.log` (Pi) or `%APPDATA%\DMCGui\logs\app.log` (Windows). |
+| Uncaught exception logging | Silent crashes are the worst debugging scenario in field deployments. All unhandled exceptions must be captured to the log. | LOW | `sys.excepthook = _log_uncaught_exception` at the top of main.py. Log the full traceback before exit. Add a Kivy `on_stop` handler to flush log buffers. |
+| Exclude dev-only files from package | .planning/, tests/, Excel files, and .dmc files add bulk and expose internal project artifacts to operators. | LOW | PyInstaller spec file `excludes` list or `.spec` `datas` whitelist. Inno Setup `[Files]` section controls what goes into the installer. For Pi, the install.sh script clones only the app directory or uses a stripped archive. |
 
 ---
 
-### Differentiators (Competitive Advantage)
+## Differentiators
 
-Features that make the per-machine refactor more than a rename exercise — enabling real
-independent tuning per machine type without coupling risk.
+Features that raise the deployment quality above "it runs on the target machine" to
+"service technicians can maintain it in the field."
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Shared `BaseRunScreen` mixin with machine-specific overrides | A clean base class for the 80% of Run screen behavior that is identical across all three machines (plot, cycle timer, E-STOP, poll, log). Subclasses only override what differs (bComp strip for Serration, deltaC for Flat/Convex). Prevents triplicate bug fixes. | MEDIUM | `BaseRunScreen(Screen)` holds `_start_pos_poll()`, `_stop_pos_poll()`, `_update_plot()`, `on_estop()`, `_cycle_timer_tick()`. `FlatGrindRunScreen(BaseRunScreen)` adds deltaC bar. `SerrationRunScreen(BaseRunScreen)` adds bComp strip. `ConvexRunScreen(BaseRunScreen)` adds convex-specific controls. |
-| Lazy screen loading — only load active machine's screens | Loading all three machines' .kv files at startup is safe but loads unused widget trees into memory. Lazy loading reduces startup memory on Pi 4 (2 GB RAM, shared GPU). | MEDIUM | Instead of loading all 9 screen .kv files in `KV_FILES`, detect machine type from settings.json during `build()` and load only the 3 active machine .kv files. Fall back to loading all if unconfigured (first launch). Pi target makes this worth doing — Pi 4 with Kivy + matplotlib + gclib is memory-constrained. |
-| Machine type shown in status bar at all times | Setup personnel and service technicians must immediately know which machine type the HMI is configured for — especially on shared test benches where the same Pi might be moved between machines. | LOW | `StatusBar` already has a machine-type tap area in `main.py` (`bind_machine_type_tap`). Confirm the `state.machine_type` string is passed to `StatusBar.update_from_state()` and displayed. Already partially implemented — needs verification that all three machine types display correctly, not just Flat Grind. |
-| `has_bcomp` flag drives bComp strip visibility | The Serration machine has a B-axis compensation strip (`has_bcomp=True` in `_REGISTRY`). Rather than hard-coding "if serration, show bComp", use the registry flag. This means if a future 4th machine type needs bComp, it gets it for free. | LOW | `BaseRunScreen._on_state_update()` checks `mc.get_active_type()` → `_REGISTRY[type]["has_bcomp"]`. If True, show bComp strip widget. `FlatGrindRunScreen` and `ConvexRunScreen` never call this path because bComp is not in their layout. |
-| Screen set hot-swap without app restart | When a Setup/Admin user changes machine type via the status bar picker mid-session, the ScreenManager swaps screen sets without restarting the app. Useful on shared test benches. | HIGH | This requires `ScreenManager.add_widget()` / `remove_widget()` at runtime, plus re-loading .kv rules for the new machine type. Kivy's `Builder.load_file()` is idempotent for the same file — but removing and re-adding screens while connected is complex. Defer unless customer explicitly requests it; settings.json + restart covers 95% of real-world scenarios. |
-| Serration-specific `bComp` write verified against DMC | `has_bcomp=True` machines need to write to the `bComp` array on the controller. The exact array name and index range for the Serration DMC program is TBD (customer to provide). Flag this as needing verification before the Serration screen is considered complete. | LOW | Add a `# TODO: verify bComp array name and size from Serration DMC program` comment at the top of `SerrationRunScreen`. Stub the write path with `controller.cmd(f"bComp[{idx}]={val}")` as a placeholder — same pattern as deltaC writes on Flat Grind. |
+| Windows: optional auto-start on login | Dedicated grinding workstations should boot straight to the HMI. Making this a checkbox during install is cleaner than manual configuration. | LOW | Inno Setup can write `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` or create a shortcut in the user's Startup folder. Use HKCU (current user) so admin rights are not required at runtime. Offer as an optional "Launch at Windows startup" checkbox in the installer. |
+| Windows: version number in installer title and executable | Technicians need to confirm which build is deployed. Version in the installer title and in File Properties prevents "which version is this?" confusion. | LOW | Embed `version.txt` or bake version string into `main.py`. PyInstaller reads `--version-file` for Windows EXE version resources. Inno Setup reads `AppVersion` from the same source. |
+| Pi: three deployment paths | Different field scenarios have different constraints. A customer with a fresh Pi needs a different method than one updating an existing install. | MEDIUM | (1) `install.sh` via USB/SCP — git clone + venv setup + systemd unit install; (2) SD card image — pre-built image with app + deps; (3) git clone + script for developers. The script path is the foundation; the image path uses `rpi-imager` or `dd`. |
+| Pi: systemd hardware watchdog (WatchdogSec) | Software `Restart=on-failure` handles crashes. Hardware watchdog handles hangs — a frozen app that appears alive but stops updating the display. Critical for unattended kiosk use. | MEDIUM | Set `WatchdogSec=30` in the unit file. App must call `sd_notify(WATCHDOG=1)` periodically — use the `sdnotify` Python package. Add a periodic Clock-scheduled callback in main.py at 10s intervals. If the Kivy event loop dies, the watchdog fires and systemd restarts. |
+| Screen resolution auto-detection with override | Pi touchscreens come in 7" (800x480), 10" (1024x600), and 15" (1280x800). Windows target is 1920x1080. The same app binary must display correctly on all. | MEDIUM | `Config.set('graphics', 'fullscreen', 'auto')` is already established. For Pi, read display resolution via `subprocess.check_output(['xrandr'])` or check `Window.system_size` post-init. Write a `settings.json` override key `"display_override": "800x480"` — startup code reads this before calling Config.set. |
+| DMC/Excel files as optional separate bundle | First-time controller setup needs the DMC program and Excel parameter sheets. These are not part of the runtime and should not clutter the install, but must be available. | LOW | Ship as a separate ZIP file or installer. Include a README.txt with controller setup instructions. Keep this separate from the main installer — its audience is setup engineers, not operators. |
+| Log viewer accessible from Admin tab | In-field debugging currently requires SSH access or pulling the SD card. An Admin-only "View Logs" button that opens the last 200 lines of app.log eliminates most on-site debugging trips. | MEDIUM | New `LogViewerScreen` or a modal popup with a `ScrollView` + `Label`. Read `app.log` via Python's `logging` file path. Restrict to Admin role. This is a v4.x addition, not strictly required for initial deployment. |
+| Install directory configurable in Windows installer | Some industrial IT environments require software to install to D:\ or a specific network share. | LOW | Inno Setup `DefaultDirName` can be overridden at install time. No code changes to the app itself. |
 
 ---
 
-### Anti-Features (Commonly Requested, Often Problematic)
+## Anti-Features
 
-| Anti-Feature | Why Requested | Why Problematic | Alternative |
-|--------------|---------------|-----------------|-------------|
-| Single screen class with deep `if machine_type == "..."` branching | "Avoids code duplication — one screen, many modes." | Every Serration-specific change risks breaking Flat Grind code paths that share the same `if/else` tree. Testing becomes combinatorial. KV layouts become full of `opacity: 0 if ...` bindings that still consume memory. This is the current v2.0 approach and exactly what v3.0 is designed to escape. | Per-machine subclasses. Each class is independently testable. A bug in `SerrationRunScreen` cannot reach `FlatGrindRunScreen`. |
-| Shared single .kv file with `opacity: 0 if not has_bcomp` | "Simpler than three .kv files — just toggle visibility." | Hidden widgets (opacity=0) still exist in the widget tree and consume layout passes, memory, and touch event processing. On Pi 4 this matters. More importantly, layout differences between machines (not just visibility) require different widget hierarchies. | Separate .kv files per machine type. Each .kv file only contains the widgets that machine needs. No dead widgets in the tree. |
-| Runtime machine type switching without app restart | "Power user feature — switch machine types on the fly." | `Builder.load_file()` adds rules to the global registry. Removing them cleanly requires `Builder.unload_file()` which is fragile with complex inheritance hierarchies. ScreenManager widget teardown while polling is active risks race conditions with the JobThread. | Write the machine type to settings.json and prompt for restart. Restart is fast (< 5 seconds) and eliminates the entire class of teardown bugs. Industrial machines don't switch types mid-shift. |
-| Three separate `main.py` entry points (one per machine) | "Each machine gets its own deployable app." | Triples maintenance burden. Auth, tab bar, status bar, poll loop — all duplicated. Bug fixes need to be applied in three places. SD card images diverge over time. | Single `main.py`, single app. Machine type selection at startup via the existing picker. All three screen sets registered in one ScreenManager. |
-| Controller variable read to auto-detect machine type | "Let the DMC program tell the HMI what machine it is." | The three machines all use the same DMC program structure. There is no machine-type variable defined in the current DMC code. Adding one requires DMC program changes. The settings.json approach is already in place, costs zero DMC changes, and works correctly. | Keep settings.json as the source of truth. The first-launch picker forces setup personnel to confirm type once. After that it is automatic. |
-| Per-machine-type tab sets (different tabs per machine) | "Serration doesn't need a Convex-specific tab, so hide it." | Tab sets are already role-gated (Operator vs Setup vs Admin), not machine-gated. The three machines use the same five tabs (Run, Axes Setup, Parameters, Profiles, Users). Adding machine-type gating to tabs creates a 3x3 matrix of configurations. | Keep the tab set identical across all machine types. The content of each tab's screen differs — the tab labels and counts do not. |
+Features commonly requested for software deployment that are wrong for this application.
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Over-the-air / network auto-update | This app runs in industrial facilities that may have no internet, air-gapped networks, or strict change management controls. An auto-updater that calls home would fail silently or be blocked by IT. | Manual update via USB stick (Pi) or re-running the installer (Windows). The existing git-based install.sh supports `git pull` for the SD-connected scenario. |
+| Crash reporting to external service (Sentry, Bugsnag) | Same network constraints. Also, crash data may include machine parameters that are proprietary to the customer. | Local rotating log file only. Admin can view logs in-app or copy them to USB for support. |
+| Single-file PyInstaller executable (--onefile) | --onefile extracts to a temp directory on every launch, which is slow on Pi and fails if the temp partition is small. Also breaks gclib DLL loading via absolute path. | Use --onedir (the default). The folder is the deployable artifact. Inno Setup wraps the folder into a proper installer without needing --onefile. |
+| Python virtualenv inside the Windows installer | On Windows, PyInstaller bundles the interpreter and all deps into the output folder. A venv inside the installer adds complexity without benefit. | PyInstaller output folder IS the isolation layer on Windows. Venv is only needed on Pi where system Python is the runtime. |
+| Updater .exe / in-app "Check for Updates" button | Industrial app updates require validation and sign-off before reaching the floor. Silent or user-initiated updates bypass the change management process. | Deliver updates as a new installer (.exe for Windows, new install.sh run for Pi). Change management is manual by design. |
+| Desktop wallpaper / splash screen branding | Nice for consumer apps. Adds build complexity and is irrelevant on a grinding machine HMI that runs fullscreen from boot. | The Kivy dark theme already provides a professional appearance. No splash screen needed. |
+| NSIS instead of Inno Setup | NSIS is fully scripted (think low-level assembler). Inno Setup is INI-based with optional Pascal scripting. For this app's needs (shortcuts, registry key for autostart, uninstaller), Inno Setup is 80% less code. | Use Inno Setup 6.x. Only switch to NSIS if a specific requirement cannot be expressed in Inno Setup's scripting model. |
+| Automatic Pi OS upgrade during install | `sudo apt upgrade` during the install script risks breaking system packages that gclib or Kivy depend on. Pi OS upgrades are not atomic and can leave the system in a broken state if interrupted. | Document required Pi OS version (Bookworm 64-bit recommended). install.sh installs only the Python packages needed. Do not run apt upgrade. |
+| Multi-user Windows profiles | The HMI's auth is handled internally (PIN system). Windows user accounts add a layer of authentication that operators will not expect and support staff cannot manage. | Install for the current Windows user (HKCU) or machine-wide (HKLM). The app's PIN system handles role-based access. |
 
 ---
 
 ## Feature Dependencies
 
 ```
-machine_config.py (_REGISTRY, get_active_type, get_param_defs, get_axis_list)
-  └── already built, used by all three screen sets
-  └── required by: per-machine param defs, bComp flag, axis count
+PyInstaller spec file (.spec)
+  ├── requires: working main.py (already done)
+  ├── requires: gclib DLL path known and added to datas
+  ├── requires: Kivy hooks (kivy.tools.packaging.pyinstaller_hooks.get_deps_all())
+  ├── requires: kivy_matplotlib_widget in hiddenimports
+  └── produces: dist/DMCGui/ folder (one-dir mode)
 
-Flat Grind screens (rename-only refactor)
-  ├── FlatGrindRunScreen ← rename RunScreen, no logic change
-  ├── FlatGrindAxesSetupScreen ← rename AxesSetupScreen, remove _rebuild_axis_rows() D-hide
-  └── FlatGrindParametersScreen ← rename ParametersScreen, bake FLAT_PARAM_DEFS as class constant
-  └── required before: Serration and Convex screens (they fork from Flat Grind as base)
+Inno Setup script (.iss)
+  ├── requires: PyInstaller dist/DMCGui/ folder (complete and tested)
+  ├── provides: Start Menu shortcut
+  ├── provides: Desktop shortcut
+  ├── provides: Add/Remove Programs entry
+  ├── provides: optional HKCU Run key for auto-start
+  └── produces: DMCGui_Setup_v4.0.exe
 
-Per-machine .kv files
-  ├── ui/flat_grind_run.kv ← rename/copy from ui/run.kv
-  ├── ui/serration_run.kv ← fork from flat_grind_run.kv, add bComp strip, remove D-axis refs
-  ├── ui/convex_run.kv ← fork from flat_grind_run.kv, convex-specific controls
-  └── same pattern for axes_setup and parameters
-  └── required before: screen registry can route to correct class
+Pi install.sh
+  ├── requires: Pi OS Bookworm (Bookworm mandates venv for pip)
+  ├── step 1: sudo apt install python3-venv python3-pip python3-dev libgl1
+  ├── step 2: python3 -m venv --system-site-packages ~/dmc_gui_env
+  ├── step 3: ~/dmc_gui_env/bin/pip install -r requirements.txt
+  ├── step 4: copy systemd unit file to /etc/systemd/system/
+  ├── step 5: systemctl enable --now dmc_gui.service
+  └── produces: working kiosk on boot
 
-Screen registry / loader (new in v3.0)
-  ├── maps machine type string → (run_screen_name, axes_screen_name, params_screen_name)
-  ├── called by: startup flow after mc.get_active_type() returns valid type
-  ├── called by: first-launch picker on_selected callback
-  └── required by: tab bar route update, sm.current navigation
+systemd unit file (dmc_gui.service)
+  ├── requires: venv Python binary path (~/dmc_gui_env/bin/python)
+  ├── requires: main.py absolute path
+  ├── Restart=on-failure
+  ├── RestartSec=3
+  ├── StartLimitIntervalSec=60
+  ├── StartLimitBurst=5
+  └── WatchdogSec=30 (differentiator — requires sdnotify heartbeat in app)
 
-Tab bar route update (set_machine_type method)
-  └── requires: screen registry to know the correct screen names per type
-  └── called after: screen registry loader completes
+Rotating log setup (in main.py before app.run())
+  ├── requires: platform detection to set log path correctly
+  ├── requires: sys.excepthook patched before any Kivy import
+  └── feeds: Admin log viewer (differentiator, v4.x)
 
-BaseRunScreen mixin
-  ├── extracts: _start_pos_poll, _stop_pos_poll, _update_plot, _cycle_timer_tick, on_estop
-  └── required before: FlatGrindRunScreen, SerrationRunScreen, ConvexRunScreen can inherit it
-
-SerrationRunScreen
-  ├── requires: BaseRunScreen mixin
-  ├── requires: ui/serration_run.kv loaded
-  ├── requires: bComp array name verified from Serration DMC program (customer to provide)
-  └── forked from: FlatGrindRunScreen, adds bComp write path
-
-ConvexRunScreen
-  ├── requires: BaseRunScreen mixin
-  ├── requires: ui/convex_run.kv loaded
-  └── forked from: FlatGrindRunScreen, adapted for Convex geometry controls
-
-Shared layer (unchanged)
-  ├── GalilController, JobThread, ControllerPoller — no changes
-  ├── app_state.MachineState — no changes (machine_type field already exists)
-  ├── auth/AuthManager — no changes
-  ├── pin_overlay.py, tab_bar.py, status_bar.py — no changes (already machine-agnostic)
-  └── profiles.py, users.py, diagnostics.py — no changes
+Screen resolution handling
+  ├── requires: existing Config.set('graphics', 'fullscreen', 'auto') pattern (already in place)
+  ├── extend: read settings.json for display_override key before Config.set
+  └── no Inno Setup / systemd dependencies
 ```
 
-### Dependency Notes
+### Dependency Ordering Notes
 
-- **Flat Grind first, then Serration, then Convex:** This is the established machine order from project memory (`project_v2_machine_order.md`). Flat Grind is the reference implementation. Serration and Convex fork from it and tune independently. Do not start Serration or Convex screens until Flat Grind rename-refactor is complete and verified.
-
-- **Rename is the first and safest step:** The Flat Grind refactor is a pure rename — `RunScreen` → `FlatGrindRunScreen`, matching `.kv` rule rename, matching imports in `main.py`. Zero functional change. This gives a working baseline before any new screen subclasses are added.
-
-- **KV_FILES list in main.py is the load manifest:** The `KV_FILES` list controls what gets registered with Kivy's `Builder`. Adding per-machine .kv files to this list is the mechanism for making new screen classes available. Order matters — `theme.kv` must remain first, `base.kv` must remain last.
-
-- **ScreenManager screen names must be stable:** Tab bar and `sm.current` assignments use string names (`"run"`, `"axes_setup"`). If those names change to `"flat_grind_run"`, every `sm.current = "run"` assignment in `main.py`, `axes_setup.py`, `parameters.py`, and `tab_bar.py` must be updated. Plan for a controlled search-and-replace pass, not ad-hoc edits.
-
-- **`_SETUP_SCREENS` frozensets need updating:** Both `axes_setup.py` and `parameters.py` maintain a `_SETUP_SCREENS` frozenset used to decide whether navigating away should send the exit-setup HMI command. When screen names change, these frozensets must be updated to include the new machine-specific screen names (e.g., `"flat_grind_axes_setup"` instead of `"axes_setup"`).
-
-- **Serration bComp array name is TBD:** The Serration DMC program has not been provided. `has_bcomp=True` in the registry, but the actual array name, size, and write protocol are unknown. Serration screen must stub the bComp path and flag it for customer verification before production use.
+- **PyInstaller spec must come before Inno Setup:** The installer wraps the PyInstaller output. Build and test the PyInstaller bundle on a clean Windows machine before writing the Inno Setup script.
+- **Pi venv must come before systemd unit:** The unit file references the venv's Python binary by absolute path. Writing the unit file before confirming the venv path causes a silent failure on boot.
+- **Rotating log setup must be in main.py before any Kivy import:** The existing `Config.set` pattern in main.py confirms this ordering constraint is understood. Logging setup follows the same rule — initialize before `from kivy.app import App`.
+- **gclib DLL path is the highest-risk unknown on Windows:** gclib is a proprietary Galil library. PyInstaller will not detect it automatically via import analysis. The exact DLL filename and whether it is in PATH or installed to a fixed directory must be confirmed before the spec file is finalized.
 
 ---
 
 ## MVP Definition
 
-### Launch With (v3.0 — Multi-Machine Refactor)
+### Ship for v4.0 (Minimum Deployable Package)
 
-Minimum that makes each machine type independently tunable without cross-machine risk:
+These are required before any real hardware testing can begin on target machines.
 
-- [ ] `FlatGrindRunScreen`, `FlatGrindAxesSetupScreen`, `FlatGrindParametersScreen` extracted from existing classes — pure rename, zero functional change
-- [ ] `ui/flat_grind_run.kv`, `ui/flat_grind_axes_setup.kv`, `ui/flat_grind_parameters.kv` created from existing .kv files — rule names updated to match new class names
-- [ ] `main.py:KV_FILES` updated to load flat grind .kv files, screen names updated throughout
-- [ ] `_SETUP_SCREENS` frozensets in `axes_setup.py` and `parameters.py` updated to new screen names
-- [ ] Tab bar route names updated to match new Flat Grind screen names
-- [ ] Existing Flat Grind behavior confirmed unchanged on hardware (regression test)
-- [ ] `SerrationRunScreen`, `SerrationAxesSetupScreen`, `SerrationParametersScreen` created — forked from Flat Grind base, D-axis removed, bComp strip stubbed
-- [ ] `ui/serration_*.kv` files created — D-axis row absent, bComp strip placeholder present
-- [ ] `ConvexRunScreen`, `ConvexAxesSetupScreen`, `ConvexParametersScreen` created — forked from Flat Grind base
-- [ ] `ui/convex_*.kv` files created
-- [ ] Screen registry maps each `machine_config.MACHINE_TYPES` string to correct screen name triple
-- [ ] Startup flow routes to correct screen set based on `mc.get_active_type()`
-- [ ] First-launch picker routes to correct screen set after type selection
+- [ ] PyInstaller spec file that builds a working one-dir bundle on Windows 11 (includes gclib DLL, Kivy providers, matplotlib, kivy_matplotlib_widget)
+- [ ] Inno Setup script that wraps the bundle into a .exe installer with Start Menu shortcut, Desktop shortcut, and Add/Remove Programs entry
+- [ ] Rotating log file initialized in main.py (`RotatingFileHandler`, 5 MB limit, 3 backups, platform-correct path)
+- [ ] `sys.excepthook` patched to log uncaught exceptions before any Kivy import
+- [ ] Pi `install.sh` that creates a venv, installs requirements.txt, installs systemd unit, enables kiosk mode
+- [ ] Pi systemd unit file with `Restart=on-failure`, `RestartSec=3`, `StartLimitBurst=5`
+- [ ] Pi fullscreen kiosk (systemd service + `Config.set fullscreen auto` already in place)
+- [ ] Dev-only files excluded from all package types (.planning/, tests/, .dmc, .xlsx)
 
-### Add After Screen Set Validation (v3.x)
+### Add in v4.x (After Initial Hardware Validation)
 
-- [ ] `BaseRunScreen` mixin extracted — once all three subclasses exist and common logic is visible
-- [ ] Lazy .kv loading for active machine type only — after basic routing is proven correct
-- [ ] Serration bComp write path — after customer provides Serration DMC program and array name
+- [ ] Windows optional auto-start on login (Inno Setup checkbox writing HKCU Run key)
+- [ ] Version number embedded in Windows EXE resources and Inno Setup title
+- [ ] Pi hardware watchdog (WatchdogSec=30 + sdnotify heartbeat in main.py)
+- [ ] SD card image for zero-touch Pi deployment
+- [ ] Screen resolution override via settings.json display_override key
+- [ ] Admin log viewer (last 200 lines of app.log, in-app modal)
 
-### Future Consideration (v4.0+)
+### Defer to v5.0 or Drop
 
-- [ ] Hot-swap machine type without app restart — only if customer explicitly requires it
-- [ ] Fourth machine type — registry pattern in `machine_config.py` already supports it
-
----
-
-## Feature Prioritization Matrix
-
-| Feature | User Value | Implementation Cost | Priority |
-|---------|------------|---------------------|----------|
-| Flat Grind rename-refactor (no logic change) | HIGH | LOW | P1 — foundation for everything else |
-| Per-machine .kv files (Flat Grind first) | HIGH | LOW | P1 — enables independent tuning |
-| Screen name updates in main.py, tab bar, frozensets | HIGH | LOW | P1 — app breaks without this |
-| Screen registry / loader | HIGH | MEDIUM | P1 — required for routing to correct screens |
-| Serration screen set (fork from Flat Grind) | HIGH | MEDIUM | P1 — second machine type, ordered by machine_order memory |
-| Convex screen set (fork from Flat Grind) | HIGH | MEDIUM | P1 — third machine type |
-| BaseRunScreen mixin extraction | MEDIUM | MEDIUM | P2 — reduces bug-fix duplication |
-| Lazy .kv loading | LOW | MEDIUM | P3 — Pi memory optimization, not blocking |
-| Hot-swap machine type | LOW | HIGH | P3 — defer unless explicitly required |
+- [ ] Network/OTA updates (incompatible with industrial change management)
+- [ ] External crash reporting (network constraints, IP concerns)
+- [ ] In-app "Check for Updates" flow
 
 ---
 
 ## Sources
 
-- Direct codebase analysis: `machine_config.py` (registry, param_defs, axis lists, has_bcomp flag)
-- Direct codebase analysis: `main.py` (KV_FILES load order, startup flow, machine type picker, screen injection)
-- Direct codebase analysis: `screens/run.py`, `screens/axes_setup.py`, `screens/parameters.py` (existing adaptation patterns)
-- Direct codebase analysis: `screens/tab_bar.py` (route names, _SETUP_SCREENS references)
-- Project context: `.planning/PROJECT.md` — v3.0 milestone target features, machine order, key decisions
-- Project memory: `project_v2_machine_order.md` — Flat Grind first, Serration second, Convex third
-- Kivy ScreenManager documentation: Builder.load_file(), ScreenManager.add_widget() patterns (HIGH confidence — established Kivy patterns)
-- ISA-101 HMI standards: per-mode screen organization patterns (MEDIUM confidence)
+- PyInstaller + Kivy official packaging docs: https://kivy.org/doc/stable/guide/packaging-windows.html (HIGH confidence)
+- Kivy PyInstaller hooks API: https://kivy.org/doc/stable/api-kivy.tools.packaging.pyinstaller_hooks.html (HIGH confidence)
+- Inno Setup feature set: https://jrsoftware.org/isinfo.php (HIGH confidence)
+- Pi OS Bookworm venv requirement: https://www.raspberrypi.com/news/using-python-with-virtual-environments-the-magpi-148/ (HIGH confidence)
+- Pi OS Bookworm venv details: https://pimoroni.github.io/venv-python/ (HIGH confidence)
+- systemd Restart policies + WatchdogSec: https://oneuptime.com/blog/post/2026-03-02-configure-systemd-restartsec-watchdogsec-ubuntu/view (MEDIUM confidence)
+- systemd service restart on Pi: https://forums.raspberrypi.com/viewtopic.php?t=324417 (MEDIUM confidence)
+- Python rotating log handler: Python stdlib `logging.handlers.RotatingFileHandler` docs (HIGH confidence)
+- Windows startup registry keys: https://learn.microsoft.com/en-us/windows/win32/setupapi/run-and-runonce-registry-keys (HIGH confidence)
+- Industrial HMI USB update patterns: https://delta-ia-tips.com/2023/07/31/hmi-firmware-update-using-usb-stick/ (MEDIUM confidence — pattern confirmed by multiple vendors)
+- Kivy fullscreen/auto resolution: https://kivy.org/doc/stable/api-kivy.core.window.html (HIGH confidence)
 
 ---
 
-*Feature research for: per-machine-type screen set refactor, v3.0 Multi-Machine milestone*
-*Researched: 2026-04-11*
+*Feature research for: v4.0 Packaging & Deployment milestone*
+*Researched: 2026-04-21*

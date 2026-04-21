@@ -1,406 +1,362 @@
-# Stack Research
+# Technology Stack: Packaging & Deployment
 
-**Domain:** Per-machine-type Kivy screen management (v3.0 Multi-Machine HMI refactor)
-**Researched:** 2026-04-11
-**Confidence:** HIGH — Kivy internals verified from Builder source (`kivy/lang/builder.py`); ScreenManager API verified from official 2.3.1 docs; on_pre_enter bug confirmed from GitHub issue tracker (November 2023).
-
----
-
-## Scope: What This Research Covers
-
-The existing validated stack (Python 3.10+, Kivy 2.2+, gclib, matplotlib, kivy_matplotlib_widget, JobThread, MachineState, machine_config.py, auth, tab bar) does NOT change. This document covers only the patterns needed to refactor the single-screen-set into per-machine-type screen sets.
-
-**Do not change:** Controller comms, auth flow, tab bar, status bar, machine_config.py registry, CSV profiles, poll architecture, theme, gclib threading discipline.
+**Project:** DMC Grinding GUI — v4.0 Packaging & Deployment Milestone
+**Researched:** 2026-04-21
+**Scope:** Windows .exe installer, Raspberry Pi venv/systemd/kiosk, screen resolution adaptation
 
 ---
 
-## Core Pattern Decision: Static Load, Python-Side Type Routing
+## Recommended Stack
 
-**Recommended approach: load ALL machine-type kv files at startup, instantiate all screen classes at startup, swap which screens are registered in the ScreenManager when machine type changes.**
+### Windows Packaging
 
-This is the only approach that works reliably in Kivy. Do NOT attempt runtime `Builder.unload_file()` + reload to hot-swap kv rules when machine type changes.
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| PyInstaller | 6.19.0 | Bundle Python + all deps into distributable | Only packager with first-class Kivy hooks (SDL2/GLEW Tree injection); cx_Freeze lacks them; Briefcase doesn't support Kivy well |
+| Inno Setup | 6.7.1 | Wrap PyInstaller onedir output into a .exe installer | Declarative Pascal scripting, built-in uninstaller tracking, VS Code uses it, lighter learning curve than NSIS, 200 KB overhead irrelevant at bundle scale |
+| kivy-deps.sdl2 | (Kivy-matched) | SDL2 DLLs bundled via spec file Tree injection | Required by spec — `sdl2.dep_bins` Tree; without it the SDL2 window provider fails silently on target machines that have no system Kivy install |
+| kivy-deps.glew | (Kivy-matched) | GLEW DLLs bundled via spec file Tree injection | Same reason — `glew.dep_bins` must be in COLLECT; omitting it causes blank window on Windows machines with only integrated graphics |
+| screeninfo | 0.8.1 | Pre-startup physical display size detection (runtime dep) | Pure Python, cross-platform (Windows/X11), no display server required at detection time; must be installed on dev machine and listed in requirements |
 
-Why unload/reload fails:
-- `Builder.unload_file()` is documented explicitly: *"This will not remove rules or templates already applied/used on current widgets. It will only effect the next widgets creation or template invocation."* Already-instantiated screens keep their existing layout regardless of unloading.
-- The `_match_name_cache` is cleared by `unload_file()`, which invalidates style lookups for currently rendered widgets — causing visual inconsistencies on Pi where repaint is slower.
-- Machine type changes are infrequent (once per physical deployment, or once per Setup session). Holding all three screen sets in memory is trivial (a few hundred widgets) versus the complexity of dynamic kv swapping.
+### Raspberry Pi Deployment
 
----
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| Python venv | 3.11 (Bookworm default) | Isolated runtime on Pi | PiWheels provides Kivy 2.3 pre-compiled ARM wheels for Python 3.11 / Bookworm; avoids 2-hour source builds |
+| pip + PiWheels | current | Install all Python deps on Pi | PiWheels is the official wheel index for Raspberry Pi OS; Kivy's own docs cite it as the install path |
+| systemd system service | (OS-provided) | Autostart on boot, restart on crash | Modern standard on Bookworm; rc.local is deprecated; LXDE autostart files no longer exist (Wayfire/Wayland replaced LXDE) |
+| install.sh script | (custom) | One-command setup on fresh Pi | Encapsulates venv creation, apt deps, gclib .deb install, systemd unit enable — reproducible, no manual steps |
+| Raspberry Pi Imager | 1.8+ | Flash base OS to SD card | Official tool; customises hostname/SSH/wifi at flash time |
+| dd (Linux) / Win32DiskImager (Windows) | OS-provided | Clone a configured SD to image file for the "deploy from image" workflow | Flash once on a reference unit, clone image for all remaining units |
 
-## Recommended Stack (new patterns only)
+### Screen Resolution Adaptation
 
-### Core Technologies
-
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| `kivy.uix.screenmanager.ScreenManager` | Kivy 2.2+ (existing) | Holds the active machine's screen set | `add_widget` / `remove_widget` are safe at runtime; `has_screen` guards against duplicate-name exceptions; `screens` list is the source of truth |
-| Python base class inheritance (`base_screens.py`) | Python 3.10+ (existing) | Shared controller-wiring logic, lifecycle hooks, jog logic | Avoids copy-pasting 80% identical behavior across three machine types; kv handles layout per-type, Python base class handles behavior |
-| `Builder.load_file()` — one call per machine kv file | Kivy 2.2+ (existing API) | Load all machine-type kv layouts at startup | All nine machine kv files loaded once in `KV_FILES`; each file defines a distinct class name (`<FlatGrindRunScreen>:` etc.); no collision possible |
-
-### Supporting Patterns
-
-| Pattern | Purpose | When to Use |
-|---------|---------|-------------|
-| `sm.add_widget(screen)` | Register a screen with the ScreenManager | Called once per screen instance at startup or on machine type swap |
-| `sm.remove_widget(screen)` | De-register a screen from the ScreenManager | Called during machine type swap, before adding new set |
-| `sm.has_screen(name)` | Guard before `add_widget` | Always check before adding — `add_widget` raises `ScreenManagerException` on duplicate name |
-| `sm.get_screen(name)` | Access a specific screen instance | Used during dependency injection (controller, state) after screen set is added |
-| `on_pre_enter` defined in Python base class (not kv) | Refresh positions/params when tab is entered | Avoids the Kivy first-screen bug (see Pitfalls / Version Compatibility) |
-| Screen name resolver function | Translate logical tab name ('run') to active machine screen name ('flat_run') | Tab bar uses logical names; resolver bridges to actual ScreenManager names |
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| screeninfo | 0.8.1 | Query physical display dimensions before Kivy starts | Must run before any Kivy import; screeninfo works without a display server (unlike Tkinter) and without PIL (unlike pyautogui) |
+| kivy.config.Config.set | Kivy built-in | Set `graphics.width/height/fullscreen` before Window import | The only supported mechanism; Config is frozen on first Window import, so detection and Config.set must happen in the same pre-Kivy block at the top of main.py |
+| KIVY_DPI env var | Kivy built-in | Allow install.sh to pin DPI per display profile | Deploy script sets `KIVY_DPI=160` for 7" displays in the systemd unit; overrides Kivy's autodetect which is unreliable on Pi HDMI-forced framebuffers |
 
 ---
 
-## Directory Layout
+## gclib Bundling Strategy
 
-```
-src/dmccodegui/
-  screens/
-    base_screens.py           # BaseRunScreen, BaseAxesSetupScreen, BaseParametersScreen
-    flat_grind/
-      __init__.py
-      run.py                  # FlatGrindRunScreen(BaseRunScreen)
-      axes_setup.py           # FlatGrindAxesSetupScreen(BaseAxesSetupScreen)
-      parameters.py           # FlatGrindParametersScreen(BaseParametersScreen)
-    serration/
-      __init__.py
-      run.py                  # SerrationRunScreen(BaseRunScreen)
-      axes_setup.py           # SerrationAxesSetupScreen(BaseAxesSetupScreen)
-      parameters.py           # SerrationParametersScreen(BaseParametersScreen)
-    convex/
-      __init__.py
-      run.py                  # ConvexRunScreen(BaseRunScreen)
-      axes_setup.py           # ConvexAxesSetupScreen(BaseAxesSetupScreen)
-      parameters.py           # ConvexParametersScreen(BaseParametersScreen)
-  ui/
-    flat_grind/
-      run.kv                  # <FlatGrindRunScreen>: layout
-      axes_setup.kv           # <FlatGrindAxesSetupScreen>: layout
-      parameters.kv           # <FlatGrindParametersScreen>: layout
-    serration/
-      run.kv                  # <SerrationRunScreen>: layout
-      axes_setup.kv
-      parameters.kv
-    convex/
-      run.kv                  # <ConvexRunScreen>: layout
-      axes_setup.kv
-      parameters.kv
-    # Shared kv files stay at ui/ root (unchanged):
-    theme.kv, pin_overlay.kv, status_bar.kv, tab_bar.kv,
-    setup.kv, profiles.kv, diagnostics.kv, users.kv, base.kv
-```
+### Windows
+
+gclib on Windows is a conventional C DLL pair (`gclib.dll`, `gclibo.dll`) installed by the Galil installer to `C:\Program Files (x86)\Galil\gclib\`. The Python wrapper calls `ctypes.cdll.LoadLibrary` with a hardcoded path to that directory.
+
+**Problem:** PyInstaller does not auto-discover DLLs loaded via absolute ctypes path strings — it only bundles DLLs next to the executable or on system PATH at analysis time. The Galil DLLs are not on PATH by default.
+
+**Strategy:**
+1. Copy `gclib.dll` and `gclibo.dll` from a Galil installation into `src/dmccodegui/vendor/galil/` and commit them to the repo. These are redistributable runtime files, not the installer itself.
+2. In the PyInstaller spec `datas`, add `('src/dmccodegui/vendor/galil/*.dll', '.')` so both DLLs land in the root of the onedir output folder (next to the executable).
+3. In `main.py`, in the pre-Kivy block, patch the gclib search path before importing gclib. The gclib Python wrapper exposes `GclibDllPath_` and `GcliboDllPath_` class attributes that can be overridden before the first `GOpen()` call:
+   ```python
+   if hasattr(sys, '_MEIPASS'):
+       import gclib
+       gclib.GclibDllPath_  = os.path.join(sys._MEIPASS, 'gclib.dll')
+       gclib.GcliboDllPath_ = os.path.join(sys._MEIPASS, 'gclibo.dll')
+   ```
+4. The Inno Setup script does NOT run the Galil system installer — the DLLs are already in the bundle. This removes the per-machine Galil software prerequisite entirely.
+
+**Confidence:** MEDIUM. The `GclibDllPath_` attribute override is documented in the Galil gclib class reference as the mechanism for non-default DLL locations. Verify the exact attribute names in the installed `gclib/__init__.py` before implementing, as minor version differences may change them.
+
+### Raspberry Pi
+
+gclib on Linux installs as `libgclib.so` via Galil's `.deb` package. Galil explicitly provides ARM builds for Raspberry Pi OS (announced and documented on galil.com).
+
+**Strategy:**
+1. Download the Galil gclib `.deb` for ARM and commit it to `deploy/pi/deps/galil-gclib-arm.deb` in the repo.
+2. `install.sh` runs `sudo dpkg -i deploy/pi/deps/galil-gclib-arm.deb` followed by `sudo ldconfig`. The `.deb` post-install script registers the `.so` with the system linker.
+3. The Python gclib wrapper (pip-installable) finds `libgclib.so` via `ctypes.find_library` through the normal system linker path — no path patching required on Linux.
+4. The `.so` is NOT placed inside the venv. It is a system library (root-owned). The venv's Python process resolves it through `LD_LIBRARY_PATH` or `/etc/ld.so.conf.d/` (populated by `ldconfig` after the `.deb` install).
+5. Install the Python gclib wrapper into the venv: `/opt/dmcgui/venv/bin/pip install gclib`
+
+**Confidence:** MEDIUM-HIGH. Galil officially documents and supports Raspberry Pi OS deployment, provides ARM `.deb` packages, and published an announcement specifically about Pi support. The pip-installable gclib wrapper is the same one used in the existing dev environment.
 
 ---
 
-## Screen Name Convention
-
-Each machine type's screens use namespaced name strings in the ScreenManager:
-
-```python
-# Flat Grind
-FlatGrindRunScreen(name='flat_run')
-FlatGrindAxesSetupScreen(name='flat_axes')
-FlatGrindParametersScreen(name='flat_params')
-
-# Serration
-SerrationRunScreen(name='serration_run')
-SerrationAxesSetupScreen(name='serration_axes')
-SerrationParametersScreen(name='serration_params')
-
-# Convex
-ConvexRunScreen(name='convex_run')
-ConvexAxesSetupScreen(name='convex_axes')
-ConvexParametersScreen(name='convex_params')
-```
-
-Tab bar continues to use logical names ('run', 'axes_setup', 'parameters'). A screen resolver in DMCApp translates logical name to the active machine's screen name:
-
-```python
-_SCREEN_MAP = {
-    "4-Axes Flat Grind":      {"run": "flat_run",       "axes_setup": "flat_axes",       "parameters": "flat_params"},
-    "3-Axes Serration Grind": {"run": "serration_run",  "axes_setup": "serration_axes",  "parameters": "serration_params"},
-    "4-Axes Convex Grind":    {"run": "convex_run",     "axes_setup": "convex_axes",     "parameters": "convex_params"},
-}
-
-def resolve_screen(logical_name: str) -> str:
-    mtype = mc.get_active_type()
-    return _SCREEN_MAP.get(mtype, {}).get(logical_name, logical_name)
-```
-
-The tab bar's `bind(current_tab=...)` lambda passes through `resolve_screen()` before setting `sm.current`:
-
-```python
-tab_bar.bind(current_tab=lambda inst, val: setattr(sm, 'current', resolve_screen(val)))
-```
-
----
-
-## KV Loading Pattern
-
-### Updated KV_FILES list in main.py
-
-```python
-KV_FILES = [
-    # Shared styles — always first
-    "ui/theme.kv",
-    "ui/pin_overlay.kv",
-    "ui/status_bar.kv",
-    "ui/tab_bar.kv",
-    "ui/setup.kv",
-    "ui/profiles.kv",
-    "ui/diagnostics.kv",
-    "ui/users.kv",
-
-    # Per-machine layouts — all loaded at startup (distinct class names, no collision)
-    "ui/flat_grind/run.kv",
-    "ui/flat_grind/axes_setup.kv",
-    "ui/flat_grind/parameters.kv",
-
-    "ui/serration/run.kv",
-    "ui/serration/axes_setup.kv",
-    "ui/serration/parameters.kv",
-
-    "ui/convex/run.kv",
-    "ui/convex/axes_setup.kv",
-    "ui/convex/parameters.kv",
-
-    # Root layout — always last
-    "ui/base.kv",
-]
-```
-
-### Why all at startup, not lazy
-
-`Builder.load_file()` must run on the UI thread and is not safe to call from a jobs worker thread. Lazy loading (triggered by machine type selection after controller connect) would require `Clock.schedule_once()` chaining to defer navigation until kv is loaded, and creates a window where the user can navigate to a screen before its rules are applied. Loading all nine machine kv files at startup avoids this entirely. Parse time for nine small kv files is under 100ms on Pi 4.
-
-### Duplicate class name behavior — verified from Builder source
-
-`Builder.match_rule_name()` collects all matching rules in load order from its internal `self.rules` list via `rules.extend(parser.rules)`. If two kv files both define `<RunScreen>:`, both rule sets are applied to every `RunScreen` instance — additive, not replacement. This is why each machine type's screen must use a **distinct class name** (`FlatGrindRunScreen`, `SerrationRunScreen`, `ConvexRunScreen`). Do not reuse the name `RunScreen` across machine kv files.
-
----
-
-## Base Class Pattern
-
-### base_screens.py (Python)
-
-```python
-from kivy.uix.screenmanager import Screen
-from kivy.properties import ObjectProperty
-
-class BaseRunScreen(Screen):
-    """Shared controller wiring and lifecycle for all Run screen variants."""
-    controller = ObjectProperty(None, allownone=True)
-    state      = ObjectProperty(None, allownone=True)
-
-    # Defined in Python — NOT in kv — to avoid Kivy first-screen on_pre_enter bug
-    def on_pre_enter(self, *args):
-        if self.state:
-            self._refresh_from_state(self.state)
-
-    def on_pre_leave(self, *args):
-        self._stop_pos_poll()
-        self._stop_mg_reader()
-
-    def _refresh_from_state(self, state): pass  # override in subclass
-    def _stop_pos_poll(self): pass               # override in subclass
-    def _stop_mg_reader(self): pass              # override in subclass
-
-
-class BaseAxesSetupScreen(Screen):
-    controller = ObjectProperty(None, allownone=True)
-    state      = ObjectProperty(None, allownone=True)
-
-    def on_pre_enter(self, *args):
-        self._rebuild_axis_rows()
-        self._read_positions()
-
-    def _rebuild_axis_rows(self): pass
-    def _read_positions(self): pass
-
-
-class BaseParametersScreen(Screen):
-    controller = ObjectProperty(None, allownone=True)
-    state      = ObjectProperty(None, allownone=True)
-
-    def on_pre_enter(self, *args):
-        self._load_param_defs()
-
-    def _load_param_defs(self): pass
-```
-
-### Machine-specific subclass (Python)
-
-```python
-# screens/flat_grind/run.py
-from ..base_screens import BaseRunScreen
-
-class FlatGrindRunScreen(BaseRunScreen):
-    # All Flat Grind run logic here — lifted from existing RunScreen
-    # IDs come from ui/flat_grind/run.kv <FlatGrindRunScreen>: block
-
-    def _refresh_from_state(self, state):
-        # Flat-grind-specific state sync (4 axes, delta-C bar chart, etc.)
-        ...
-
-    def _stop_pos_poll(self):
-        # Cancel the 10 Hz poll clock event
-        ...
-```
-
-### Machine-specific kv (layout only)
-
-```kv
-# ui/flat_grind/run.kv
-<FlatGrindRunScreen>:
-    BoxLayout:
-        orientation: 'vertical'
-        # Full Flat Grind run layout
-        # id: references used by Python code defined here
-```
-
-**Rule:** Do NOT define `on_pre_enter:` handlers in kv files. Define lifecycle hooks in Python only. (See Version Compatibility for the bug reference.)
-
----
-
-## Updated base.kv — Remove Inline Machine Screens
-
-Machine screens are no longer declared in the ScreenManager kv block. They are injected by `DMCApp.build()` via `_load_screen_set()`. The shared non-machine screens (setup, profiles, diagnostics, users) can remain in kv.
-
-```kv
-# base.kv (updated)
-<RootLayout@BoxLayout>:
-    ...
-    ScreenManager:
-        id: sm
-        transition: NoTransition()
-        SetupScreen:
-            name: 'setup'
-        ProfilesScreen:
-            name: 'profiles'
-        DiagnosticsScreen:
-            name: 'diagnostics'
-        UsersScreen:
-            name: 'users'
-        # Machine screens added by DMCApp.build() via _load_screen_set()
-```
-
----
-
-## DMCApp Screen Loader Pattern
-
-```python
-# In DMCApp — pre-instantiate all screen sets at build time
-def _build_all_screens(self):
-    """Instantiate all machine screen sets. Called once in build()."""
-    from .screens.flat_grind.run import FlatGrindRunScreen
-    from .screens.flat_grind.axes_setup import FlatGrindAxesSetupScreen
-    from .screens.flat_grind.parameters import FlatGrindParametersScreen
-    from .screens.serration.run import SerrationRunScreen
-    # ... etc.
-
-    self._screen_sets = {
-        "4-Axes Flat Grind": {
-            "run":        FlatGrindRunScreen(name='flat_run'),
-            "axes_setup": FlatGrindAxesSetupScreen(name='flat_axes'),
-            "parameters": FlatGrindParametersScreen(name='flat_params'),
-        },
-        "3-Axes Serration Grind": {
-            "run":        SerrationRunScreen(name='serration_run'),
-            "axes_setup": SerrationAxesSetupScreen(name='serration_axes'),
-            "parameters": SerrationParametersScreen(name='serration_params'),
-        },
-        "4-Axes Convex Grind": {
-            "run":        ConvexRunScreen(name='convex_run'),
-            "axes_setup": ConvexAxesSetupScreen(name='convex_axes'),
-            "parameters": ConvexParametersScreen(name='convex_params'),
-        },
-    }
-
-def _load_screen_set(self, sm, mtype):
-    """Add the screen set for mtype to sm and inject dependencies."""
-    for screen in self._screen_sets[mtype].values():
-        if not sm.has_screen(screen.name):
-            sm.add_widget(screen)
-        screen.controller = self.controller
-        screen.state = self.state
-
-def _swap_screen_set(self, sm, old_mtype, new_mtype):
-    """Remove old machine screens, add new set. Called on machine type change."""
-    # Navigate away from machine screens before removal
-    if sm.current not in ('setup', 'profiles', 'diagnostics', 'users'):
-        sm.current = 'setup'
-    # Remove old machine screens
-    for screen in self._screen_sets[old_mtype].values():
-        if sm.has_screen(screen.name):
-            sm.remove_widget(screen)
-    # Add new machine screens
-    self._load_screen_set(sm, new_mtype)
-```
-
----
-
-## Alternatives Considered
-
-| Recommended | Alternative | Why Not |
-|-------------|-------------|---------|
-| Distinct Python class per machine type (`FlatGrindRunScreen`) | Single `RunScreen` class with runtime widget add/remove inside the screen | Single class fighting Kivy's widget tree; IDs break when children are added/removed dynamically; worse than the problem being solved |
-| All kv files loaded at startup | Lazy-load kv on first machine type selection | Requires thread-safe deferred loading; first-navigation delay on Pi; `Clock.schedule_once` chaining adds complexity for negligible memory saving |
-| `on_pre_enter` in Python base class | `on_pre_enter` in kv per screen | Kivy bug #2565 (unresolved as of 2.2.1, November 2023): first screen silently skips `on_pre_enter`/`on_enter` when defined in kv |
-| `sm.add_widget` / `sm.remove_widget` for screen set swap | `Builder.unload_file()` + reload to hot-swap kv rules | `unload_file` explicitly documented as not affecting already-instantiated widgets; kv rules on live screens are baked in at instantiation time; no visual effect on the running app |
-| Tab bar logical name + resolver function | Tab bar uses machine-specific names directly | Tab bar is shared infrastructure; coupling it to machine type knowledge breaks the clean separation already established |
-| `sm.has_screen()` guard before `add_widget` | Unchecked `sm.add_widget()` | `add_widget` raises `ScreenManagerException` on duplicate name — the guard is mandatory |
-| Pre-instantiate all screen sets at build() time | Instantiate on-demand when machine type is first selected | On-demand instantiation happens after kv is loaded but `Factory.RootLayout()` already rendered; timing is tricky. Pre-instantiation at build() is deterministic. |
-
----
-
-## What NOT to Change
-
-| Do Not Touch | Why |
-|--------------|-----|
-| `KV_FILES` load order (theme.kv first, base.kv last) | Theme rules must precede widget rules; base.kv must be last because `RootLayout` references all screen class names that must be registered by the time it is parsed |
-| `jobs.submit()` for all gclib I/O | Must stay in all new screen subclasses — no direct controller calls on the UI thread |
-| `Clock.schedule_once()` for all UI updates from background threads | Required in all new screen subclasses — Kivy widget mutations are not thread-safe |
-| `MachineState.subscribe()` / `state.notify()` observer pattern | All screens hook here for state updates; new screens must follow the same pattern |
-| `machine_config.py` registry | Tempting to add screen class names here, but wrong — screen management belongs in DMCApp, not in the data registry |
-| `LabelBase.register('Roboto', ...)` + `Config.set` before all Kivy imports | Must stay at top of main.py; new screen modules must never import Kivy at module level in a way that runs before main.py initializes |
-| `NoTransition()` on ScreenManager | Animated transitions add latency on Pi and are listed as Out of Scope in PROJECT.md |
-
----
-
-## Version Compatibility
-
-| Package | Version | Notes |
-|---------|---------|-------|
-| Kivy | 2.2+ | `ScreenManager.add_widget` signature: the parameter was renamed from `screen` to `widget` in 2.1.0. Use positional argument to stay compatible across versions. |
-| Kivy | 2.2+ | `Builder.unload_file()` clears `_match_name_cache` — safe to call but only affects future widget instantiations, not existing ones. Confirmed from builder source. |
-| Kivy | 2.2 through 2.3.1 | `on_pre_enter` and `on_enter` defined in kv do not fire for the first screen added to a ScreenManager (GitHub issue #2565, confirmed unresolved November 2023). Define all lifecycle hooks in Python. |
-| Python | 3.10+ | No change. |
+## Alternatives Considered and Rejected
+
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| Windows bundler | PyInstaller 6.19 | cx_Freeze | No Kivy SDL2/GLEW hooks; manual DLL hunting required; 10x smaller community (12.8k vs 1.5k GitHub stars); GUI app packaging is explicitly called out as more complex |
+| Windows bundler | PyInstaller 6.19 | Briefcase (BeeWare) | Mobile/web-first; Kivy support is experimental; not tested for industrial desktop; no community examples for this use case |
+| Windows bundler | PyInstaller 6.19 | Nuitka | Compiles to C — build times are 10–30x longer; licensing complexity; no IP protection needed for a closed internal tool; overkill |
+| Windows installer | Inno Setup 6.7 | NSIS | More powerful but harder to learn; Inno Setup handles uninstaller, registry, Start Menu, Desktop shortcuts with ~20 lines of declarative script vs NSIS plugin stack |
+| Windows installer | Inno Setup 6.7 | WiX / MSI | Enterprise XML toolchain; designed for corporate MSI deployment chains, not a single-site industrial tool |
+| PyInstaller mode | onedir | onefile | onefile re-extracts to %TEMP% on every launch, adding 5–30 seconds and triggering AV false positives on locked-down industrial machines. onedir with Inno Setup wrapping is correct: installers were designed for folder trees |
+| Pi Python | pip + venv | conda / miniconda | Conda ARM support on Pi is unreliable; heavier than needed; PiWheels makes pip the right choice |
+| Pi autostart | systemd service | LXDE autostart file | LXDE autostart no longer exists on Bookworm (replaced by Wayfire compositor); LXDE approach would fail on all current Pi OS installs |
+| Pi display backend | X11 + SDL2 | Wayland (direct) | SDL KMSDRM driver has documented display corruption bugs on RPi 5 with Bookworm/Wayland (SDL GitHub issue #8579). Force X11 session until Kivy/SDL2 officially validates Wayland on Pi |
+| Screen detection | screeninfo | `tkinter.Tk().winfo_screenwidth()` | Requires Tk display context; creates a visible window flash on some systems; adding tkinter as a dep for a Kivy app is wrong |
+| Screen detection | screeninfo | pyautogui.size() | Pulls in PIL and requires an X server connection at call time; too heavy for a detection-only use case |
 
 ---
 
 ## Installation
 
-No new packages required. All patterns use existing Kivy 2.2+ API and stdlib Python.
+### Windows Build Machine (developer)
 
 ```bash
-# Verify Kivy version
-python -c "import kivy; print(kivy.__version__)"
-# Expected: 2.2.x or higher
+# Core packaging tools
+pip install pyinstaller==6.19.0
 
-# No pip installs needed for this milestone
+# Kivy SDL2/GLEW packages needed for spec file DLL Trees
+pip install kivy-deps.sdl2 kivy-deps.glew
+
+# Screen detection (runtime dep — also add to requirements.txt)
+pip install screeninfo==0.8.1
+
+# Build the distributable (onedir mode)
+pyinstaller dmcgui.spec
+
+# Create the .exe installer
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 ```
+
+### PyInstaller spec file (key additions for Kivy)
+
+```python
+# dmcgui.spec — key sections
+
+import kivy_deps.sdl2 as sdl2
+import kivy_deps.glew as glew
+
+a = Analysis(
+    ['src/dmccodegui/main.py'],
+    pathex=[],
+    binaries=[],
+    datas=[
+        # All KV files
+        ('src/dmccodegui/ui/**/*.kv',        'dmccodegui/ui'),
+        # Vendor DLLs for gclib
+        ('src/dmccodegui/vendor/galil/*.dll', '.'),
+        # kivy_matplotlib_widget KV assets
+        ('path/to/kivy_matplotlib_widget/**/*.kv', 'kivy_matplotlib_widget'),
+        # Profile CSVs (if shipped with installer)
+        ('profiles/',                          'profiles'),
+    ],
+    hiddenimports=['kivy.core.window.window_sdl2', 'kivy.core.renderer.renderer_sdl2'],
+    hookspath=[],
+    excludes=['tkinter', '_tkinter', 'matplotlib.backends.backend_tkagg'],
+    ...
+)
+
+exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='DMCGrindingGUI', ...)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    # SDL2 and GLEW DLL trees — required for Kivy window provider
+    *[Tree(p) for p in sdl2.dep_bins],
+    *[Tree(p) for p in glew.dep_bins],
+    strip=False,
+    upx=False,
+    name='DMCGrindingGUI',
+)
+```
+
+### Raspberry Pi Target Machine
+
+```bash
+# install.sh (committed to deploy/pi/)
+# Run as: sudo ./install.sh
+
+# 1. System dependencies for Kivy + SDL2
+apt-get install -y libgl1-mesa-glx libgles2-mesa libegl1-mesa libmtdev1 \
+                   libsdl2-2.0-0 libsdl2-image-2.0-0 libsdl2-mixer-2.0-0
+
+# 2. Install gclib system library
+dpkg -i /opt/dmcgui/deploy/pi/deps/galil-gclib-arm.deb
+ldconfig
+
+# 3. Create Python venv
+python3.11 -m venv /opt/dmcgui/venv
+
+# 4. Install Python dependencies (PiWheels speeds up Kivy dramatically)
+/opt/dmcgui/venv/bin/pip install --extra-index-url https://www.piwheels.org/simple \
+    kivy==2.3.1 matplotlib kivy_matplotlib_widget gclib screeninfo
+
+# 5. Install systemd service
+cp /opt/dmcgui/deploy/pi/dmcgui.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable dmcgui
+systemctl start dmcgui
+```
+
+### Pi systemd service unit
+
+```ini
+# /etc/systemd/system/dmcgui.service
+
+[Unit]
+Description=DMC Grinding GUI
+After=graphical.target
+Wants=graphical.target
+
+[Service]
+User=pi
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/pi/.Xauthority
+Environment=KIVY_WINDOW=sdl2
+Environment=KIVY_GL_BACKEND=sdl2
+Environment=SDL_VIDEODRIVER=x11
+Environment=DMC_KIOSK=1
+ExecStart=/opt/dmcgui/venv/bin/python /opt/dmcgui/src/dmccodegui/main.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=graphical.target
+```
+
+**Note on X11 vs Wayland:** Bookworm defaults to Wayfire (Wayland) but ships a compatible X11 session. Force X11 login via `raspi-config` → Advanced Options → Wayland → X11 on the target machine. The SDL KMSDRM driver has a documented garbage-display bug on RPi 5 with Wayland; `SDL_VIDEODRIVER=x11` in the unit file is a belt-and-suspenders guard.
+
+---
+
+## Screen Resolution Adaptation
+
+### Strategy
+
+Kivy freezes its display configuration on first `Window` import. Resolution detection and `Config.set()` calls must happen in a pre-Kivy block at the very top of `main.py`, before any other Kivy import. This is consistent with the existing project pattern (`Config.set before all Kivy imports` — already established in `main.py` per PROJECT.md key decisions).
+
+```python
+# TOP OF main.py — before ANY kivy imports
+
+import os
+import sys
+
+def _configure_display():
+    """Detect screen size and set Kivy window config before Window import."""
+    try:
+        from screeninfo import get_monitors
+        monitors = get_monitors()
+        primary = monitors[0] if monitors else None
+    except Exception:
+        primary = None
+
+    # Manual override from settings.json takes priority over auto-detect
+    # (checked here before settings module imports Kivy)
+    try:
+        import json
+        with open('settings.json') as f:
+            override = json.load(f).get('display_resolution')
+        if override:
+            w, h = override['width'], override['height']
+            primary = type('M', (), {'width': w, 'height': h})()
+    except Exception:
+        pass
+
+    from kivy.config import Config  # safe — doesn't import Window
+
+    if primary:
+        Config.set('graphics', 'width',  str(primary.width))
+        Config.set('graphics', 'height', str(primary.height))
+
+    # Kiosk fullscreen on Pi
+    if os.environ.get('DMC_KIOSK') == '1':
+        Config.set('graphics', 'fullscreen', 'auto')
+
+    # Keyboard dock mode for small touchscreens
+    if primary and primary.width <= 800:
+        Config.set('kivy', 'keyboard_mode', 'systemanddock')
+
+_configure_display()
+
+# NOW safe to import kivy
+from kivy.app import App
+# ... rest of imports
+```
+
+### Display Profiles
+
+| Profile | Resolution | Use case |
+|---------|-----------|----------|
+| 7 inch | 800×480 | Pi official touchscreen (small) |
+| 10 inch | 1024×600 or 1280×800 | Pi touchscreen (medium) |
+| 15 inch | 1920×1080 | Windows workstation or large Pi display |
+
+The existing `dp`/`sp` layout (44dp touch targets already in use) scales correctly once window geometry is set. No widget-level changes are needed for resolution adaptation — only the pre-Kivy window size config.
+
+---
+
+## Key Kivy Packaging Gotchas
+
+### KV Files Are Not Auto-Discovered
+
+PyInstaller does not find `.kv` files through static analysis. Every `.kv` file must be in the `datas` list of the spec. Missing KV files produce a **blank screen with no error** — the worst kind of failure.
+
+Use a glob in the spec: `('src/dmccodegui/ui/**/*.kv', 'dmccodegui/ui')`
+
+### `_MEIPASS` Resource Path
+
+The project already has this pattern (noted in PROJECT.md). Ensure `resource_add_path(sys._MEIPASS)` is called early in `main.py` when `hasattr(sys, '_MEIPASS')`, so Kivy's resource finder locates bundled KV files, fonts, and images.
+
+### SDL2 DLL Load Order Bug (onefile only)
+
+PyInstaller issue #3795: SDL2 DLLs extracted to `%TEMP%` can be found after system SDL2 if any system SDL2 exists, causing version conflicts. This is the primary reason to use **onedir, not onefile** for this project.
+
+### Matplotlib Backend
+
+Exclude Tkinter backends to avoid bundling Tkinter unnecessarily. Add to the Analysis `excludes` list:
+```python
+excludes=['tkinter', '_tkinter', 'matplotlib.backends.backend_tkagg', 'matplotlib.backends.backend_tk']
+```
+
+The app already uses the Kivy matplotlib widget which renders via Agg — no Tk backend is needed.
+
+### kivy_matplotlib_widget KV Assets
+
+This library ships its own `.kv` files. They are not in the main `src/` tree. Locate the installed package path and add a glob datas entry pointing to it, or the plot widget renders as an empty box.
+
+### Fonts
+
+If the app registers custom fonts via `LabelBase.register()` (already done for Roboto per project pattern), the font files must be in datas. Missing fonts cause silent fallback to a system font that may not exist on the target machine, resulting in invisible text.
+
+---
+
+## Confidence Assessment
+
+| Area | Confidence | Notes |
+|------|------------|-------|
+| PyInstaller as bundler | HIGH | Official Kivy 2.3.1 docs, PyPI (version 6.19.0 confirmed current as of 2026-03) |
+| Inno Setup as installer | HIGH | Version 6.7.1 confirmed on official downloads page; VS Code uses it |
+| PyInstaller SDL2/GLEW Tree injection | HIGH | Documented in Kivy official packaging guide; consistent across Kivy 2.x |
+| gclib DLL bundling — Windows | MEDIUM | ctypes path override via `GclibDllPath_` is documented; exact attribute names need verification against installed gclib version |
+| gclib .deb on Pi | MEDIUM-HIGH | Galil officially documents Pi support and provides ARM packages; pip wrapper confirmed functional on Pi by Galil announcement |
+| Pi systemd + X11 | MEDIUM-HIGH | Bookworm-specific pattern confirmed in Pi forums (February 2025 threads); Wayland avoidance confirmed by SDL GitHub issue |
+| Wayland avoidance on Pi 5 | HIGH | SDL KMSDRM display corruption is an open confirmed bug on SDL GitHub (issue #8579), not speculation |
+| PiWheels for Kivy on Bookworm | HIGH | Official Kivy docs explicitly cite PiWheels for Python 3.11 / Bookworm |
+| screeninfo resolution detection | MEDIUM | Works on Windows and X11; behavior on Pi with HDMI-forced resolution (common for official Pi touchscreen at 800×480) needs validation on real hardware |
+| onedir recommendation | HIGH | Multiple sources (PyInstaller docs, community) and the SDL2 DLL load order bug confirm onedir is correct for Kivy on Windows |
 
 ---
 
 ## Sources
 
-- [Kivy ScreenManager API — 2.3.1](https://kivy.org/doc/stable/api-kivy.uix.screenmanager.html) — `add_widget`, `remove_widget`, `has_screen`, `get_screen`, `screen_names`, `screens`, lifecycle events (HIGH confidence)
-- [Kivy Builder source — 2.3.1](https://kivy.org/doc/stable/_modules/kivy/lang/builder.html) — `match_rule_name` implementation (rules additive across files), `unload_file` implementation and documented limitation (HIGH confidence — read from source)
-- [Kivy Builder API — 2.3.1](https://kivy.org/doc/stable/api-kivy.lang.builder.html) — `load_file`, `unload_file`, `rulesonly` parameter documentation (HIGH confidence)
-- [GitHub Issue #2565 — on_pre_enter not fired for kv-declared first screen](https://github.com/kivy/kivy/issues/2565) — confirmed unresolved in Kivy 2.2.1, November 2023; Python-side definition is the established workaround (HIGH confidence)
-- [Kivy kv language guide — 2.3.1](https://kivy.org/doc/stable/guide/lang.html) — dynamic class inheritance `<ClassName@BaseClass>:`, multi-class shared rules `<A,B>:` syntax (HIGH confidence)
-- Existing codebase `main.py`, `screens/__init__.py`, `ui/base.kv`, `machine_config.py` — current patterns confirmed from direct inspection (HIGH confidence)
+- Kivy Windows packaging guide (2.3.1): https://kivy.org/doc/stable/guide/packaging-windows.html
+- Kivy RPi installation guide (2.3.1): https://kivy.org/doc/stable/installation/installation-rpi.html
+- Kivy environment variables: https://kivy.org/doc/stable/guide/environment.html
+- Kivy Metrics / KIVY_DPI docs (2.3.1): https://kivy.org/doc/stable/api-kivy.metrics.html
+- PyInstaller 6.19.0 install docs: https://pyinstaller.org/en/stable/installation.html
+- PyInstaller changelog (version confirmed current): https://pyinstaller.org/en/stable/CHANGES.html
+- PyInstaller DLL load order issue #3795: https://github.com/pyinstaller/pyinstaller/issues/3795
+- Inno Setup downloads (6.7.1 confirmed): https://jrsoftware.org/isdl.php
+- Galil gclib Raspberry Pi OS install docs: https://www.galil.com/sw/pub/all/doc/global/install/linux/rpios/
+- Galil gclib DLL path documentation: https://www.galil.com/sw/pub/all/doc/gclib/html/classgclib.html
+- SDL KMSDRM RPi 5 display bug (confirms Wayland avoidance): https://github.com/libsdl-org/SDL/issues/8579
+- Raspberry Pi autostart / systemd Bookworm: https://raspberry.tips/en/raspberrypi-einsteiger/raspberry-pi-autostart-setup
+- Pi Bookworm venv autostart forum (February 2025): https://forums.raspberrypi.com/viewtopic.php?t=384121
+- screeninfo PyPI: https://pypi.org/project/screeninfo/
+- PyInstaller vs cx_Freeze comparison: https://ahmedsyntax.com/cx-freeze-vs-pyinstaller/
+- Kivy School PyInstaller instructions: https://kivyschool.com/pyinstaller-instructions/
 
 ---
 
-*Stack research for: DMC Grinding GUI — v3.0 Multi-Machine screen architecture*
-*Researched: 2026-04-11*
+*Stack research for: DMC Grinding GUI — v4.0 Packaging & Deployment*
+*Researched: 2026-04-21*

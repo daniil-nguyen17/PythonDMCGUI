@@ -74,33 +74,27 @@ ENDIF
 WT 50
 JP #WtAtRt;
 EN
-
 REM ============================================================
-REM  MAIN GRIND PROGRAM
+REM  MAIN GRIND PROGRAM (in-out)
 REM ============================================================
 #GRIND
 SH ABC
-MG "GRIND MODE ACTIVE"
-scount = 0;currA  = 0
-' Initialize cComp for this knife (numSerr can vary per knife)
-JS #CCBUILD
-MG "spitch" ,spitch
+MG "IN-OUT GRIND MODE ACTIVE"
+scount = 0; currA = 0
+MG "spitch ", spitch
+MG "sparkDw ", sparkDw, "ms"
 
 JS #GOSTR
-WT 500
-' --- full axis state reset before grind loop ---
-ST ABC
-WT 100
-MOABC;                       ' full motor off
-WT 100
-SHABC;                       ' clean re-enable
-WT 300;                       ' let drives accept enable signal
 
-MG "Total serrations:", numSerr
-MG "STARTING A POSITION: ", _TDA/cpmA;
+MG "Total serrations: ", numSerr
+MG "STARTING A POSITION: ", _TDA/cpmA
+
 #LOOP
 JP #DONE, scount >= numSerr
-MG "SERRATION:", scount, " TDA=", _TDA/cpmA, "mm"
+MG "SERRATION: ", scount, " TDA=", _TDA/cpmA, "mm"
+MG "        TDB=", _TDB/cpmB, "mm", " TDC=", _TDC/cpmC, "mm"
+
+REM clamp compensation index
 cidx = scount
 JP #COK, cidx < numComp
 cidx = numComp - 1
@@ -109,44 +103,45 @@ cidx = numComp - 1
 cAdj = cComp[cidx] * cpmC
 Ccmd = startPtC + cAdj
 bAdj = bComp[cidx] * cpmB
-' Infeed: startPtB + grindDp (not full knife thickness) + per-tooth bComp
 Bcmd = startPtB + grindCt + bAdj
-MG "cidx = ", cidx;
+MG "cidx= ", cidx, " cAdj= ", cAdj, " bAdj= ", bAdj
 
-'---- C moves down or up
+REM ==== C moves to tooth belly position ====
 SP ,, fdCdn * cpmC
 PA ,, Ccmd
-BG C; AM C;
-'--- b feeds in to grind (plunge depth = grindDp mm)
+BG C; AM C
+
+REM ==== B plunges to grind depth ====
 SP , fdBin * cpmB,
 PA , Bcmd,
-BGB; AMB
+BG B; AM B
 
-WT 100
-'---- b feeds out with clearance (bClear mm past approach point)
+REM ==== Spark-out dwell (improved finish) ====
+WT sparkDw
+
+REM ==== B retracts with clearance ====
 SP , fdBout * cpmB,
-PA , startPtB + bAdj - clearCt,
-BGB; AMB
-'---- a moves to next serration
-MG "spitch" ,spitch
+PA , startPtB - clearCt,
+BG B; AM B
+
+REM ==== A moves to next serration ====
 SP fdA * cpmA,,
 PR -(spitch * cpmA),,
-BGA; AMA;
+BG A; AM A
 
-currA  = currA + spitch
+currA = currA + spitch
 scount = scount + 1
-MG "A POSITION AT THIS SERRATION: ", _TDA
-MG "Serration Cut: " , scount;
+MG "InOutCut: ", scount
 JP #LOOP
 
 REM DONE: park
 #DONE
-MG "GRIND COMPLETE"
-MG "Serrations cut:", scount
-MG "ENDING A POSITION: ", _TDA/cpmA
-MG " Start C before auto wear: " , startPtC
-startPtC= startPtC+ autoWear;
-MG " Start C after auto wear: " , startPtC
+MG "IN-OUT GRIND COMPLETE"
+MG "Serrations cut: ", scount
+MG "ENDING POSITIONS-", "A:", _TDA/cpmA, "B:" , _TDB/cpmB, "C:", _TDC/cpmC
+MG "Start B before auto wear: ", startPtB
+startPtB = startPtB + autoWear
+MG "Start B after auto wear: ", startPtB
 JS #GOREST
 ctSesKni = ctSesKni + 1
 ctStnKni = ctStnKni + 1

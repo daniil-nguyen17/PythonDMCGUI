@@ -363,13 +363,10 @@ class SerrationRunScreen(BaseRunScreen):
         jobs.submit(self._read_bcomp)
 
     def _read_bcomp(self) -> None:
-        """Background job: read numSerr from controller, then read bComp array.
+        """Background job: read numSerr + bComp array via bulk upload.
 
-        Reads BCOMP_NUM_SERR first to determine array length, then reads each
-        element of BCOMP_ARRAY individually. On completion, updates the bComp
-        panel on the main thread.
-
-        TODO: verify bComp array name against real Serration DMC program
+        Uses upload_array_auto (GArrayUpload) for a single TCP command instead
+        of N sequential MG reads. Falls back to chunked MG automatically.
         """
         ctrl = self.controller
         if not ctrl or not ctrl.is_connected():
@@ -385,26 +382,19 @@ class SerrationRunScreen(BaseRunScreen):
 
         if n <= 0:
             logger.warning(
-                "[SerrationRunScreen] _read_bcomp: numSerr=%s is not positive — "
-                "verify variable name against Serration DMC program", n
+                "[SerrationRunScreen] _read_bcomp: numSerr=%s is not positive", n
             )
             return
 
-        cancel = jobs.get_jobs().cancel_event
-        values: list[float] = []
-        for i in range(n):
-            if cancel.is_set():
-                logger.debug("[SerrationRunScreen] _read_bcomp: cancelled by urgent job at index %d", i)
-                return
-            try:
-                raw_v = ctrl.cmd(f"MG {BCOMP_ARRAY}[{i}]").strip()
-                values.append(float(raw_v))
-            except Exception as e:
-                logger.warning(
-                    "[SerrationRunScreen] _read_bcomp: failed to read %s[%d]: %s",
-                    BCOMP_ARRAY, i, e
-                )
+        try:
+            all_vals = ctrl.upload_array_auto(BCOMP_ARRAY)
+            values = all_vals[:n]
+            # Pad if array on controller is shorter than numSerr
+            while len(values) < n:
                 values.append(0.0)
+        except Exception as e:
+            logger.warning("[SerrationRunScreen] _read_bcomp: bulk read failed: %s", e)
+            return
 
         def _apply(*_):
             self.num_serr = n
@@ -481,11 +471,10 @@ class SerrationRunScreen(BaseRunScreen):
         jobs.submit(self._read_ccomp)
 
     def _read_ccomp(self) -> None:
-        """Background job: read numSerr then cComp[0..N-1] from controller.
+        """Background job: read numSerr + cComp array via bulk upload.
 
-        Same pattern as _read_bcomp but for the C-axis curve compensation array.
-        cComp values are calculated by #CCBUILD on the controller but can be
-        read and fine-tuned here.
+        Uses upload_array_auto (GArrayUpload) for a single TCP command instead
+        of N sequential MG reads. Falls back to chunked MG automatically.
         """
         ctrl = self.controller
         if not ctrl or not ctrl.is_connected():
@@ -503,21 +492,14 @@ class SerrationRunScreen(BaseRunScreen):
             logger.warning("[SerrationRunScreen] _read_ccomp: numSerr=%s not positive", n)
             return
 
-        cancel = jobs.get_jobs().cancel_event
-        values: list[float] = []
-        for i in range(n):
-            if cancel.is_set():
-                logger.debug("[SerrationRunScreen] _read_ccomp: cancelled by urgent job at index %d", i)
-                return
-            try:
-                raw_v = ctrl.cmd(f"MG {CCOMP_ARRAY_VAR}[{i}]").strip()
-                values.append(float(raw_v))
-            except Exception as e:
-                logger.warning(
-                    "[SerrationRunScreen] _read_ccomp: failed to read %s[%d]: %s",
-                    CCOMP_ARRAY_VAR, i, e
-                )
+        try:
+            all_vals = ctrl.upload_array_auto(CCOMP_ARRAY_VAR)
+            values = all_vals[:n]
+            while len(values) < n:
                 values.append(0.0)
+        except Exception as e:
+            logger.warning("[SerrationRunScreen] _read_ccomp: bulk read failed: %s", e)
+            return
 
         def _apply(*_):
             self._ccomp_values = values

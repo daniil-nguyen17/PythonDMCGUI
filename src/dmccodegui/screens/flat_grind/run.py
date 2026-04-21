@@ -306,11 +306,12 @@ class FlatGrindRunScreen(BaseRunScreen):
         self._apply_state(state)
 
     def _apply_state(self, s: MachineState) -> None:
-        """Main thread: handle connection state changes only.
+        """Main thread: apply DR state updates — positions, grind detection, disconnect.
 
-        Position updates and button states are handled exclusively by the
-        one-shot read (on_pre_enter) and pos_poll (during grind). This
-        method only handles disconnect detection to show the banner.
+        Called on every DataRecordListener packet (~5-10 Hz). Acts as the
+        primary source of truth for positions and state. The TCP poll in
+        _tick_pos() is kept as a secondary/fallback source; when both fire,
+        Kivy properties deduplicate identical values (no-op assignment).
         """
         import time as _time
 
@@ -323,20 +324,60 @@ class FlatGrindRunScreen(BaseRunScreen):
                 self._disconnect_clock = None
                 self._disconnect_t0 = None
 
+            # --- Position updates from DR ---
+            a = s.pos.get("A", 0.0)
+            b = s.pos.get("B", 0.0)
+            c = s.pos.get("C", 0.0)
+            d = s.pos.get("D", 0.0)
+            self.pos_a = f"{int(a):,}"
+            self.pos_b = f"{int(b):,}"
+            self.pos_c = f"{int(c):,}"
+            self.pos_d = f"{int(d):,}"
+
+            # --- Knife counts + stone position from DR ---
+            self.session_knife_count = str(s.session_knife_count)
+            self.stone_knife_count = str(s.stone_knife_count)
+            if s.start_pt_c:
+                self.start_pt_c = f"Stone Pos: {s.start_pt_c:,}"
+
+            # --- Grind state detection from DR ---
+            dmc_state = s.dmc_state
+            now_grinding = dmc_state == STATE_GRINDING
+
+            if now_grinding:
+                # Feed plot buffer from DR positions
+                self._plot_buf_x.append(a)
+                self._plot_buf_y.append(b)
+
+                # Ensure buttons are grayed out
+                if not self.motion_active:
+                    self.motion_active = True
+                if not self.cycle_running:
+                    self.cycle_running = True
+
+                # Start polling if not already running (catches late grind detection)
+                if self._pos_clock_event is None:
+                    self._start_pos_poll()
+
+            elif self.cycle_running and not now_grinding and dmc_state != 0:
+                # Grind ended: DR says no longer grinding
+                self.cycle_running = False
+                self.motion_active = False
+                self._stop_pos_poll()
+                self._stop_elapsed()
+                self._read_start_pt_c()
+
         else:
             # Disconnected: disable all motion buttons, stop polling
             self.cycle_running = False
-            self.motion_active = True  # Disable all motion buttons when disconnected
+            self.motion_active = True
             self._stop_pos_poll()
-            # Start disconnect elapsed timer if not already running
             if self._disconnect_clock is None:
                 self._disconnect_t0 = _time.monotonic()
-                self._tick_disconnect_banner(0)  # immediate first tick
+                self._tick_disconnect_banner(0)
                 self._disconnect_clock = Clock.schedule_interval(
                     self._tick_disconnect_banner, 1.0
                 )
-
-        # Note: plot buffer feeding moved to _tick_pos() which reads positions directly
 
     def _tick_disconnect_banner(self, dt: float) -> None:
         """1 Hz callback: update disconnect elapsed time banner."""

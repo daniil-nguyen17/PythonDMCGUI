@@ -169,8 +169,8 @@ SERR_B_CLEAR:   str = "bClear"   # mm - extra B pullback after grinding for clea
 # ---------------------------------------------------------------------------
 
 DR_UDP_PORT: int = 2048              # Default UDP port for DR streaming
-DR_RATE_NORMAL: int = 200            # 5 Hz (samples between DR packets, 1ms each)
-DR_RATE_GRIND: int = 100             # 10 Hz during grinding
+DR_RATE_NORMAL: int = 100            # 10 Hz always (rate switching removed — causes contention)
+DR_RATE_GRIND: int = 100             # 10 Hz — same as NORMAL; kept for backward compat
 DR_DISCONNECT_TIMEOUT: float = 4.0   # seconds with no packet → disconnect
 
 # ---------------------------------------------------------------------------

@@ -386,6 +386,7 @@ class FlatGrindAxesSetupScreen(BaseAxesSetupScreen):
                 parts = [f"restPt{axis}={vals[axis]}" for axis in axis_list]
                 write_cmd = ";".join(parts)
                 ctrl.cmd(write_cmd)
+                import time as _t; _t.sleep(1.5)
                 ctrl.cmd("BV")
 
                 # Read back from controller to confirm values were stored
@@ -457,6 +458,7 @@ class FlatGrindAxesSetupScreen(BaseAxesSetupScreen):
                 parts = [f"startPt{axis}={vals[axis]}" for axis in axis_list]
                 write_cmd = ";".join(parts)
                 ctrl.cmd(write_cmd)
+                import time as _t; _t.sleep(1.5)
                 ctrl.cmd("BV")
 
                 readback: dict[str, str] = {}

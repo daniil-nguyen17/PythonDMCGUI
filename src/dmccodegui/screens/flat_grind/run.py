@@ -743,8 +743,14 @@ class FlatGrindRunScreen(BaseRunScreen):
                     print("[Shutdown] Homing timeout — proceeding with BV anyway")
 
                 # Step 4: Save all variables to NV
-                _t.sleep(0.3)
-                ctrl.cmd("BV")
+                # BV can take several seconds — wait then retry once
+                _t.sleep(1.5)
+                try:
+                    ctrl.cmd("BV")
+                except Exception:
+                    print("[Shutdown] BV first attempt timed out — retrying")
+                    _t.sleep(2.0)
+                    ctrl.cmd("BV")
                 print("[Shutdown] BV done — all variables saved")
 
                 Clock.schedule_once(lambda *_: setattr(self, 'motion_active', False))
@@ -810,11 +816,10 @@ class FlatGrindRunScreen(BaseRunScreen):
         self._start_pos_poll()
 
     def on_more_stone(self) -> None:
-        """Send hmiMore=0 then read startPtC after 400ms delay to update persistent label.
+        """Send hmiMore=0 then read startPtC after delay to update persistent label.
 
-        Fires the HMI_MORE trigger, sleeps 400ms for the DMC #MOREGRI subroutine to
-        complete, then reads startPtC and updates the persistent start_pt_c label.
-        No toast-style alert — operator sees the result in the Stone Compensation card.
+        Fires the HMI_MORE trigger, then retries readback up to 3 times (1s apart)
+        to give the DMC subroutine time to finish updating startPtC.
         """
         if not self.controller or not self.controller.is_connected():
             return
@@ -829,7 +834,6 @@ class FlatGrindRunScreen(BaseRunScreen):
                 print(f"[FlatGrindRunScreen] More stone — startPtC BEFORE: {before}")
             except Exception as e:
                 print(f"[FlatGrindRunScreen] More stone — failed to read startPtC before: {e}")
-                before = None
 
             try:
                 ctrl.cmd(f"{HMI_MORE}={HMI_TRIGGER_FIRE}")
@@ -838,27 +842,28 @@ class FlatGrindRunScreen(BaseRunScreen):
                 Clock.schedule_once(lambda *_, m=msg: self._alert(m))
                 return
 
-            _time.sleep(0.4)
-
-            try:
-                after_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
-                after = int(float(after_raw))
-                print(f"[FlatGrindRunScreen] More stone — startPtC AFTER: {after}")
-                Clock.schedule_once(
-                    lambda *_, v=after: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
-                )
-            except Exception as e:
-                print(f"[FlatGrindRunScreen] More stone — failed to read startPtC after: {e}")
+            # Wait for DMC subroutine to finish, then retry readback
+            for attempt in range(3):
+                _time.sleep(1.0)
+                try:
+                    after_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
+                    after = int(float(after_raw))
+                    print(f"[FlatGrindRunScreen] More stone — startPtC AFTER: {after}")
+                    Clock.schedule_once(
+                        lambda *_, v=after: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
+                    )
+                    break
+                except Exception as e:
+                    print(f"[FlatGrindRunScreen] More stone — readback attempt {attempt + 1} failed: {e}")
 
         from ...utils.jobs import submit_urgent
         submit_urgent(_fire)
 
     def on_less_stone(self) -> None:
-        """Send hmiLess=0 then read startPtC after 400ms delay to update persistent label.
+        """Send hmiLess=0 then read startPtC after delay to update persistent label.
 
-        Mirror of on_more_stone but fires HMI_LESS. Sleeps 400ms for the DMC
-        #LESSGRI subroutine to complete, then reads startPtC and updates the
-        persistent start_pt_c label. No toast-style alert.
+        Mirror of on_more_stone but fires HMI_LESS. Retries readback up to 3 times
+        (1s apart) to give the DMC subroutine time to finish updating startPtC.
         """
         if not self.controller or not self.controller.is_connected():
             return
@@ -873,7 +878,6 @@ class FlatGrindRunScreen(BaseRunScreen):
                 print(f"[FlatGrindRunScreen] Less stone — startPtC BEFORE: {before}")
             except Exception as e:
                 print(f"[FlatGrindRunScreen] Less stone — failed to read startPtC before: {e}")
-                before = None
 
             try:
                 ctrl.cmd(f"{HMI_LESS}={HMI_TRIGGER_FIRE}")
@@ -882,17 +886,19 @@ class FlatGrindRunScreen(BaseRunScreen):
                 Clock.schedule_once(lambda *_, m=msg: self._alert(m))
                 return
 
-            _time.sleep(0.4)
-
-            try:
-                after_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
-                after = int(float(after_raw))
-                print(f"[FlatGrindRunScreen] Less stone — startPtC AFTER: {after}")
-                Clock.schedule_once(
-                    lambda *_, v=after: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
-                )
-            except Exception as e:
-                print(f"[FlatGrindRunScreen] Less stone — failed to read startPtC after: {e}")
+            # Wait for DMC subroutine to finish, then retry readback
+            for attempt in range(3):
+                _time.sleep(1.0)
+                try:
+                    after_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
+                    after = int(float(after_raw))
+                    print(f"[FlatGrindRunScreen] Less stone — startPtC AFTER: {after}")
+                    Clock.schedule_once(
+                        lambda *_, v=after: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
+                    )
+                    break
+                except Exception as e:
+                    print(f"[FlatGrindRunScreen] Less stone — readback attempt {attempt + 1} failed: {e}")
 
         from ...utils.jobs import submit_urgent
         submit_urgent(_fire)

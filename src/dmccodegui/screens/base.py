@@ -1315,6 +1315,7 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
                 except Exception:
                     pass
 
+            import time as _t; _t.sleep(1.5)
             try:
                 ctrl.cmd("BV")
             except Exception:
@@ -1455,6 +1456,7 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
                     pass
 
             # Burn to NV
+            import time as _t; _t.sleep(1.5)
             try:
                 ctrl.cmd("BV")
             except Exception:

@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Packaging & Deployment
-status: executing
-stopped_at: Completed phase 24 (all plans)
-last_updated: "2026-04-21"
+status: unknown
+stopped_at: Phase 25 context gathered
+last_updated: "2026-04-21T14:58:54.042Z"
 last_activity: 2026-04-21 — Phase 24 complete (PyInstaller bundle verified)
 progress:
   total_phases: 22
   completed_phases: 1
   total_plans: 2
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -90,7 +90,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21
-Stopped at: Completed phase 24 (all plans)
-Resume file: None
+Last session: 2026-04-21T14:58:54.038Z
+Stopped at: Phase 25 context gathered
+Resume file: .planning/phases/25-windows-inno-setup-installer/25-CONTEXT.md
 Next action: /gsd:plan-phase 25

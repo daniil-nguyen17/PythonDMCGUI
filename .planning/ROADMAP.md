@@ -325,10 +325,13 @@ Plans:
 **Depends on**: Phase 24
 **Requirements**: WIN-03, WIN-04, WIN-06
 **Success Criteria** (what must be TRUE):
-  1. Running DMCGrindingGUI_Setup.exe installs the app and creates Start Menu and Desktop shortcuts that launch it — confirmed on a machine that has never had the app installed
-  2. The app appears in Windows Settings > Apps > Installed apps and uninstalling it via that interface removes all installed files with no leftovers in Program Files or AppData
+  1. Running BinhAn_HMI_v4.0.0_Setup.exe installs the app and creates Start Menu and Desktop shortcuts that launch it — confirmed on a machine that has never had the app installed
+  2. The app appears in Windows Settings > Apps > Installed apps and uninstalling it via that interface removes all installed files with no leftovers in Program Files — APPDATA preserved
   3. Checking the optional "Launch at Windows startup" box during install causes the app to launch automatically on the next login — unchecking it removes the Run key
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 25-01-PLAN.md — Test scaffold, Inno Setup .iss script, build script ISCC integration
+- [ ] 25-02-PLAN.md — Build installer and human verification (shortcuts, Add/Remove, auto-start, firewall, uninstall)
 
 ### Phase 26: Pi OS Preparation and Install Script
 **Goal**: A fresh Raspberry Pi 4 or 5 running Bookworm boots into the app fullscreen with no path to the desktop — install.sh handles everything from X11 forcing through systemd enable, and a hardware watchdog detects frozen-but-alive states
@@ -401,8 +404,8 @@ Plans:
 | 21. Serration Screen Set | v3.0 | 2/2 | Complete | 2026-04-13 |
 | 22. Convex Screen Set | v3.0 | 2/2 | Complete | 2026-04-13 |
 | 23. Controller Communication Optimization | v3.0 | 3/3 | Complete | 2026-04-13 |
-| 24. Windows PyInstaller Bundle | 1/2 | In Progress|  | - |
-| 25. Windows Inno Setup Installer | v4.0 | 0/TBD | Not started | - |
+| 24. Windows PyInstaller Bundle | v4.0 | 2/2 | Complete | 2026-04-21 |
+| 25. Windows Inno Setup Installer | v4.0 | 0/2 | Not started | - |
 | 26. Pi OS Preparation and Install Script | v4.0 | 0/TBD | Not started | - |
 | 27. Screen Resolution Detection | v4.0 | 0/TBD | Not started | - |
 | 28. Logging Infrastructure | v4.0 | 0/TBD | Not started | - |

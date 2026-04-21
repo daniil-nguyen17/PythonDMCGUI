@@ -30,7 +30,20 @@
       "Bash(python -c \"from src.dmccodegui.screens.serration.run import SerrationRunScreen; print\\('OK'\\)\")",
       "Bash(python -c \"from src.dmccodegui.hmi.data_record import DataRecordListener; print\\('OK'\\)\")",
       "Bash(python -c \"from src.dmccodegui.screens.serration.run import SerrationRunScreen; from src.dmccodegui.screens.serration.axes_setup import SerrationAxesSetupScreen; print\\('OK'\\)\")",
-      "Bash(python -c \"from src.dmccodegui.screens.serration.parameters import SerrationParametersScreen; from src.dmccodegui.machine_config import _SERRATION_PARAM_DEFS; print\\(f'Params: {len\\(_SERRATION_PARAM_DEFS\\)}'\\); print\\([p['var'] for p in _SERRATION_PARAM_DEFS]\\)\")"
+      "Bash(python -c \"from src.dmccodegui.screens.serration.parameters import SerrationParametersScreen; from src.dmccodegui.machine_config import _SERRATION_PARAM_DEFS; print\\(f'Params: {len\\(_SERRATION_PARAM_DEFS\\)}'\\); print\\([p['var'] for p in _SERRATION_PARAM_DEFS]\\)\")",
+      "Bash(node __TRACKED_VAR__/.claude/get-shit-done/bin/gsd-tools.cjs commit 'docs: start milestone v4.0 Packaging & Deployment' --files .planning/PROJECT.md .planning/STATE.md)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(node __TRACKED_VAR__/.claude/get-shit-done/bin/gsd-tools.cjs config-set workflow.research true)",
+      "Bash(node __TRACKED_VAR__/.claude/get-shit-done/bin/gsd-tools.cjs help)",
+      "Bash(python3 /tmp/write_summary.py)",
+      "Bash(py --version)",
+      "Bash(python /tmp/write_summary.py)",
+      "Bash(printf %s ':*)",
+      "Bash(python)",
+      "Bash(node __TRACKED_VAR__/.claude/get-shit-done/bin/gsd-tools.cjs commit 'docs: complete v4.0 packaging research' --files .planning/research/)",
+      "Bash(node -e ':*)",
+      "Bash(node -e \"var fs=require\\('fs'\\),p='.planning/research/SUMMARY.md',c=fs.readFileSync\\(p,'utf8'\\);console.log\\(c.length,c.split\\('\\\\n'\\).length\\);\")"
     ]
   }
 }

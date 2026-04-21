@@ -120,7 +120,7 @@ WT sparkDw
 
 REM ==== B retracts with clearance ====
 SP , fdBout * cpmB,
-PA , startPtB - clearCt,
+PA , startPtB- clearCt,
 BG B; AM B
 
 REM ==== A moves to next serration ====
@@ -319,7 +319,7 @@ SP fdA * cpmA,,
 PA startPtA,,
 BGA; AMA
 ' B to start position
-SP , fdBout * cpmB,
+SP , (fdBout * cpmB)/3,
 PA , startPtB,
 BGB; AMB;
 WT 100

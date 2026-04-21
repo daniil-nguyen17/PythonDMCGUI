@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Packaging & Deployment
 status: unknown
-stopped_at: Phase 25 context gathered
-last_updated: "2026-04-21T14:58:54.042Z"
+stopped_at: Completed 25-01-PLAN.md
+last_updated: "2026-04-21T15:22:12.160Z"
 last_activity: 2026-04-21 — Phase 24 complete (PyInstaller bundle verified)
 progress:
   total_phases: 22
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 3
+  total_plans: 4
+  completed_plans: 4
 ---
 
 # Project State
@@ -65,6 +65,9 @@ Decisions affecting current work (v4.0):
 - [Phase 24]: kivy_matplotlib_widget NavigationIcons.ttf must be explicitly included in spec datas
 - [Phase 24]: DiagnosticsScreen references must be removed from base.kv, base.py, and tab_bar.py (not just screens/__init__.py)
 - [Phase 24]: SPECPATH-relative pathlib paths in spec file — PyInstaller 6.x resolves relative paths from spec dir, not CWD
+- [Phase 25-windows-inno-setup-installer]: ISCC step in build_windows.bat is non-fatal: PyInstaller bundle remains usable without Inno Setup installed
+- [Phase 25-windows-inno-setup-installer]: Firewall rules use delete-before-add pattern so reinstalling does not duplicate rules (idempotent)
+- [Phase 25-windows-inno-setup-installer]: AppId GUID is fixed per-script so Windows tracks upgrades correctly via Add/Remove Programs
 
 ### Critical Pitfalls (from research)
 
@@ -90,7 +93,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T14:58:54.038Z
-Stopped at: Phase 25 context gathered
-Resume file: .planning/phases/25-windows-inno-setup-installer/25-CONTEXT.md
+Last session: 2026-04-21T15:22:12.157Z
+Stopped at: Completed 25-01-PLAN.md
+Resume file: None
 Next action: /gsd:plan-phase 25

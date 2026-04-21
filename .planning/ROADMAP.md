@@ -5,7 +5,8 @@
 - ✅ **v1.0 MVP** — Phases 1-7 (shipped 2026-04-06) | Phase 8 deferred
 - ⏸ **v1.1 Deployment** — Phase 8: Pi Kiosk (pending hardware validation)
 - ✅ **v2.0 Flat Grind Integration** — Phases 9-17 (shipped 2026-04-07)
-- 🚧 **v3.0 Multi-Machine** — Phases 18-23 (in progress)
+- ✅ **v3.0 Multi-Machine** — Phases 18-23 (shipped 2026-04-13)
+- 🚧 **v4.0 Packaging & Deployment** — Phases 24-29 (in progress)
 
 ## Phases
 
@@ -50,14 +51,30 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
 
 </details>
 
-### v3.0 Multi-Machine (Phases 18-23)
+<details>
+<summary>✅ v3.0 Multi-Machine (Phases 18-23) — SHIPPED 2026-04-13</summary>
 
-- [x] **Phase 18: Base Class Extraction** — Extract BaseRunScreen, BaseAxesSetupScreen, BaseParametersScreen with shared controller wiring and subscription lifecycle (2/2 plans, completed 2026-04-11)
+- [x] **Phase 18: Base Class Extraction** — Extract BaseRunScreen, BaseAxesSetupScreen, BaseParametersScreen with shared controller wiring and subscription lifecycle (completed 2026-04-11)
 - [x] **Phase 19: Flat Grind Rename and KV Split** — Rename existing screens to FlatGrind* classes with per-machine kv files in ui/flat_grind/ (completed 2026-04-11)
 - [x] **Phase 20: Screen Registry and Loader** — machine_config screen_classes mapping, _load_machine_screens() swap function, machine detection on connect (completed 2026-04-11)
 - [x] **Phase 21: Serration Screen Set** — SerrationRunScreen, SerrationAxesSetupScreen, SerrationParametersScreen with 3-axis layout and bComp stub (completed 2026-04-13)
 - [x] **Phase 22: Convex Screen Set** — ConvexRunScreen, ConvexAxesSetupScreen, ConvexParametersScreen with convex-specific layout (completed 2026-04-13)
 - [x] **Phase 23: Controller Communication Optimization** — GRecord poll replacement, MG variable batching, structured state messages, MG reader thread, direct connection flag, explicit timeouts (completed 2026-04-13)
+
+Full details: `.planning/milestones/v3.0-ROADMAP.md`
+
+</details>
+
+### v4.0 Packaging & Deployment (Phases 24-29)
+
+**Milestone Goal:** Package the working HMI into installable bundles for Windows 11 and Raspberry Pi — zero pre-installed software required on target machines.
+
+- [ ] **Phase 24: Windows PyInstaller Bundle** — PyInstaller spec, gclib DLL vendoring, frozen path fixes (WIN-01, WIN-02, WIN-05, WIN-07)
+- [ ] **Phase 25: Windows Inno Setup Installer** — .exe installer, Start Menu/Desktop shortcuts, Add/Remove Programs, optional auto-start (WIN-03, WIN-04, WIN-06)
+- [ ] **Phase 26: Pi OS Preparation and Install Script** — X11 switch, Galil .deb, venv, systemd kiosk, hardware watchdog (PI-01, PI-02, PI-03, PI-04, PI-05, PI-07)
+- [ ] **Phase 27: Screen Resolution Detection** — Auto-detect at startup, display profile presets, manual override in settings.json (APP-04)
+- [ ] **Phase 28: Logging Infrastructure** — Rotating log file, uncaught exception hook, dev artifact exclusion (APP-01, APP-02, APP-03)
+- [ ] **Phase 29: Integration Testing and Field Validation** — Clean-VM Windows gate, Pi hardware gate, real controller validation (FIX-02, PI-06)
 
 ---
 
@@ -240,8 +257,8 @@ Plans:
   4. After a machine type switch and restart, navigating to Run, Axes Setup, and Parameters each shows the correct screen for the active machine type
 **Plans:** 2/2 plans complete
 Plans:
-- [ ] 20-01-PLAN.md — Extend _REGISTRY with screen_classes/load_kv and add cleanup() to base classes
-- [ ] 20-02-PLAN.md — Wire _load_machine_screens() loader, update build()/on_stop()/base.kv, add machType mismatch detection
+- [x] 20-01-PLAN.md — Extend _REGISTRY with screen_classes/load_kv and add cleanup() to base classes
+- [x] 20-02-PLAN.md — Wire _load_machine_screens() loader, update build()/on_stop()/base.kv, add machType mismatch detection
 
 ### Phase 21: Serration Screen Set
 **Goal**: The Serration Grind machine has its own Run, Axes Setup, and Parameters screens reachable through the screen loader — 3-axis layout with D-axis removed and bComp panel stubbed pending customer DMC program
@@ -254,8 +271,8 @@ Plans:
   4. Editing a Serration-specific parameter and saving it writes only Serration param_defs values — no Flat Grind parameter keys are written
 **Plans:** 2/2 plans complete
 Plans:
-- [ ] 21-01-PLAN.md — Serration package skeleton, thin subclasses (AxesSetup, Parameters), KV files, registry update, test scaffold
-- [ ] 21-02-PLAN.md — SerrationRunScreen with BCompPanel widget, run.kv, full test coverage
+- [x] 21-01-PLAN.md — Serration package skeleton, thin subclasses (AxesSetup, Parameters), KV files, registry update, test scaffold
+- [x] 21-02-PLAN.md — SerrationRunScreen with BCompPanel widget, run.kv, full test coverage
 
 ### Phase 22: Convex Screen Set
 **Goal**: The Convex Grind machine has its own Run, Axes Setup, and Parameters screens reachable through the screen loader — 4-axis layout with convex-specific controls, placeholder param_defs noted for future customer sign-off
@@ -268,8 +285,8 @@ Plans:
   4. Convex param_defs are clearly marked as placeholder in machine_config comments — a code comment identifies which values need customer production specs before sign-off
 **Plans:** 2/2 plans complete
 Plans:
-- [ ] 22-01-PLAN.md — Convex package skeleton, thin subclasses, KV files, registry update, explicit _CONVEX_PARAM_DEFS, test scaffold
-- [ ] 22-02-PLAN.md — ConvexRunScreen with ConvexAdjustPanel, full run.kv, complete test coverage
+- [x] 22-01-PLAN.md — Convex package skeleton, thin subclasses, KV files, registry update, explicit _CONVEX_PARAM_DEFS, test scaffold
+- [x] 22-02-PLAN.md — ConvexRunScreen with ConvexAdjustPanel, full run.kv, complete test coverage
 
 ### Phase 23: Controller Communication Optimization
 **Goal**: The controller poll loop uses a single batched MG command for all position and state reads (GRecord confirmed absent from gclib Python wrapper), state transitions are detected via structured MG messages on an app-wide reader thread, and all gclib handles have explicit timeouts and use the direct connection flag
@@ -283,9 +300,75 @@ Plans:
   5. A gclib timeout error on the primary handle produces a timeout exception within 1000 ms; on the MG handle within 500 ms — not a hang
 **Plans:** 3/3 plans complete
 Plans:
-- [ ] 23-01-PLAN.md — Batch read function (read_all_state), connection hardening (--direct, --timeout), updated tests
-- [ ] 23-02-PLAN.md — App-wide MgReader module with position/state/log message parsing, tests
-- [ ] 23-03-PLAN.md — Wire read_all_state into RunScreen._tick_pos, wire MgReader into main.py, remove per-screen MG code
+- [x] 23-01-PLAN.md — Batch read function (read_all_state), connection hardening (--direct, --timeout), updated tests
+- [x] 23-02-PLAN.md — App-wide MgReader module with position/state/log message parsing, tests
+- [x] 23-03-PLAN.md — Wire read_all_state into RunScreen._tick_pos, wire MgReader into main.py, remove per-screen MG code
+
+---
+
+### Phase 24: Windows PyInstaller Bundle
+**Goal**: The application runs on a clean Windows 11 machine from a self-contained onedir folder — Python, all dependencies, and the gclib DLL are included, mutable user data persists across restarts, and the frozen build passes a clean-VM smoke test
+**Depends on**: Phase 23 (v3.0 complete)
+**Requirements**: WIN-01, WIN-02, WIN-05, WIN-07
+**Success Criteria** (what must be TRUE):
+  1. Running DMCGrindingGUI.exe on a Windows 11 VM with no Python, no Galil SDK, and no prior app install opens the Kivy window and reaches the PIN login screen
+  2. Connecting to a Galil controller from the frozen app succeeds — the controller connection log shows the same response as the dev environment, confirming the gclib DLL loaded from the bundle
+  3. Logging in, creating a user, and restarting the app shows the user still exists — users.json persisted to %APPDATA%/DMCGrindingGUI/, not wiped from _MEIPASS on restart
+  4. Right-clicking DMCGrindingGUI.exe and viewing Properties shows the correct version number in the Details tab
+**Plans**: TBD
+
+### Phase 25: Windows Inno Setup Installer
+**Goal**: A single .exe installer delivers the app to Windows 11 with Start Menu and Desktop shortcuts, an Add/Remove Programs entry with working uninstaller, optional auto-start on login, and a firewall rule for DR UDP — no manual steps required after running the installer
+**Depends on**: Phase 24
+**Requirements**: WIN-03, WIN-04, WIN-06
+**Success Criteria** (what must be TRUE):
+  1. Running DMCGrindingGUI_Setup.exe installs the app and creates Start Menu and Desktop shortcuts that launch it — confirmed on a machine that has never had the app installed
+  2. The app appears in Windows Settings > Apps > Installed apps and uninstalling it via that interface removes all installed files with no leftovers in Program Files or AppData
+  3. Checking the optional "Launch at Windows startup" box during install causes the app to launch automatically on the next login — unchecking it removes the Run key
+**Plans**: TBD
+
+### Phase 26: Pi OS Preparation and Install Script
+**Goal**: A fresh Raspberry Pi 4 or 5 running Bookworm boots into the app fullscreen with no path to the desktop — install.sh handles everything from X11 forcing through systemd enable, and a hardware watchdog detects frozen-but-alive states
+**Depends on**: Phase 23 (v3.0 complete — parallel track, independent of Phase 24)
+**Requirements**: PI-01, PI-02, PI-03, PI-04, PI-05, PI-07
+**Success Criteria** (what must be TRUE):
+  1. Running install.sh on a fresh Bookworm SD card completes without manual intervention — venv is created, all pip installs succeed, systemd unit is enabled
+  2. Rebooting the Pi after install.sh lands on the app fullscreen with no taskbar, no terminal, and no path for an operator to reach the Pi desktop or file manager
+  3. Force-killing the app process (kill -9) causes systemd to restart it within 5 seconds — Restart=on-failure is confirmed active
+  4. A frozen app that stops responding but does not exit is caught by the WatchdogSec=30 watchdog and restarted — verified by blocking the sdnotify heartbeat for 35 seconds
+**Plans**: TBD
+
+### Phase 27: Screen Resolution Detection
+**Goal**: The app reads the display geometry before any Kivy Window import and applies the correct layout preset — operators on 7", 10", and 15" displays all get a usable interface, and a settings.json override allows a technician to force a preset without editing code
+**Depends on**: Phase 24 (APPDATA path stability), Phase 26 (install.sh structure for KIVY_DPI env)
+**Requirements**: APP-04
+**Success Criteria** (what must be TRUE):
+  1. Launching the app on a 7-inch Pi touchscreen (800x480) applies the 7inch preset — font sizes and touch targets are legible and tappable without zooming
+  2. Setting display_size: "10inch" in settings.json and restarting forces the 10-inch preset regardless of what screeninfo detects — the override is confirmed by a log line at startup
+  3. Launching on a 1920x1080 Windows monitor applies the 15inch/desktop preset with no manual configuration
+**Plans**: TBD
+
+### Phase 28: Logging Infrastructure
+**Goal**: Every app run produces a rotating log file in the platform-correct location, uncaught exceptions are captured with full traceback before the app exits, and installed packages contain only runtime files
+**Depends on**: Phase 24 (_get_data_dir() pattern established)
+**Requirements**: APP-01, APP-02, APP-03
+**Success Criteria** (what must be TRUE):
+  1. After a normal app session on Windows, app.log exists in %APPDATA%/DMCGrindingGUI/logs/ and contains timestamped entries — on Pi it exists in ~/.dmc_gui/logs/
+  2. Triggering an unhandled exception (e.g., passing bad data to a controller call) causes the full traceback to appear in app.log before the app exits — the exception is not silently swallowed
+  3. The installed Windows bundle and Pi deployment directory contain no .md files, no .planning/ directory, no test files, no .xlsx files, and no .dmc files
+**Plans**: TBD
+
+### Phase 29: Integration Testing and Field Validation
+**Goal**: Both platform packages pass a hardware gate — the Windows installer is validated on a real factory-floor machine and the Pi kiosk is validated with a live Galil controller connected — and three Pi deployment methods are confirmed working
+**Depends on**: Phase 25, Phase 26, Phase 27, Phase 28
+**Requirements**: FIX-02, PI-06
+**Success Criteria** (what must be TRUE):
+  1. Installing DMCGrindingGUI_Setup.exe on the target factory Windows machine (with default Defender active) launches successfully — no AV quarantine, no missing DLL error
+  2. Running a Flat Grind cycle on the real Galil controller through the Windows installer shows the live A/B plot updating, buttons graying out during motion, and machine state updating in real-time
+  3. All three Pi deployment methods produce a working kiosk: (a) USB/SCP folder transfer + install.sh, (b) SD card image write, (c) git clone + install.sh — each confirmed by a full boot-to-login-screen test
+  4. The Pi kiosk with controller connected successfully runs a Flat Grind cycle — DR streaming produces live position data on the run screen
+**Plans**: TBD
+
 ---
 
 ## Progress
@@ -311,13 +394,20 @@ Plans:
 | 17. Poll Reset and Cold-Start Fix | v2.0 | 1/1 | Complete | 2026-04-07 |
 | 18. Base Class Extraction | v3.0 | 2/2 | Complete | 2026-04-11 |
 | 19. Flat Grind Rename and KV Split | v3.0 | 2/2 | Complete | 2026-04-11 |
-| 20. Screen Registry and Loader | 2/2 | Complete    | 2026-04-11 | - |
-| 21. Serration Screen Set | 2/2 | Complete    | 2026-04-13 | - |
-| 22. Convex Screen Set | 2/2 | Complete    | 2026-04-13 | - |
-| 23. Controller Communication Optimization | 3/3 | Complete    | 2026-04-13 | - |
+| 20. Screen Registry and Loader | v3.0 | 2/2 | Complete | 2026-04-11 |
+| 21. Serration Screen Set | v3.0 | 2/2 | Complete | 2026-04-13 |
+| 22. Convex Screen Set | v3.0 | 2/2 | Complete | 2026-04-13 |
+| 23. Controller Communication Optimization | v3.0 | 3/3 | Complete | 2026-04-13 |
+| 24. Windows PyInstaller Bundle | v4.0 | 0/TBD | Not started | - |
+| 25. Windows Inno Setup Installer | v4.0 | 0/TBD | Not started | - |
+| 26. Pi OS Preparation and Install Script | v4.0 | 0/TBD | Not started | - |
+| 27. Screen Resolution Detection | v4.0 | 0/TBD | Not started | - |
+| 28. Logging Infrastructure | v4.0 | 0/TBD | Not started | - |
+| 29. Integration Testing and Field Validation | v4.0 | 0/TBD | Not started | - |
 
 ---
 
 *Roadmap created: 2026-04-06*
 *v2.0 phases added: 2026-04-06*
 *v3.0 phases added: 2026-04-11*
+*v4.0 phases added: 2026-04-21*

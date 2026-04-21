@@ -62,31 +62,31 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | FIX-01 | Pre-milestone | Complete |
-| FIX-02 | TBD | Pending |
-| WIN-01 | TBD | Pending |
-| WIN-02 | TBD | Pending |
-| WIN-03 | TBD | Pending |
-| WIN-04 | TBD | Pending |
-| WIN-05 | TBD | Pending |
-| WIN-06 | TBD | Pending |
-| WIN-07 | TBD | Pending |
-| PI-01 | TBD | Pending |
-| PI-02 | TBD | Pending |
-| PI-03 | TBD | Pending |
-| PI-04 | TBD | Pending |
-| PI-05 | TBD | Pending |
-| PI-06 | TBD | Pending |
-| PI-07 | TBD | Pending |
-| APP-01 | TBD | Pending |
-| APP-02 | TBD | Pending |
-| APP-03 | TBD | Pending |
-| APP-04 | TBD | Pending |
+| FIX-02 | Phase 29 | Pending |
+| WIN-01 | Phase 24 | Pending |
+| WIN-02 | Phase 24 | Pending |
+| WIN-03 | Phase 25 | Pending |
+| WIN-04 | Phase 25 | Pending |
+| WIN-05 | Phase 24 | Pending |
+| WIN-06 | Phase 25 | Pending |
+| WIN-07 | Phase 24 | Pending |
+| PI-01 | Phase 26 | Pending |
+| PI-02 | Phase 26 | Pending |
+| PI-03 | Phase 26 | Pending |
+| PI-04 | Phase 26 | Pending |
+| PI-05 | Phase 26 | Pending |
+| PI-06 | Phase 29 | Pending |
+| PI-07 | Phase 26 | Pending |
+| APP-01 | Phase 28 | Pending |
+| APP-02 | Phase 28 | Pending |
+| APP-03 | Phase 28 | Pending |
+| APP-04 | Phase 27 | Pending |
 
 **Coverage:**
 - v4.0 requirements: 20 total
-- Mapped to phases: 1 (FIX-01)
-- Unmapped: 19 (awaiting roadmap)
+- Mapped to phases: 20/20
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-21*
-*Last updated: 2026-04-21 after initial definition*
+*Last updated: 2026-04-21 — traceability updated after v4.0 roadmap creation (Phases 24-29)*

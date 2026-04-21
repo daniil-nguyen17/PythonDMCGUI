@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Packaging & Deployment
-status: unknown
-stopped_at: Completed 24-01-PLAN.md
-last_updated: "2026-04-21T11:50:40.349Z"
-last_activity: 2026-04-21 — v4.0 roadmap created (Phases 24-29)
+status: executing
+stopped_at: Completed phase 24 (all plans)
+last_updated: "2026-04-21"
+last_activity: 2026-04-21 — Phase 24 complete (PyInstaller bundle verified)
 progress:
   total_phases: 22
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
   completed_plans: 2
 ---
@@ -20,25 +20,25 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** An operator walks up, taps their PIN, runs parts while watching a live A/B position plot, and goes home — zero friction, zero confusion, zero access to things they shouldn't touch.
-**Current focus:** v4.0 — Phase 24: Windows PyInstaller Bundle
+**Current focus:** v4.0 — Phase 24 complete, ready for Phase 25
 
 ## Current Position
 
 ```
 Milestone : v4.0 Packaging & Deployment
-Phase     : 24 of 29 (Windows PyInstaller Bundle)
+Phase     : 24 of 29 (Windows PyInstaller Bundle) — COMPLETE
 Plan      : —
-Status    : Ready to plan
-Progress  : [░░░░░░░░░░] 0%
+Status    : Phase 24 done, ready for Phase 25
+Progress  : [█░░░░░░░░░] 17%
 ```
 
-Last activity: 2026-04-21 — v4.0 roadmap created (Phases 24-29)
+Last activity: 2026-04-21 — Phase 24 complete (PyInstaller bundle verified)
 
 ## v4.0 Phase Map
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 24 | Windows PyInstaller Bundle | WIN-01, WIN-02, WIN-05, WIN-07 | Not started |
+| 24 | Windows PyInstaller Bundle | WIN-01, WIN-02, WIN-05, WIN-07 | **Complete** |
 | 25 | Windows Inno Setup Installer | WIN-03, WIN-04, WIN-06 | Not started |
 | 26 | Pi OS Preparation and Install Script | PI-01 through PI-05, PI-07 | Not started |
 | 27 | Screen Resolution Detection | APP-04 | Not started |
@@ -62,6 +62,9 @@ Decisions affecting current work (v4.0):
 - screeninfo-based resolution detection in pre-Kivy block (same ordering pattern already established)
 - [Phase 24]: GCLIB_ROOT patch uses getattr(sys, '_MEIPASS', '') guard so monkeypatched tests don't crash on missing _MEIPASS
 - [Phase 24]: diagnostics.kv removed from KV_FILES — DiagnosticsScreen is dev-only, excluded from production bundle
+- [Phase 24]: kivy_matplotlib_widget NavigationIcons.ttf must be explicitly included in spec datas
+- [Phase 24]: DiagnosticsScreen references must be removed from base.kv, base.py, and tab_bar.py (not just screens/__init__.py)
+- [Phase 24]: SPECPATH-relative pathlib paths in spec file — PyInstaller 6.x resolves relative paths from spec dir, not CWD
 
 ### Critical Pitfalls (from research)
 
@@ -73,7 +76,7 @@ Decisions affecting current work (v4.0):
 
 ### Research Flags (require validation)
 
-- gclib attribute names (GclibDllPath_) — confirm in installed gclib/__init__.py before Phase 24
+- ~~gclib attribute names (GclibDllPath_) — confirm in installed gclib/__init__.py before Phase 24~~ (resolved: vendored DLLs + GCLIB_ROOT env var)
 - kivy_matplotlib_widget ARM wheel on Bookworm — confirm PiWheels availability before Phase 26
 - screeninfo on Pi HDMI-forced framebuffer — validate on real hardware in Phase 27
 
@@ -83,12 +86,11 @@ None yet.
 
 ### Blockers/Concerns
 
-- gclib DLL attribute names unconfirmed for current gclib version (MEDIUM risk — Phase 24)
 - kivy_matplotlib_widget ARM wheel availability unconfirmed (most likely Phase 26 failure point)
 
 ## Session Continuity
 
-Last session: 2026-04-21T11:50:40.346Z
-Stopped at: Completed 24-01-PLAN.md
+Last session: 2026-04-21
+Stopped at: Completed phase 24 (all plans)
 Resume file: None
-Next action: /gsd:plan-phase 24
+Next action: /gsd:plan-phase 25

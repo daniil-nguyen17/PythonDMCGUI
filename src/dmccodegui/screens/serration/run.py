@@ -116,6 +116,8 @@ class SerrationRunScreen(BaseRunScreen):
     _cycle_start_time: float | None = None
     _last_cycle_duration: float | None = None
     _elapsed_clock_event = None
+    _grind_cmd_time: float | None = None  # monotonic time of last on_start_grind — grace period
+    _GRIND_GRACE_SEC: float = 2.0  # seconds before allowing grind-end detection
 
     # -----------------------------------------------------------------------
     # Lifecycle
@@ -276,9 +278,16 @@ class SerrationRunScreen(BaseRunScreen):
                 self.session_knife_count = str(ses_kni)
                 self.stone_knife_count = str(stn_kni)
                 # Detect grind end: was grinding, now idle → stop polling
+                # Grace period: don't detect grind-end within 2s of pressing
+                # Start Grind — controller needs time to transition state.
                 was_grinding = self.cycle_running
                 new_grinding = dmc_state == STATE_GRINDING
                 if was_grinding and not new_grinding:
+                    if self._grind_cmd_time is not None:
+                        import time as _t2
+                        if (_t2.monotonic() - self._grind_cmd_time) < self._GRIND_GRACE_SEC:
+                            return  # too soon — skip this tick
+                    self._grind_cmd_time = None
                     self.cycle_running = False
                     self.motion_active = False
                     self._stop_pos_poll()
@@ -378,7 +387,16 @@ class SerrationRunScreen(BaseRunScreen):
                     self._start_pos_poll()
 
             elif self.cycle_running and not now_grinding and dmc_state != 0:
+                # Grace period: don't detect grind-end within 2s of pressing
+                # Start Grind — the controller needs time to transition from
+                # IDLE to GRINDING.  Without this, stale IDLE state from DR
+                # (in-flight before hmiGrnd=0 was sent) causes false grind-end.
+                if self._grind_cmd_time is not None:
+                    elapsed = _time.monotonic() - self._grind_cmd_time
+                    if elapsed < self._GRIND_GRACE_SEC:
+                        return  # too soon — ignore this state update
                 # Grind ended: DR says no longer grinding
+                self._grind_cmd_time = None
                 self.cycle_running = False
                 self.motion_active = False
                 self._stop_pos_poll()
@@ -644,6 +662,8 @@ class SerrationRunScreen(BaseRunScreen):
         jobs.submit_urgent(_fire)
 
         # Immediately disable grind button and enable stop button
+        import time as _t_grind
+        self._grind_cmd_time = _t_grind.monotonic()  # grace period starts now
         self.motion_active = True
         self.cycle_running = True
 

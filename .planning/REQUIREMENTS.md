@@ -16,9 +16,9 @@
 - [ ] **WIN-02**: gclib DLL is vendored in the repo and bundled in the frozen build — app connects to Galil controller without Galil SDK installed on target
 - [ ] **WIN-03**: Inno Setup installer creates Start Menu and Desktop shortcuts that launch the app
 - [ ] **WIN-04**: App appears in Windows Add/Remove Programs with a working uninstaller that cleanly removes all installed files
-- [ ] **WIN-05**: users.json and settings.json are stored in %APPDATA%/DMCGrindingGUI/, not in the frozen temp directory — user accounts persist across app restarts
+- [x] **WIN-05**: users.json and settings.json are stored in %APPDATA%/DMCGrindingGUI/, not in the frozen temp directory — user accounts persist across app restarts
 - [ ] **WIN-06**: Installer offers an optional "Launch at Windows startup" checkbox that adds HKCU Run key for auto-start on login
-- [ ] **WIN-07**: Version number is visible in the EXE file properties and in the installer window title
+- [x] **WIN-07**: Version number is visible in the EXE file properties and in the installer window title
 
 ### Pi Deployment
 
@@ -67,9 +67,9 @@
 | WIN-02 | Phase 24 | Pending |
 | WIN-03 | Phase 25 | Pending |
 | WIN-04 | Phase 25 | Pending |
-| WIN-05 | Phase 24 | Pending |
+| WIN-05 | Phase 24 | Complete |
 | WIN-06 | Phase 25 | Pending |
-| WIN-07 | Phase 24 | Pending |
+| WIN-07 | Phase 24 | Complete |
 | PI-01 | Phase 26 | Pending |
 | PI-02 | Phase 26 | Pending |
 | PI-03 | Phase 26 | Pending |

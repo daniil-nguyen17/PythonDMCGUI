@@ -315,7 +315,7 @@ Plans:
   2. Connecting to a Galil controller from the frozen app succeeds — the controller connection log shows the same response as the dev environment, confirming the gclib DLL loaded from the bundle
   3. Logging in, creating a user, and restarting the app shows the user still exists — users.json persisted to %APPDATA%/BinhAnHMI/, not wiped from _MEIPASS on restart
   4. Right-clicking BinhAnHMI.exe and viewing Properties shows the correct version number in the Details tab
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 24-01-PLAN.md — Frozen-mode code: __version__, _get_data_dir(), GCLIB_ROOT patch, window title, diagnostics exclusion, tests
 - [ ] 24-02-PLAN.md — Deploy infrastructure: vendor DLLs, PyInstaller spec, version file, icon, build script, bundle build + human verify
@@ -401,7 +401,7 @@ Plans:
 | 21. Serration Screen Set | v3.0 | 2/2 | Complete | 2026-04-13 |
 | 22. Convex Screen Set | v3.0 | 2/2 | Complete | 2026-04-13 |
 | 23. Controller Communication Optimization | v3.0 | 3/3 | Complete | 2026-04-13 |
-| 24. Windows PyInstaller Bundle | v4.0 | 0/2 | In progress | - |
+| 24. Windows PyInstaller Bundle | 1/2 | In Progress|  | - |
 | 25. Windows Inno Setup Installer | v4.0 | 0/TBD | Not started | - |
 | 26. Pi OS Preparation and Install Script | v4.0 | 0/TBD | Not started | - |
 | 27. Screen Resolution Detection | v4.0 | 0/TBD | Not started | - |

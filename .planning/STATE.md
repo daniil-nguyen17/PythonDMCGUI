@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Packaging & Deployment
 status: unknown
-stopped_at: Phase 24 planned
-last_updated: "2026-04-21T11:44:29.378Z"
+stopped_at: Completed 24-01-PLAN.md
+last_updated: "2026-04-21T11:50:40.349Z"
 last_activity: 2026-04-21 — v4.0 roadmap created (Phases 24-29)
 progress:
   total_phases: 22
   completed_phases: 0
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -60,6 +60,8 @@ Decisions affecting current work (v4.0):
 - Galil .deb installed before venv creation (venv pip install depends on system .so)
 - Three Pi delivery methods coexist: USB/SCP, SD card image, git clone + install.sh
 - screeninfo-based resolution detection in pre-Kivy block (same ordering pattern already established)
+- [Phase 24]: GCLIB_ROOT patch uses getattr(sys, '_MEIPASS', '') guard so monkeypatched tests don't crash on missing _MEIPASS
+- [Phase 24]: diagnostics.kv removed from KV_FILES — DiagnosticsScreen is dev-only, excluded from production bundle
 
 ### Critical Pitfalls (from research)
 
@@ -86,7 +88,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T11:44:29.374Z
-Stopped at: Phase 24 planned
-Resume file: .planning/phases/24-windows-pyinstaller-bundle/24-01-PLAN.md
+Last session: 2026-04-21T11:50:40.346Z
+Stopped at: Completed 24-01-PLAN.md
+Resume file: None
 Next action: /gsd:plan-phase 24

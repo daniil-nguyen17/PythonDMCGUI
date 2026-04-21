@@ -8,7 +8,7 @@ from .run import RunScreen  # backward-compat alias
 from .axes_setup import AxesSetupScreen  # backward-compat alias
 from .parameters import ParametersScreen  # backward-compat alias
 from .profiles import ProfilesScreen
-from .diagnostics import DiagnosticsScreen
+# DiagnosticsScreen excluded from production builds (dev-only)
 from .pin_overlay import PINOverlay
 from .users import UsersScreen
 from .base import BaseRunScreen, BaseAxesSetupScreen, BaseParametersScreen, SetupScreenMixin
@@ -25,7 +25,6 @@ __all__ = [
     "AxesSetupScreen",
     "ParametersScreen",
     "ProfilesScreen",
-    "DiagnosticsScreen",
     "PINOverlay",
     "UsersScreen",
     "BaseRunScreen",

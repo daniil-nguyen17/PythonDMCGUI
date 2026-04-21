@@ -1,7 +1,34 @@
 from __future__ import annotations
 
+import sys
+if getattr(sys, 'frozen', False):
+    import os as _os
+    _meipass = getattr(sys, '_MEIPASS', '')
+    if _meipass:
+        _os.environ['GCLIB_ROOT'] = _meipass
+    del _meipass
+
 import importlib
 import os
+
+
+def _get_data_dir() -> str:
+    """Return writable directory for mutable data files.
+
+    Frozen (PyInstaller onedir): %APPDATA%\\BinhAnHMI\\
+    Dev (python -m dmccodegui):  src/dmccodegui/auth/  (unchanged)
+    """
+    if getattr(sys, 'frozen', False):
+        appdata = os.environ.get('APPDATA', os.path.expanduser('~'))
+        data_dir = os.path.join(appdata, 'BinhAnHMI')
+    else:
+        data_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), 'auth'
+        )
+    os.makedirs(data_dir, exist_ok=True)
+    return data_dir
+
+
 os.environ["KIVY_DPI_AWARE"] = "1"
 os.environ["KIVY_METRICS_DENSITY"] = "1"
 os.environ["KIVY_MOUSE"] = "mouse,multitouch_on_demand"
@@ -50,6 +77,7 @@ try:
     from .hmi.mg_reader import MgReader
     from .hmi.dmc_vars import STATE_SETUP
     import dmccodegui.machine_config as mc
+    from dmccodegui import __version__
 except Exception:  # Allows running as a script: python src/dmccodegui/main.py
     from dmccodegui.app_state import MachineState
     from dmccodegui.auth.auth_manager import AuthManager
@@ -62,6 +90,7 @@ except Exception:  # Allows running as a script: python src/dmccodegui/main.py
     from dmccodegui.hmi.mg_reader import MgReader
     from dmccodegui.hmi.dmc_vars import STATE_SETUP
     import dmccodegui.machine_config as mc
+    from dmccodegui import __version__
 
 
 KV_FILES = [
@@ -72,7 +101,6 @@ KV_FILES = [
     "ui/setup.kv",         # SetupScreen (connection)
     # Machine-specific KV loaded by _add_machine_screens() before this loop
     "ui/profiles.kv",      # ProfilesScreen (CSV import/export)
-    "ui/diagnostics.kv",   # DiagnosticsScreen placeholder
     "ui/users.kv",         # UsersScreen (Admin)
     "ui/base.kv",          # RootLayout - always last
 ]
@@ -110,6 +138,7 @@ def _resolve_dotted_path(dotted: str):
 
 
 class DMCApp(App):
+    title = f'Binh An HMI v{__version__}'
     # Top-of-app banner text for alerts/logs
     banner_text = StringProperty("")
 
@@ -122,14 +151,11 @@ class DMCApp(App):
         self._idle_event = None
         self.mg_reader = MgReader()
         # AuthManager — path resolved at __init__ time so tests can override
-        users_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "auth", "users.json"
-        )
+        data_dir = _get_data_dir()
+        users_path = os.path.join(data_dir, "users.json")
         self.auth_manager = AuthManager(users_path)
         # Initialize machine_config — loads persisted machine type from settings.json
-        settings_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "auth", "settings.json"
-        )
+        settings_path = os.path.join(data_dir, "settings.json")
         mc.init(settings_path)
 
     def build(self):
@@ -875,7 +901,7 @@ class DMCApp(App):
             try:
                 tab_bar = self.root.ids.tab_bar
                 sm = self.root.ids.sm
-                if sm.current in ("axes_setup", "parameters", "diagnostics", "users"):
+                if sm.current in ("axes_setup", "parameters", "users"):
                     sm.current = "run"
                 # Reset tab bar to operator view
                 tab_bar._current_role = ""  # force rebuild

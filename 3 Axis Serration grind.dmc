@@ -19,9 +19,8 @@ CB 1,2,3,4,5,6,7,8
 'JS #INIT1
 JS #HOME
 ctSesKni = 0
-XQ #SHOWPOS, 1
 XQ #UPDSPD, 2
-XQ #ZALOOP, 3
+XQ #ZALOOP, 1
 WT 500
 MG "AUTO INIT COMPLETE"
 REM ============================================================
@@ -370,25 +369,6 @@ JP #UPDSPD
 EN
 
 REM ============================================================
-REM  SHOWPOS - track all 3 axis positions (runs on thread 1)
-#SHOWPOS
-WT 50
-aPos = _TDA
-bPos = _TDB
-cPos = _TDC
-
-idx = idx + 1
-JP #IDXOK, idx < 300
-idx = 0
-#IDXOK
-aBuf[idx] = aPos
-bBuf[idx] = bPos
-cBuf[idx] = cPos
-
-JP #SHOWPOS
-EN
-
-REM ============================================================
 REM  CONFIG - machine hardware setup
 #CONFIG
 
@@ -461,10 +441,6 @@ pitchA = 5;  ratioA = 3;  ctsRevA = 3200;
 pitchB = 5;  ratioB = 3;  ctsRevB = 3200;  
 pitchC = 5;  ratioC = 9;  ctsRevC = 3200;  
 firstC=0
-aPos=0
-bPos=0
-cPos=0
-Rmm   = 100.0;        ' wheel radius (mm)
 DM aBuf[300]
 DM bBuf[300]
 DM cBuf[300]
@@ -495,7 +471,6 @@ cpmB = (ctsRevB* ratioB) / pitchB;
 cpmC = (ctsRevC * ratioC) / pitchC;
 
 thkCt  = knfThk * cpmB;
-bOutDis= thkCt*2;
 '---- serration infeed counts (precomputed for grind loop speed) ---
 grindCt = grindDp * cpmB
 clearCt = bClear  * cpmB
@@ -517,6 +492,6 @@ EN
 ZAA=hmiState
 ZAB=ctSesKni
 ZAC=ctStnKni
-ZAD=startPtC
+ZAD=startPtB
 WT 10
 JP#ZALOOP

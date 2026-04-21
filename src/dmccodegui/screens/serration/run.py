@@ -327,15 +327,19 @@ class SerrationRunScreen(BaseRunScreen):
         self._apply_state(state)
 
     def _apply_state(self, s) -> None:
-        """Main thread: handle connection state changes only.
+        """Main thread: apply DR state updates — positions, grind detection, disconnect.
 
-        Position updates and button states are handled by one-shot read
-        (on_pre_enter) and pos_poll (during grind). This only handles
-        disconnect detection.
+        Called on every DataRecordListener packet (~10 Hz). Acts as the
+        primary source of truth for positions and state. The TCP poll in
+        _tick_pos() is kept as a secondary/fallback source; when both fire,
+        Kivy properties deduplicate identical values (no-op assignment).
+
+        Serration is 3-axis (A, B, C) — D-axis data from DR is ignored.
         """
         import time as _time
 
         if s.connected:
+            # Clear disconnect banner if reconnected
             if self.disconnect_banner:
                 self.disconnect_banner = ""
             if self._disconnect_clock:
@@ -343,7 +347,46 @@ class SerrationRunScreen(BaseRunScreen):
                 self._disconnect_clock = None
                 self._disconnect_t0 = None
 
+            # --- Position updates from DR (3-axis only, no D) ---
+            a = s.pos.get("A", 0.0)
+            b = s.pos.get("B", 0.0)
+            c = s.pos.get("C", 0.0)
+            self.pos_a = f"{int(a):,}"
+            self.pos_b = f"{int(b):,}"
+            self.pos_c = f"{int(c):,}"
+
+            # --- Knife counts from DR ---
+            self.session_knife_count = str(s.session_knife_count)
+            self.stone_knife_count = str(s.stone_knife_count)
+            # Note: stone position for serration is startPtB (B-axis), not startPtC.
+            # DR streams startPtC via ZAD which is wrong for this machine.
+            # Stone position is read via TCP in _read_start_pt_c() instead.
+
+            # --- Grind state detection from DR ---
+            dmc_state = s.dmc_state
+            now_grinding = dmc_state == STATE_GRINDING
+
+            if now_grinding:
+                # Ensure buttons are grayed out
+                if not self.motion_active:
+                    self.motion_active = True
+                if not self.cycle_running:
+                    self.cycle_running = True
+
+                # Start polling if not already running (catches late grind detection)
+                if self._pos_clock_event is None:
+                    self._start_pos_poll()
+
+            elif self.cycle_running and not now_grinding and dmc_state != 0:
+                # Grind ended: DR says no longer grinding
+                self.cycle_running = False
+                self.motion_active = False
+                self._stop_pos_poll()
+                self._stop_elapsed()
+                self._read_start_pt_c()
+
         else:
+            # Disconnected: disable all motion buttons, stop polling
             self.cycle_running = False
             self.motion_active = True
             self._stop_pos_poll()

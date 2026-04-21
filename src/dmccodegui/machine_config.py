@@ -89,10 +89,10 @@ _CONVEX_PARAM_DEFS: List[Dict] = [
     {"label": "Counts/Rev D", "var": "ctsRevD", "unit": "cts", "group": "Calibration", "min": 1.0, "max": 1000000.0},
 ]
 
-# Serration Grind param_defs — subset of Flat, D-axis entries removed, numSerr added.
-_D_AXIS_VARS = {"fdD", "pitchD", "ratioD", "ctsRevD"}
+# Serration Grind param_defs — subset of Flat, D-axis and fdB removed, serration-specific added.
+_SERRATION_EXCLUDE = {"fdD", "pitchD", "ratioD", "ctsRevD", "fdB"}
 _SERRATION_PARAM_DEFS: List[Dict] = [
-    d.copy() for d in _FLAT_PARAM_DEFS if d["var"] not in _D_AXIS_VARS
+    d.copy() for d in _FLAT_PARAM_DEFS if d["var"] not in _SERRATION_EXCLUDE
 ]
 _SERRATION_PARAM_DEFS.append({
     "label": "Num Serrations",
@@ -102,11 +102,7 @@ _SERRATION_PARAM_DEFS.append({
     "min": 1.0,
     "max": 200.0,
 })
-# --- Serration-only infeed control params (NOT added to Flat/Convex defs) ---
-# startPtB is taught ~0.1 mm off the stone; grindDp is how far past that
-# point B plunges per tooth (the actual bite). bClear is extra pullback
-# for clearance while A steps to the next tooth. edgeLef is a reference
-# hint for the operator — not used by the DMC grind math.
+# --- Serration-only params (NOT added to Flat/Convex defs) ---
 _SERRATION_PARAM_DEFS.extend([
     {
         "label": "Edge Left (ref)",
@@ -132,6 +128,27 @@ _SERRATION_PARAM_DEFS.extend([
         "min": 0.0,
         "max": 5.0,
     },
+    # B-axis split feedrates (serration uses separate in/out speeds)
+    {
+        "label": "Feed Rate B In",
+        "var": "fdBin",
+        "unit": "mm/s",
+        "group": "Feedrates",
+        "min": 0.1,
+        "max": 500.0,
+    },
+    {
+        "label": "Feed Rate B Out",
+        "var": "fdBout",
+        "unit": "mm/s",
+        "group": "Feedrates",
+        "min": 0.1,
+        "max": 500.0,
+    },
+    # Read-only CPM display (3-axis only)
+    {"label": "Counts/mm A", "var": "cpmA", "unit": "cts/mm", "group": "Info", "min": 0, "max": 9999999, "readonly": True},
+    {"label": "Counts/mm B", "var": "cpmB", "unit": "cts/mm", "group": "Info", "min": 0, "max": 9999999, "readonly": True},
+    {"label": "Counts/mm C", "var": "cpmC", "unit": "cts/mm", "group": "Info", "min": 0, "max": 9999999, "readonly": True},
 ])
 
 # ---------------------------------------------------------------------------

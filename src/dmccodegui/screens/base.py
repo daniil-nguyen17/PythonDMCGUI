@@ -848,6 +848,10 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
         if param is None:
             return 'error'
 
+        # Readonly fields are always valid (display-only)
+        if param.get('readonly', False):
+            return 'valid'
+
         try:
             value = float(text)
         except (ValueError, TypeError):
@@ -936,6 +940,7 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
             "Feedrates":   [0.024, 0.714, 0.831, 1],
             "Calibration": [0.659, 0.333, 0.965, 1],
             "Positions":   [0.659, 0.333, 0.965, 1],
+            "Info":        [0.2, 0.9, 0.3, 1],
         }
 
         # Group icons (unicode shapes for visual distinction)
@@ -1109,18 +1114,34 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
                 var_lbl.bind(size=var_lbl.setter('text_size'))
                 row.add_widget(var_lbl)
 
-                # TextInput value
-                ti = TextInput(
-                    text='',
-                    multiline=False,
-                    size_hint_x=0.28,
-                    font_size='16sp',
-                    halign='center',
-                )
                 var_name = p['var']
-                ti.bind(text=lambda widget, text, v=var_name: self.on_field_text_change(v, text))
-                self._field_widgets[var_name] = ti
-                row.add_widget(ti)
+                is_readonly = p.get('readonly', False)
+
+                if is_readonly:
+                    # Read-only: use a Label instead of TextInput
+                    val_lbl = Label(
+                        text='---',
+                        font_size='16sp',
+                        size_hint_x=0.28,
+                        halign='center',
+                        valign='middle',
+                        color=list(theme.text_mid),
+                    )
+                    val_lbl.bind(size=val_lbl.setter('text_size'))
+                    self._field_widgets[var_name] = val_lbl
+                    row.add_widget(val_lbl)
+                else:
+                    # Editable: TextInput value
+                    ti = TextInput(
+                        text='',
+                        multiline=False,
+                        size_hint_x=0.28,
+                        font_size='16sp',
+                        halign='center',
+                    )
+                    ti.bind(text=lambda widget, text, v=var_name: self.on_field_text_change(v, text))
+                    self._field_widgets[var_name] = ti
+                    row.add_widget(ti)
 
                 # Unit label
                 unit_lbl = Label(
@@ -1134,7 +1155,7 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
                 unit_lbl.bind(size=unit_lbl.setter('text_size'))
                 row.add_widget(unit_lbl)
 
-                # Dirty dot indicator
+                # Dirty dot indicator (hidden for readonly fields)
                 dot = Widget(
                     size_hint=(None, None),
                     size=(dp(14), dp(14)),
@@ -1388,9 +1409,11 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
 
         param_defs_snapshot = mc.get_param_defs()
 
-        # Collect values: prefer text field, then controller cache
+        # Collect values: prefer text field, then controller cache (skip readonly)
         values: dict[str, str] = {}
         for p in param_defs_snapshot:
+            if p.get('readonly', False):
+                continue
             var = p['var']
             widget = self._field_widgets.get(var)
             text = ''

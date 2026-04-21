@@ -53,10 +53,10 @@
                     size: self.size
                     radius: [8, 8, 0, 0]
                 Color:
-                    rgba: theme.border
+                    rgba: 0.024, 0.714, 0.831, 0.8
                 Line:
                     rounded_rectangle: (self.x, self.y, self.width, self.height, 8, 8, 0, 0)
-                    width: 1.2
+                    width: 1.4
 
         # bComp elements (full width, horizontal strip)
         BCompPanel:
@@ -70,10 +70,10 @@
                     size: self.size
                     radius: [0, 0, 8, 8]
                 Color:
-                    rgba: theme.border
+                    rgba: 0.024, 0.714, 0.831, 0.8
                 Line:
                     rounded_rectangle: (self.x, self.y, self.width, self.height, 0, 0, 8, 8)
-                    width: 1.2
+                    width: 1.4
 
         # Spacer between bComp and cComp
         Widget:
@@ -157,10 +157,10 @@
                             size: self.size
                             radius: [8,]
                         Color:
-                            rgba: theme.border
+                            rgba: 0.980, 0.569, 0.043, 0.8
                         Line:
                             rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
-                            width: 1.2
+                            width: 1.4
 
                     BoxLayout:
                         orientation: 'horizontal'
@@ -245,10 +245,10 @@
                             size: self.size
                             radius: [8,]
                         Color:
-                            rgba: theme.border
+                            rgba: 0.2, 0.9, 0.3, 0.8
                         Line:
                             rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
-                            width: 1.2
+                            width: 1.4
 
                     GridLayout:
                         cols: 2
@@ -389,10 +389,10 @@
                             size: self.size
                             radius: [8,]
                         Color:
-                            rgba: theme.border
+                            rgba: 0.9, 0.2, 0.9, 0.8
                         Line:
                             rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
-                            width: 1.2
+                            width: 1.4
 
                     Label:
                         text: 'THÔNG TIN TỪ MÁY'
@@ -420,7 +420,7 @@
                             size_hint_y: None
                             height: max(self.texture_size[1], mg_log_scroll.height)
 
-                # Stone Compensation (compact, horizontal)
+                # Stone Compensation (B-axis for serration)
                 BoxLayout:
                     orientation: 'horizontal'
                     size_hint_y: 0.2
@@ -434,17 +434,17 @@
                             size: self.size
                             radius: [8,]
                         Color:
-                            rgba: theme.border
+                            rgba: 0.9, 0.9, 0.2, 0.8
                         Line:
                             rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
-                            width: 1.2
+                            width: 1.4
 
-                    # Label + value on left
+                    # Label + value on left (B-axis stone comp for serration)
                     BoxLayout:
                         orientation: 'vertical'
                         size_hint_x: 0.35
                         Label:
-                            text: 'BÙ - BỚT ĐÁ'
+                            text: 'BÙ / BỚT ĐÁ (B)'
                             font_size: '20sp'
                             bold: True
                             color: theme.text_mid
@@ -452,9 +452,9 @@
                             valign: 'bottom'
                             text_size: self.size
                         Label:
-                            id: start_pt_c_label
+                            id: start_pt_b_label
                             text: root.start_pt_c
-                            font_size: '36sp'
+                            font_size: '24sp'
                             bold: True
                             color: theme.text_main
                             halign: 'left'

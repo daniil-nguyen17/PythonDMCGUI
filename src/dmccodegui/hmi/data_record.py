@@ -288,8 +288,8 @@ class DataRecordListener:
         # Small delay for controller to establish UDP handle
         time.sleep(0.3)
 
-        # 5. Send DR command: start streaming
-        self._current_rate = DR_RATE_NORMAL
+        # 5. Send DR command: start streaming at 10 Hz (constant rate)
+        self._current_rate = DR_RATE_GRIND
         dr_cmd = f"DR {self._current_rate},{self._handle_index}"
         try:
             controller.cmd(dr_cmd)
@@ -342,29 +342,13 @@ class DataRecordListener:
     # ------------------------------------------------------------------
 
     def _check_rate_change(self, dmc_state: int) -> None:
-        """Switch DR rate when grinding state changes.
+        """No-op — DR rate is fixed at 10 Hz (DR_RATE_GRIND = 100).
 
-        Called from _parse_and_apply on the listener thread.
-        Sends DR command via jobs.submit (TCP, one-shot, no contention).
+        Previously switched between 5 Hz (idle) and 10 Hz (grinding), but the
+        rate-change TCP command could contend with hmiGrnd and other urgent
+        commands, causing missed state transitions.
         """
-        grinding = dmc_state == STATE_GRINDING
-        target_rate = DR_RATE_GRIND if grinding else DR_RATE_NORMAL
-
-        if target_rate != self._current_rate:
-            self._current_rate = target_rate
-            handle_idx = self._handle_index
-
-            def _set_rate():
-                ctrl = self._controller_ref
-                if ctrl and ctrl.is_connected():
-                    try:
-                        ctrl.cmd(f"DR {target_rate},{handle_idx}")
-                        logger.info("[DR] Rate changed to DR %d (%.0f Hz)",
-                                    target_rate, 1000.0 / target_rate)
-                    except Exception as e:
-                        logger.warning("[DR] Rate change failed: %s", e)
-
-            jobs.submit(_set_rate)
+        pass
 
     # ------------------------------------------------------------------
     # Listener thread

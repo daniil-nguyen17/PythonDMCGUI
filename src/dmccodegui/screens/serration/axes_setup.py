@@ -71,12 +71,11 @@ from ...hmi.dmc_vars import (
 import dmccodegui.machine_config as mc
 from ..base import BaseAxesSetupScreen
 
-# Default CPM values per axis. Read from controller on enter; fall back if read fails.
+# Default CPM values per axis. Serration is 3-axis (A, B, C) — no D axis.
 AXIS_CPM_DEFAULTS: dict[str, float] = {
     "A": 1200.0,
     "B": 1200.0,
     "C": 800.0,
-    "D": 500.0,
 }
 
 # Axis display names (used in code references; KV has its own labels)
@@ -84,7 +83,6 @@ AXIS_LABELS: dict[str, str] = {
     "A": "A  Knife Length",
     "B": "B  Knife Curve",
     "C": "C  Grinder Up/Down",
-    "D": "D  Knife Angle",
 }
 
 # Axis accent colors (r, g, b, a) matching theme.kv comments
@@ -92,24 +90,20 @@ AXIS_COLORS: dict[str, list[float]] = {
     "A": [0.980, 0.569, 0.043, 1],   # orange
     "B": [0.659, 0.333, 0.965, 1],   # purple
     "C": [0.024, 0.714, 0.831, 1],   # cyan
-    "D": [0.980, 0.749, 0.043, 1],   # yellow
 }
 
-# Map axis letter to KV id for axis row (D absent in Serration KV — get() returns None gracefully)
+# Map axis letter to KV id for axis row — Serration has no D axis row
 _AXIS_ROW_IDS: dict[str, str] = {
     "A": "axis_row_a",
     "B": "axis_row_b",
     "C": "axis_row_c",
-    "D": "axis_row_d",
 }
 
 
 class SerrationAxesSetupScreen(BaseAxesSetupScreen):
     """All-axes setup screen with mode toggle, jog per axis, and save button.
 
-    Serration variant: 3-axis only (A, B, C). D-axis is absent from the KV
-    file entirely. _rebuild_axis_rows() calls self.ids.get("axis_row_d") which
-    returns None gracefully — no special handling needed.
+    Serration variant: 3-axis only (A, B, C). No D-axis.
 
     Inherits controller/state ObjectProperties, jog infrastructure, CPM read pattern,
     and setup-mode lifecycle from BaseAxesSetupScreen.
@@ -121,18 +115,18 @@ class SerrationAxesSetupScreen(BaseAxesSetupScreen):
     # Command response log for setup operations
     cmd_log_text = StringProperty("")
 
-    # Current jog step size in mm (or degrees for D axis)
+    # Current jog step size in mm
     _current_step_mm = NumericProperty(10.0)
 
-    # Live position values per axis (display strings)
+    # Live position values per axis (display strings) — 3-axis only
     pos_current: dict[str, str] = DictProperty(
-        {"A": "---", "B": "---", "C": "---", "D": "---"}
+        {"A": "---", "B": "---", "C": "---"}
     )
     pos_rest: dict[str, str] = DictProperty(
-        {"A": "---", "B": "---", "C": "---", "D": "---"}
+        {"A": "---", "B": "---", "C": "---"}
     )
     pos_start: dict[str, str] = DictProperty(
-        {"A": "---", "B": "---", "C": "---", "D": "---"}
+        {"A": "---", "B": "---", "C": "---"}
     )
 
     # Suppress UI callbacks during programmatic updates
@@ -202,12 +196,12 @@ class SerrationAxesSetupScreen(BaseAxesSetupScreen):
         Uses opacity/disabled swap (NOT widget add/remove) to preserve KV ids.
         Uses mc.get_axis_list() to determine which axes are active.
         On error (machine not configured), falls back to showing all 4 axes.
-        For Serration, axis_row_d does not exist in KV — ids.get() returns None gracefully.
+        Serration is 3-axis — only A, B, C rows exist in KV.
         """
         try:
             axis_list = mc.get_axis_list()
         except ValueError:
-            axis_list = ["A", "B", "C", "D"]
+            axis_list = ["A", "B", "C"]
 
         if not axis_list:
             print("[SerrationAxesSetupScreen] _rebuild_axis_rows: empty axis_list, skipping")
@@ -251,7 +245,7 @@ class SerrationAxesSetupScreen(BaseAxesSetupScreen):
         KV expressions like root.pos_current.get('A') do NOT rebind when the
         dict changes, so we must update the Label.text imperatively.
         """
-        for axis in ("A", "B", "C", "D"):
+        for axis in ("A", "B", "C"):
             lbl = self.ids.get(f"pos_{axis.lower()}")
             if lbl:
                 lbl.text = self.pos_current.get(axis, "---")
@@ -267,9 +261,9 @@ class SerrationAxesSetupScreen(BaseAxesSetupScreen):
             source = self.pos_start
         else:
             label_text = "---"
-            source = {"A": "---", "B": "---", "C": "---", "D": "---"}
+            source = {"A": "---", "B": "---", "C": "---"}
 
-        for axis in ("A", "B", "C", "D"):
+        for axis in ("A", "B", "C"):
             lbl = self.ids.get(f"saved_label_{axis.lower()}")
             val = self.ids.get(f"saved_val_{axis.lower()}")
             if lbl:

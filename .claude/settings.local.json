@@ -27,7 +27,10 @@
       "Bash(timeout 8 python -m dmccodegui.main)",
       "Bash(python -c \"from src.dmccodegui.screens.base import BaseAxesSetupScreen, BaseParametersScreen; print\\('OK'\\)\")",
       "Bash(python -c \"from src.dmccodegui.screens.flat_grind.run import FlatGrindRunScreen; print\\('OK'\\)\")",
-      "Bash(python -c \"from src.dmccodegui.screens.serration.run import SerrationRunScreen; print\\('OK'\\)\")"
+      "Bash(python -c \"from src.dmccodegui.screens.serration.run import SerrationRunScreen; print\\('OK'\\)\")",
+      "Bash(python -c \"from src.dmccodegui.hmi.data_record import DataRecordListener; print\\('OK'\\)\")",
+      "Bash(python -c \"from src.dmccodegui.screens.serration.run import SerrationRunScreen; from src.dmccodegui.screens.serration.axes_setup import SerrationAxesSetupScreen; print\\('OK'\\)\")",
+      "Bash(python -c \"from src.dmccodegui.screens.serration.parameters import SerrationParametersScreen; from src.dmccodegui.machine_config import _SERRATION_PARAM_DEFS; print\\(f'Params: {len\\(_SERRATION_PARAM_DEFS\\)}'\\); print\\([p['var'] for p in _SERRATION_PARAM_DEFS]\\)\")"
     ]
   }
 }

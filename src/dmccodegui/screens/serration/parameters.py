@@ -48,6 +48,7 @@ GROUP_COLORS: dict[str, list[float]] = {
     "Geometry":    [0.980, 0.569, 0.043, 1],   # orange
     "Feedrates":   [0.024, 0.714, 0.831, 1],   # cyan
     "Calibration": [0.659, 0.333, 0.965, 1],   # purple
+    "Info":        [0.2, 0.9, 0.3, 1],          # green
 }
 
 

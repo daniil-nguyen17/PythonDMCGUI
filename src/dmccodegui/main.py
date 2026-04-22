@@ -9,7 +9,10 @@ if getattr(sys, 'frozen', False):
     del _meipass
 
 import importlib
+import logging
+import logging.handlers
 import os
+import traceback
 
 
 def _get_data_dir() -> str:
@@ -30,6 +33,66 @@ def _get_data_dir() -> str:
         )
     os.makedirs(data_dir, exist_ok=True)
     return data_dir
+
+
+def setup_logging() -> None:
+    """Configure the root logger with a rotating file handler and optional console handler.
+
+    File handler: logs/app.log under _get_data_dir(), 5 MB limit, 3 backups, UTF-8.
+    Console handler: only attached when sys.stderr is not None (frozen apps with
+    console=False have stderr=None, so we guard against that).
+    Root logger level set to DEBUG so all records reach handlers.
+
+    Call this once at startup, before any Kivy imports.
+    """
+    log_dir = os.path.join(_get_data_dir(), "logs")
+    os.makedirs(log_dir, exist_ok=True)
+
+    log_file = os.path.join(log_dir, "app.log")
+    file_handler = logging.handlers.RotatingFileHandler(
+        log_file,
+        maxBytes=5 * 1024 * 1024,
+        backupCount=3,
+        encoding="utf-8",
+    )
+    formatter = logging.Formatter(
+        fmt="%(asctime)s %(levelname)s [%(module)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    file_handler.setFormatter(formatter)
+
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)
+    root.addHandler(file_handler)
+
+    if sys.stderr is not None:
+        console_handler = logging.StreamHandler(sys.stderr)
+        console_handler.setFormatter(formatter)
+        root.addHandler(console_handler)
+
+
+def _setup_excepthook() -> None:
+    """Patch sys.excepthook to log uncaught exceptions before the process exits.
+
+    KeyboardInterrupt is passed through to the original hook without logging —
+    it is a user-initiated exit, not an unexpected crash.
+
+    All other exceptions are logged at CRITICAL level via the 'dmccodegui' logger
+    with the full formatted traceback before calling the original hook.
+
+    Call this once at startup, after setup_logging().
+    """
+    _original_excepthook = sys.__excepthook__
+
+    def _excepthook(exc_type, exc_value, exc_tb):
+        if issubclass(exc_type, KeyboardInterrupt):
+            _original_excepthook(exc_type, exc_value, exc_tb)
+            return
+        msg = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+        logging.getLogger("dmccodegui").critical("Uncaught exception:\n%s", msg)
+        _original_excepthook(exc_type, exc_value, exc_tb)
+
+    sys.excepthook = _excepthook
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +238,12 @@ def _detect_preset(settings_path: str) -> str:
     return "15inch"
 
 
+# Initialize logging before anything else in the pre-Kivy block.
+# This ensures all subsequent startup messages (including _detect_preset)
+# go to the rotating log file.
+setup_logging()
+_setup_excepthook()
+
 # Run preset detection and configure Kivy environment before any Kivy imports.
 _ACTIVE_PRESET_NAME: str = _detect_preset(_early_settings_path())
 _PRESET = _DISPLAY_PRESETS[_ACTIVE_PRESET_NAME]
@@ -213,6 +282,11 @@ LabelBase.register(
     fn_bolditalic=os.path.join(_FONT_DIR, 'NotoSans-BoldItalic.ttf'),
 )
 
+# Suppress Kivy's verbose DEBUG output so it doesn't flood app.log.
+# Kivy uses its own logger; setting it to WARNING keeps errors visible
+# without the per-frame and OpenGL debug noise.
+logging.getLogger("kivy").setLevel(logging.WARNING)
+
 IDLE_TIMEOUT = 30 * 60  # 30 minutes in seconds
 
 try:
@@ -241,6 +315,11 @@ except Exception:  # Allows running as a script: python src/dmccodegui/main.py
     from dmccodegui.hmi.dmc_vars import STATE_SETUP
     import dmccodegui.machine_config as mc
     from dmccodegui import __version__
+
+# Module-level logger — all components in main.py use this.
+# setup_logging() must be called before any code that uses _log (it is, in the
+# pre-Kivy execution block above).
+_log = logging.getLogger(__name__)
 
 
 KV_FILES = [
@@ -323,8 +402,7 @@ class DMCApp(App):
                 _load_kv_fn = _resolve_dotted_path(entry["load_kv"])
                 _load_kv_fn()
             except Exception as exc:
-                import logging
-                logging.getLogger(__name__).error("Failed to load machine KV: %s", exc)
+                _log.error("Failed to load machine KV: %s", exc)
 
         for kv in KV_FILES:
             Builder.load_file(os.path.join(os.path.dirname(__file__), kv))
@@ -692,9 +770,6 @@ class DMCApp(App):
         Args:
             sm: A Kivy ScreenManager (or compatible add_widget container).
         """
-        import logging
-        _log = logging.getLogger(__name__)
-
         mtype = mc.get_active_type()
         if not mtype:
             _log.debug("_add_machine_screens: no active machine type — skipping")
@@ -1191,8 +1266,7 @@ class DMCApp(App):
                     self.controller.cmd("ST ABCD")
                     self.controller.reset_handle()
             except Exception as e:
-                import logging
-                logging.getLogger(__name__).error("e_stop error: %s", e)
+                _log.error("e_stop error: %s", e)
             # Stay connected -- no disconnect() call, no navigation change
             Clock.schedule_once(lambda *_: self._log_message("E-STOP -- motion halted, program stopped"))
         jobs.submit_urgent(do_estop)

@@ -4,8 +4,8 @@ milestone: v4.0
 milestone_name: Packaging & Deployment
 status: unknown
 stopped_at: Completed 27-01-PLAN.md
-last_updated: "2026-04-22T02:07:26.986Z"
-last_activity: 2026-04-22 — Phase 26 Plan 02 complete (install.sh + 18 content-inspection tests)
+last_updated: "2026-04-22T02:08:23.044Z"
+last_activity: 2026-04-22 — Phase 27 Plan 01 complete (screeninfo preset detection, 10 TDD tests, Window.size hardcode removed)
 progress:
   total_phases: 22
   completed_phases: 4

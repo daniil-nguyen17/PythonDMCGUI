@@ -381,6 +381,11 @@ class FlatGrindRunScreen(BaseRunScreen):
                 self._stop_elapsed()
                 self._read_start_pt_c()
 
+            elif dmc_state == STATE_HOMING:
+                # Homing is active motion — disable motion buttons
+                if not self.motion_active:
+                    self.motion_active = True
+
         else:
             # Disconnected: disable all motion buttons, stop polling
             self.cycle_running = False
@@ -1124,21 +1129,23 @@ class FlatGrindRunScreen(BaseRunScreen):
         return self._offsets_to_delta_c_cumulative()
 
     def _offsets_to_delta_c_cumulative(self) -> list[float]:
-        """Cumulative mode: each bar's offset carries forward for all subsequent indices.
+        """Cumulative mode: windowed triangular ramps centered on each segment.
 
-        The offset at each bar is a CHANGE from the previous level. To return
-        to baseline, the user must add the opposite offset in a later bar.
+        The stone grinding surface is ~40mm wide (~30 indices per STONE_WINDOW_INDICES).
+        A point change is physically impossible — the stone blends over its contact width.
 
-        Example (5 bars, bar 3 = +50):
-          Bar 1: +0   → cumulative = 0    → indices  0-19 all get 0
-          Bar 2: +0   → cumulative = 0    → indices 20-39 all get 0
-          Bar 3: +50  → cumulative = 50   → indices 40-59 transition to 50
-          Bar 4: +0   → cumulative = 50   → indices 60-79 stay at 50
-          Bar 5: +0   → cumulative = 50   → indices 80-99 stay at 50
+        Each segment's offset creates a triangular ramp across the stone window:
+          - Ramp UP:   constant +val/half from (center - half) to center
+          - Ramp DOWN: constant -val/half from center to (center + half)
 
-        deltaC values are the incremental changes needed to produce this
-        cumulative position profile. Within each bar's range, the offset
-        change is distributed evenly across the bar width for smooth ramping.
+        The cumulative sum of the output equals the actual C-axis position profile.
+        Multiple segments' ramps add together where they overlap, producing smooth
+        cumulative profiles for adjacent non-zero bars.
+
+        Properties:
+          - Net sum ≈ 0 per segment (the stone returns to baseline after each pass)
+          - Peak of cumsum ≈ offset value, located at segment center
+          - Uniform adjacent segments accumulate constructively in the mid-region
         """
         n = max(1, int(self.section_count))
         size = DELTA_C_ARRAY_SIZE
@@ -1146,30 +1153,34 @@ class FlatGrindRunScreen(BaseRunScreen):
         while len(offsets) < n:
             offsets.append(0.0)
 
-        # Build the desired cumulative position profile
-        # Each bar's offset adds to the running total
-        position = [0.0] * size
+        result: list[float] = [0.0] * size
         chunk = size // n
-        cumulative = 0.0
+        half = STONE_WINDOW_INDICES // 2  # stone window half-width (~15 indices)
 
         for i in range(n):
+            val = offsets[i]
+            if val == 0.0:
+                continue
+
+            # Segment center in deltaC index space
             first = i * chunk
             last = (first + chunk - 1) if i < n - 1 else (size - 1)
-            prev_level = cumulative
-            cumulative += offsets[i]
+            center = (first + last) // 2
 
-            # Ramp smoothly from prev_level to cumulative across this bar
-            span = last - first + 1
-            for j in range(span):
-                t = j / max(1, span - 1)  # 0.0 to 1.0
-                position[first + j] = prev_level + (cumulative - prev_level) * t
+            # Ramp boundaries (clamped to array)
+            ramp_start = max(0, center - half)
+            ramp_end = min(size - 1, center + half)
 
-        # Convert position profile to incremental deltaC
-        # Positive C = more grinding (stone moves down toward knife)
-        result = [0.0] * size
-        result[0] = position[0]
-        for i in range(1, size):
-            result[i] = position[i] - position[i - 1]
+            # Increment per step (using ideal half-width for consistent scaling)
+            inc = val / half if half > 0 else val
+
+            # Ramp up: constant positive increment from ramp_start to center
+            for j in range(ramp_start, center):
+                result[j] += inc
+
+            # Ramp down: constant negative increment from center to ramp_end
+            for j in range(center, ramp_end):
+                result[j] -= inc
 
         return result
 

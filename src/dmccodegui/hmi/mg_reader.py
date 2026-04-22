@@ -159,23 +159,22 @@ class MgReader:
     def _dispatch_message(self, line: str) -> None:
         """Classify *line* and schedule dispatch to appropriate handlers.
 
-        ALL messages are sent to log_handlers so the controller log shows
-        everything. State and position messages are additionally routed to
-        their specialized handlers for structured processing.
+        STATE:N and position messages route exclusively to their specialized
+        handlers — they do NOT reach log_handlers (operator log stays clean).
+        Only freeform text goes to log_handlers.
         """
         kind, value = self._classify_line(line)
 
-        # Always send raw line to log handlers (controller log shows everything)
-        for fn in list(self._log_handlers):
-            Clock.schedule_once(lambda dt, _fn=fn, _v=line: _fn(_v))
-
-        # Additionally route to specialized handlers
         if kind == "state":
             for fn in list(self._state_handlers):
                 Clock.schedule_once(lambda dt, _fn=fn, _v=value: _fn(_v))
         elif kind == "position":
             for fn in list(self._position_handlers):
                 Clock.schedule_once(lambda dt, _fn=fn, _v=value: _fn(_v))
+        else:
+            # Freeform log text only — state and position are filtered out
+            for fn in list(self._log_handlers):
+                Clock.schedule_once(lambda dt, _fn=fn, _v=line: _fn(_v))
 
     # ------------------------------------------------------------------
     # Background loop

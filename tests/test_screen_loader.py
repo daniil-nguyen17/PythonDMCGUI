@@ -123,6 +123,9 @@ class _BareApp:
         if hasattr(self, 'mg_reader') and self.mg_reader:
             self.mg_reader.stop()
 
+    def _stop_dr(self):
+        pass  # No DR listener in unit tests
+
 
 def test_add_machine_screens_adds_run_axes_setup_parameters():
     """_add_machine_screens adds screens with names 'run', 'axes_setup', 'parameters'."""

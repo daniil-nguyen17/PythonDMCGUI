@@ -135,6 +135,9 @@ class SetupScreenMixin:
         if not (self.controller and self.controller.is_connected()):  # type: ignore[attr-defined]
             return
 
+        # Capture original state BEFORE the optimistic pre-set modifies it
+        cached_state = getattr(self.state, 'dmc_state', None) if self.state is not None else None  # type: ignore[attr-defined]
+
         # Optimistic pre-set: if cached state isn't motion, mark as STATE_SETUP
         # so jog_axis's gate unblocks immediately. Background job verifies.
         if self.state is not None:  # type: ignore[attr-defined]
@@ -148,6 +151,13 @@ class SetupScreenMixin:
         def do_enter():
             import time  # noqa: PLC0415
             try:
+                # If cached state says already in setup, skip hmiSetp and fresh read.
+                # This handles the case where the operator navigates between setup
+                # siblings (axes_setup <-> parameters) without leaving setup mode.
+                if cached_state == STATE_SETUP:
+                    Clock.schedule_once(lambda *_, s=STATE_SETUP: self._apply_dmc_state(s))
+                    return
+
                 # Fresh read — confirm or correct the optimistic pre-set
                 raw = ctrl.cmd(f"MG {HMI_STATE_VAR}").strip()
                 current = int(float(raw))

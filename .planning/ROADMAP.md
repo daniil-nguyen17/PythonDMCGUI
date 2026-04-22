@@ -408,7 +408,7 @@ Plans:
 | 23. Controller Communication Optimization | v3.0 | 3/3 | Complete | 2026-04-13 |
 | 24. Windows PyInstaller Bundle | v4.0 | 2/2 | Complete | 2026-04-21 |
 | 25. Windows Inno Setup Installer | v4.0 | 2/2 | Complete | 2026-04-22 |
-| 26. Pi OS Preparation and Install Script | 2/2 | Complete   | 2026-04-22 | - |
+| 26. Pi OS Preparation and Install Script | 2/2 | Complete    | 2026-04-22 | - |
 | 27. Screen Resolution Detection | v4.0 | 0/TBD | Not started | - |
 | 28. Logging Infrastructure | v4.0 | 0/TBD | Not started | - |
 | 29. Integration Testing and Field Validation | v4.0 | 0/TBD | Not started | - |

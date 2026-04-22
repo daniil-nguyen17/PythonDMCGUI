@@ -4,8 +4,8 @@ milestone: v4.0
 milestone_name: Packaging & Deployment
 status: unknown
 stopped_at: Completed 26-02-PLAN.md
-last_updated: "2026-04-22T01:30:52.597Z"
-last_activity: 2026-04-22 — Phase 26 Plan 01 complete (Linux data-dir branch + deploy/pi/ skeleton)
+last_updated: "2026-04-22T01:31:48.652Z"
+last_activity: 2026-04-22 — Phase 26 Plan 02 complete (install.sh + 18 content-inspection tests)
 progress:
   total_phases: 22
   completed_phases: 3

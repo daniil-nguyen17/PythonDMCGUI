@@ -72,7 +72,7 @@ Full details: `.planning/milestones/v3.0-ROADMAP.md`
 - [ ] **Phase 24: Windows PyInstaller Bundle** — PyInstaller spec, gclib DLL vendoring, frozen path fixes (WIN-01, WIN-02, WIN-05, WIN-07)
 - [x] **Phase 25: Windows Inno Setup Installer** — .exe installer, Start Menu/Desktop shortcuts, Add/Remove Programs, optional auto-start (WIN-03, WIN-04, WIN-06) (completed 2026-04-22)
 - [x] **Phase 26: Pi OS Preparation and Install Script** — X11 switch, Galil .deb, venv, desktop app install (PI-01, PI-04, PI-05) (completed 2026-04-22)
-- [ ] **Phase 27: Screen Resolution Detection** — Auto-detect at startup, display profile presets, manual override in settings.json (APP-04)
+- [x] **Phase 27: Screen Resolution Detection** — Auto-detect at startup, display profile presets, manual override in settings.json (APP-04) (completed 2026-04-22)
 - [ ] **Phase 28: Logging Infrastructure** — Rotating log file, uncaught exception hook, dev artifact exclusion (APP-01, APP-02, APP-03)
 - [ ] **Phase 29: Integration Testing and Field Validation** — Clean-VM Windows gate, Pi hardware gate, real controller validation (FIX-02, PI-06)
 
@@ -354,7 +354,7 @@ Plans:
   1. Launching the app on a 7-inch Pi touchscreen (800x480) applies the 7inch preset — font sizes and touch targets are legible and tappable without zooming
   2. Setting display_size: "10inch" in settings.json and restarting forces the 10-inch preset regardless of what screeninfo detects — the override is confirmed by a log line at startup
   3. Launching on a 1920x1080 Windows monitor applies the 15inch/desktop preset with no manual configuration
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 27-01-PLAN.md — TDD: resolution detection, preset dict, settings.json override, fullscreen fix
 
@@ -411,7 +411,7 @@ Plans:
 | 24. Windows PyInstaller Bundle | v4.0 | 2/2 | Complete | 2026-04-21 |
 | 25. Windows Inno Setup Installer | v4.0 | 2/2 | Complete | 2026-04-22 |
 | 26. Pi OS Preparation and Install Script | 2/2 | Complete    | 2026-04-22 | - |
-| 27. Screen Resolution Detection | v4.0 | 0/TBD | Not started | - |
+| 27. Screen Resolution Detection | 1/1 | Complete   | 2026-04-22 | - |
 | 28. Logging Infrastructure | v4.0 | 0/TBD | Not started | - |
 | 29. Integration Testing and Field Validation | v4.0 | 0/TBD | Not started | - |
 

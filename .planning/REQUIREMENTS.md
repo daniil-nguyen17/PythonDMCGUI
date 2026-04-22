@@ -35,7 +35,7 @@
 - [ ] **APP-01**: Rotating log file writes to platform-correct location (APPDATA on Windows, ~/.dmc_gui/logs/ on Pi) with 5 MB limit and 3 backups
 - [ ] **APP-02**: All uncaught exceptions are logged with full traceback before the app exits (sys.excepthook patched before Kivy import)
 - [ ] **APP-03**: Packages exclude non-runtime files: .md, .planning/, tests/, .xlsx, .dmc from installed bundle
-- [ ] **APP-04**: App auto-detects screen resolution at startup with manual override option in settings.json for 7"/10"/15" displays
+- [x] **APP-04**: App auto-detects screen resolution at startup with manual override option in settings.json for 7"/10"/15" displays
 
 ## Future Requirements
 
@@ -80,7 +80,7 @@
 | APP-01 | Phase 28 | Pending |
 | APP-02 | Phase 28 | Pending |
 | APP-03 | Phase 28 | Pending |
-| APP-04 | Phase 27 | Pending |
+| APP-04 | Phase 27 | Complete |
 
 **Coverage:**
 - v4.0 requirements: 20 total

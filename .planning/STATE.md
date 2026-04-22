@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Packaging & Deployment
 status: unknown
-stopped_at: Phase 27 context gathered
-last_updated: "2026-04-22T01:48:24.721Z"
+stopped_at: Completed 27-01-PLAN.md
+last_updated: "2026-04-22T02:07:26.986Z"
 last_activity: 2026-04-22 — Phase 26 Plan 02 complete (install.sh + 18 content-inspection tests)
 progress:
   total_phases: 22
-  completed_phases: 3
-  total_plans: 6
-  completed_plans: 7
+  completed_phases: 4
+  total_plans: 7
+  completed_plans: 8
 ---
 
 # Project State
@@ -20,19 +20,19 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** An operator walks up, taps their PIN, runs parts while watching a live A/B position plot, and goes home — zero friction, zero confusion, zero access to things they shouldn't touch.
-**Current focus:** v4.0 — Phase 26 complete; Phase 27 (Screen Resolution Detection) next
+**Current focus:** v4.0 — Phase 27 complete; Phase 28 (Logging Infrastructure) next
 
 ## Current Position
 
 ```
 Milestone : v4.0 Packaging & Deployment
-Phase     : 26 of 29 (Pi OS Preparation and Install Script) — Complete
-Plan      : 2 of 2 complete
-Status    : 26-01 done (Linux data-dir + deploy/pi/ skeleton); 26-02 done (install.sh + tests)
+Phase     : 27 of 29 (Screen Resolution Detection) — Complete
+Plan      : 1 of 1 complete
+Status    : 27-01 done (display preset detection + 10 tests + screeninfo in pi requirements)
 Progress  : [██████████] 100%
 ```
 
-Last activity: 2026-04-22 — Phase 26 Plan 02 complete (install.sh + 18 content-inspection tests)
+Last activity: 2026-04-22 — Phase 27 Plan 01 complete (screeninfo preset detection, 10 TDD tests, Window.size hardcode removed)
 
 ## v4.0 Phase Map
 
@@ -41,7 +41,7 @@ Last activity: 2026-04-22 — Phase 26 Plan 02 complete (install.sh + 18 content
 | 24 | Windows PyInstaller Bundle | WIN-01, WIN-02, WIN-05, WIN-07 | **Complete** |
 | 25 | Windows Inno Setup Installer | WIN-03, WIN-04, WIN-06 | **Complete** |
 | 26 | Pi OS Preparation and Install Script | PI-01 through PI-05, PI-07 | **Complete** |
-| 27 | Screen Resolution Detection | APP-04 | Not started |
+| 27 | Screen Resolution Detection | APP-04 | **Complete** |
 | 28 | Logging Infrastructure | APP-01, APP-02, APP-03 | Not started |
 | 29 | Integration Testing and Field Validation | FIX-02, PI-06 | Not started |
 
@@ -74,6 +74,9 @@ Decisions affecting current work (v4.0):
 - [Phase 26-01]: binh-an-hmi.png is 1x1 PNG placeholder from stdlib; real icon deferred to later phase
 - [Phase 26]: Test regex for aarch64 arch_info check uses if/fi block pattern rather than re.DOTALL to avoid false-positive matches across full file
 - [Phase 26]: install.sh places X11 forcing (do_wayland W1) before all apt/venv/gclib steps — enforced by test asserting x11_pos < apt_pos
+- [Phase 27-screen-resolution-detection]: screeninfo imported lazily inside _detect_preset() — prevents ImportError from blocking module load in dev/test environments
+- [Phase 27-screen-resolution-detection]: Invalid display_size in settings.json returns 15inch immediately — no auto-detect fallback (per locked plan decision)
+- [Phase 27-screen-resolution-detection]: Pi 7/10inch presets use fullscreen=auto; Windows 15inch uses borderless=1 — each preset encodes its platform fullscreen strategy
 
 ### Critical Pitfalls (from research)
 
@@ -99,7 +102,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T01:48:24.717Z
-Stopped at: Phase 27 context gathered
-Resume file: .planning/phases/27-screen-resolution-detection/27-CONTEXT.md
+Last session: 2026-04-22T02:07:26.983Z
+Stopped at: Completed 27-01-PLAN.md
+Resume file: None
 Next action: /gsd:plan-phase 26

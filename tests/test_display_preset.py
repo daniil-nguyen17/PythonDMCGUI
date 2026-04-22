@@ -150,20 +150,44 @@ class TestDetectPreset:
         fake_screeninfo.get_monitors.assert_called_once()
         assert result == "15inch", f"Expected '15inch' from 1920x1080 monitor, got {result!r}"
 
-    def test_startup_log_line(self, monkeypatch, tmp_path, capsys):
-        """_detect_preset prints a log line containing the preset name."""
+    def test_startup_log_line(self, monkeypatch, tmp_path):
+        """_detect_preset emits a log line containing the preset name.
+
+        After print() migration (Phase 28-01), the log line goes to the
+        rotating file handler rather than stdout. We verify via caplog.
+        """
+        import logging
+
         m = _load_main(monkeypatch)
 
         settings_path = str(tmp_path / "settings.json")
         with open(settings_path, "w", encoding="utf-8") as fh:
             json.dump({"display_size": "10inch"}, fh)
 
-        result = m._detect_preset(settings_path)
-        assert result == "10inch"
+        # Capture log records emitted during _detect_preset()
+        with MagicMock() as _unused:
+            pass  # just to keep imports consistent
 
-        captured = capsys.readouterr()
-        assert "10inch" in captured.out, (
-            f"Expected '10inch' in log output, got: {captured.out!r}"
+        import logging
+        records = []
+
+        class _Capture(logging.Handler):
+            def emit(self, record):
+                records.append(self.format(record))
+
+        capture_handler = _Capture()
+        capture_handler.setLevel(logging.DEBUG)
+        root = logging.getLogger()
+        root.addHandler(capture_handler)
+        try:
+            result = m._detect_preset(settings_path)
+        finally:
+            root.removeHandler(capture_handler)
+
+        assert result == "10inch"
+        combined = "\n".join(records)
+        assert "10inch" in combined, (
+            f"Expected '10inch' in log output, got: {combined!r}"
         )
 
 

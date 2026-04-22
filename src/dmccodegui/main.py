@@ -65,8 +65,14 @@ def setup_logging() -> None:
     root.setLevel(logging.DEBUG)
     root.addHandler(file_handler)
 
+    # Guard: frozen apps with console=False set sys.stderr = None.
+    # When stderr is available, always write to sys.__stderr__ (the real OS
+    # stderr) rather than sys.stderr. Kivy replaces sys.stderr with its own
+    # logger proxy after import, which would create an infinite logging loop
+    # (StreamHandler → Kivy stderr proxy → root logger → StreamHandler …).
     if sys.stderr is not None:
-        console_handler = logging.StreamHandler(sys.stderr)
+        real_stderr = getattr(sys, "__stderr__", sys.stderr) or sys.stderr
+        console_handler = logging.StreamHandler(real_stderr)
         console_handler.setFormatter(formatter)
         root.addHandler(console_handler)
 
@@ -212,11 +218,11 @@ def _detect_preset(settings_path: str) -> str:
             override = parsed.get("display_size", "")
             if override:
                 if override in _VALID_PRESETS:
-                    print(f"[display] Preset override from settings: {override}")
+                    _log.info("Preset override from settings: %s", override)
                     return override
                 else:
                     # Invalid override value — do NOT fall through to auto-detect
-                    print(f"[display] Invalid display_size '{override}' in settings.json — using 15inch default")
+                    _log.warning("Invalid display_size '%s' in settings.json -- using 15inch default", override)
                     return "15inch"
         except Exception:
             pass  # Corrupt/unreadable settings — fall through to auto-detect
@@ -229,10 +235,10 @@ def _detect_preset(settings_path: str) -> str:
         if monitors:
             mon = monitors[0]
             preset = _classify_resolution(mon.width, mon.height)
-            print(f"[display] Auto-detected preset '{preset}' from {mon.width}x{mon.height}")
+            _log.info("Auto-detected preset '%s' from %dx%d", preset, mon.width, mon.height)
             return preset
     except Exception as exc:
-        print(f"[display] screeninfo unavailable ({exc}) — using 15inch default")
+        _log.warning("screeninfo unavailable (%s) -- using 15inch default", exc)
 
     # Priority 3: safe fallback
     return "15inch"
@@ -243,6 +249,10 @@ def _detect_preset(settings_path: str) -> str:
 # go to the rotating log file.
 setup_logging()
 _setup_excepthook()
+
+# Module-level logger — must be defined after setup_logging() so the root logger
+# is configured, and before _detect_preset() so its _log.info/warning calls work.
+_log = logging.getLogger(__name__)
 
 # Run preset detection and configure Kivy environment before any Kivy imports.
 _ACTIVE_PRESET_NAME: str = _detect_preset(_early_settings_path())
@@ -315,11 +325,6 @@ except Exception:  # Allows running as a script: python src/dmccodegui/main.py
     from dmccodegui.hmi.dmc_vars import STATE_SETUP
     import dmccodegui.machine_config as mc
     from dmccodegui import __version__
-
-# Module-level logger — all components in main.py use this.
-# setup_logging() must be called before any code that uses _log (it is, in the
-# pre-Kivy execution block above).
-_log = logging.getLogger(__name__)
 
 
 KV_FILES = [
@@ -1103,7 +1108,7 @@ class DMCApp(App):
                     if key in params:
                         state.pos[axis] = params[key]
                 state.notify()
-                print(f"[preload] Cached {len(params)} params from controller")
+                _log.info("Cached %d params from controller", len(params))
 
             Clock.schedule_once(_apply)
 
@@ -1164,10 +1169,10 @@ class DMCApp(App):
                 pass
         if addr:
             self.mg_reader.start(addr)
-            print(f"[MgReader] start requested with addr={addr}, "
-                  f"log_handlers={len(self.mg_reader._log_handlers)}")
+            _log.info("MgReader start requested with addr=%s, log_handlers=%d",
+                      addr, len(self.mg_reader._log_handlers))
         else:
-            print("[MgReader] no address available — MG reader not started")
+            _log.warning("MgReader: no address available -- MG reader not started")
 
     def _stop_mg_reader(self) -> None:
         """Stop the app-wide MgReader."""

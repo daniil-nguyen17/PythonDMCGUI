@@ -71,7 +71,7 @@ Full details: `.planning/milestones/v3.0-ROADMAP.md`
 
 - [ ] **Phase 24: Windows PyInstaller Bundle** — PyInstaller spec, gclib DLL vendoring, frozen path fixes (WIN-01, WIN-02, WIN-05, WIN-07)
 - [x] **Phase 25: Windows Inno Setup Installer** — .exe installer, Start Menu/Desktop shortcuts, Add/Remove Programs, optional auto-start (WIN-03, WIN-04, WIN-06) (completed 2026-04-22)
-- [ ] **Phase 26: Pi OS Preparation and Install Script** — X11 switch, Galil .deb, venv, systemd kiosk, hardware watchdog (PI-01, PI-02, PI-03, PI-04, PI-05, PI-07)
+- [ ] **Phase 26: Pi OS Preparation and Install Script** — X11 switch, Galil .deb, venv, desktop app install (PI-01, PI-04, PI-05)
 - [ ] **Phase 27: Screen Resolution Detection** — Auto-detect at startup, display profile presets, manual override in settings.json (APP-04)
 - [ ] **Phase 28: Logging Infrastructure** — Rotating log file, uncaught exception hook, dev artifact exclusion (APP-01, APP-02, APP-03)
 - [ ] **Phase 29: Integration Testing and Field Validation** — Clean-VM Windows gate, Pi hardware gate, real controller validation (FIX-02, PI-06)
@@ -334,15 +334,17 @@ Plans:
 - [ ] 25-02-PLAN.md — Build installer and human verification (shortcuts, Add/Remove, auto-start, firewall, uninstall)
 
 ### Phase 26: Pi OS Preparation and Install Script
-**Goal**: A fresh Raspberry Pi 4 or 5 running Bookworm boots into the app fullscreen with no path to the desktop — install.sh handles everything from X11 forcing through systemd enable, and a hardware watchdog detects frozen-but-alive states
+**Goal**: A single install.sh script sets up the Binh An HMI as a normal desktop application on a fresh Raspberry Pi 4/5 running 64-bit Pi OS Bookworm — X11 forcing, apt dependencies (including aarch64 Kivy build toolchain), Galil gclib, venv, pip install, desktop shortcut, screen blanking disable, and SSH enable. Kiosk lockdown deferred to a future phase.
 **Depends on**: Phase 23 (v3.0 complete — parallel track, independent of Phase 24)
-**Requirements**: PI-01, PI-02, PI-03, PI-04, PI-05, PI-07
+**Requirements**: PI-01, PI-04, PI-05
 **Success Criteria** (what must be TRUE):
-  1. Running install.sh on a fresh Bookworm SD card completes without manual intervention — venv is created, all pip installs succeed, systemd unit is enabled
-  2. Rebooting the Pi after install.sh lands on the app fullscreen with no taskbar, no terminal, and no path for an operator to reach the Pi desktop or file manager
-  3. Force-killing the app process (kill -9) causes systemd to restart it within 5 seconds — Restart=on-failure is confirmed active
-  4. A frozen app that stops responding but does not exit is caught by the WatchdogSec=30 watchdog and restarted — verified by blocking the sdnotify heartbeat for 35 seconds
-**Plans**: TBD
+  1. Running install.sh on a fresh 64-bit Bookworm SD card completes without manual intervention — venv is created, all pip installs succeed (Kivy compiles from source on aarch64), desktop shortcut works
+  2. After reboot, the app launches from the desktop shortcut and reaches the PIN login screen under X11
+  3. _get_data_dir() on Linux returns ~/.binh-an-hmi/ and creates the directory on first launch
+**Plans:** 2 plans
+Plans:
+- [ ] 26-01-PLAN.md — _get_data_dir() Linux branch, deploy/pi/ skeleton files (requirements-pi.txt, .desktop, icon)
+- [ ] 26-02-PLAN.md — install.sh script and content-inspection test suite
 
 ### Phase 27: Screen Resolution Detection
 **Goal**: The app reads the display geometry before any Kivy Window import and applies the correct layout preset — operators on 7", 10", and 15" displays all get a usable interface, and a settings.json override allows a technician to force a preset without editing code
@@ -405,8 +407,8 @@ Plans:
 | 22. Convex Screen Set | v3.0 | 2/2 | Complete | 2026-04-13 |
 | 23. Controller Communication Optimization | v3.0 | 3/3 | Complete | 2026-04-13 |
 | 24. Windows PyInstaller Bundle | v4.0 | 2/2 | Complete | 2026-04-21 |
-| 25. Windows Inno Setup Installer | 2/2 | Complete   | 2026-04-22 | - |
-| 26. Pi OS Preparation and Install Script | v4.0 | 0/TBD | Not started | - |
+| 25. Windows Inno Setup Installer | v4.0 | 2/2 | Complete | 2026-04-22 |
+| 26. Pi OS Preparation and Install Script | v4.0 | 0/2 | Not started | - |
 | 27. Screen Resolution Detection | v4.0 | 0/TBD | Not started | - |
 | 28. Logging Infrastructure | v4.0 | 0/TBD | Not started | - |
 | 29. Integration Testing and Field Validation | v4.0 | 0/TBD | Not started | - |

@@ -22,10 +22,10 @@
 
 ### Pi Deployment
 
-- [ ] **PI-01**: install.sh creates a Python venv with all dependencies (Kivy, matplotlib, gclib, kivy_matplotlib_widget) on Pi OS Bookworm
+- [x] **PI-01**: install.sh creates a Python venv with all dependencies (Kivy, matplotlib, gclib, kivy_matplotlib_widget) on Pi OS Bookworm
 - [ ] **PI-02**: systemd service auto-restarts the app on crash (Restart=on-failure, RestartSec=3, StartLimitBurst=5)
 - [ ] **PI-03**: App runs fullscreen on Pi with no path for operators to reach the desktop, file manager, or terminal
-- [ ] **PI-04**: install.sh forces X11 session (disables Wayland) as its first operation — Kivy cannot run on Wayland
+- [x] **PI-04**: install.sh forces X11 session (disables Wayland) as its first operation — Kivy cannot run on Wayland
 - [ ] **PI-05**: A single install.sh script handles all Pi setup: apt deps, Galil .deb, venv creation, pip install, systemd enable, kiosk config
 - [ ] **PI-06**: Three deployment methods documented and tested: USB/SCP folder transfer, SD card image, git clone + install.sh
 - [ ] **PI-07**: systemd hardware watchdog (WatchdogSec=30) with sdnotify heartbeat in the app detects frozen-but-alive states and restarts
@@ -70,10 +70,10 @@
 | WIN-05 | Phase 24 | Complete |
 | WIN-06 | Phase 25 | Complete |
 | WIN-07 | Phase 24 | Complete |
-| PI-01 | Phase 26 | Pending |
+| PI-01 | Phase 26 | Complete |
 | PI-02 | Phase 26 | Pending |
 | PI-03 | Phase 26 | Pending |
-| PI-04 | Phase 26 | Pending |
+| PI-04 | Phase 26 | Complete |
 | PI-05 | Phase 26 | Pending |
 | PI-06 | Phase 29 | Pending |
 | PI-07 | Phase 26 | Pending |

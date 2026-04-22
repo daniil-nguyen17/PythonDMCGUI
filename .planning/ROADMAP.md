@@ -341,7 +341,7 @@ Plans:
   1. Running install.sh on a fresh 64-bit Bookworm SD card completes without manual intervention — venv is created, all pip installs succeed (Kivy compiles from source on aarch64), desktop shortcut works
   2. After reboot, the app launches from the desktop shortcut and reaches the PIN login screen under X11
   3. _get_data_dir() on Linux returns ~/.binh-an-hmi/ and creates the directory on first launch
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 26-01-PLAN.md — _get_data_dir() Linux branch, deploy/pi/ skeleton files (requirements-pi.txt, .desktop, icon)
 - [ ] 26-02-PLAN.md — install.sh script and content-inspection test suite
@@ -408,7 +408,7 @@ Plans:
 | 23. Controller Communication Optimization | v3.0 | 3/3 | Complete | 2026-04-13 |
 | 24. Windows PyInstaller Bundle | v4.0 | 2/2 | Complete | 2026-04-21 |
 | 25. Windows Inno Setup Installer | v4.0 | 2/2 | Complete | 2026-04-22 |
-| 26. Pi OS Preparation and Install Script | v4.0 | 0/2 | Not started | - |
+| 26. Pi OS Preparation and Install Script | 1/2 | In Progress|  | - |
 | 27. Screen Resolution Detection | v4.0 | 0/TBD | Not started | - |
 | 28. Logging Infrastructure | v4.0 | 0/TBD | Not started | - |
 | 29. Integration Testing and Field Validation | v4.0 | 0/TBD | Not started | - |

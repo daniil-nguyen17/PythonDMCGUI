@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Packaging & Deployment
 status: unknown
-stopped_at: Phase 26 context gathered
-last_updated: "2026-04-22T00:51:34.503Z"
+stopped_at: Completed 26-01-PLAN.md
+last_updated: "2026-04-22T01:25:34.531Z"
 last_activity: 2026-04-22 — Phase 25 complete (Inno Setup installer human-verified on Windows 11)
 progress:
   total_phases: 22
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 5
+  total_plans: 6
+  completed_plans: 6
 ---
 
 # Project State
@@ -20,19 +20,19 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** An operator walks up, taps their PIN, runs parts while watching a live A/B position plot, and goes home — zero friction, zero confusion, zero access to things they shouldn't touch.
-**Current focus:** v4.0 — Phase 25 complete, ready for Phase 26
+**Current focus:** v4.0 — Phase 26 in progress (Plan 01 done, Plan 02 next)
 
 ## Current Position
 
 ```
 Milestone : v4.0 Packaging & Deployment
-Phase     : 25 of 29 (Windows Inno Setup Installer) — COMPLETE
-Plan      : —
-Status    : Phase 25 done, ready for Phase 26
-Progress  : [██░░░░░░░░] 100%
+Phase     : 26 of 29 (Pi OS Preparation and Install Script) — In Progress
+Plan      : 1 of 2 complete
+Status    : 26-01 done (Linux data-dir + deploy/pi/ skeleton); 26-02 (install.sh) next
+Progress  : [██████████] 100%
 ```
 
-Last activity: 2026-04-22 — Phase 25 complete (Inno Setup installer human-verified on Windows 11)
+Last activity: 2026-04-22 — Phase 26 Plan 01 complete (Linux data-dir branch + deploy/pi/ skeleton)
 
 ## v4.0 Phase Map
 
@@ -40,7 +40,7 @@ Last activity: 2026-04-22 — Phase 25 complete (Inno Setup installer human-veri
 |-------|------|--------------|--------|
 | 24 | Windows PyInstaller Bundle | WIN-01, WIN-02, WIN-05, WIN-07 | **Complete** |
 | 25 | Windows Inno Setup Installer | WIN-03, WIN-04, WIN-06 | **Complete** |
-| 26 | Pi OS Preparation and Install Script | PI-01 through PI-05, PI-07 | Not started |
+| 26 | Pi OS Preparation and Install Script | PI-01 through PI-05, PI-07 | **In Progress** (1/2) |
 | 27 | Screen Resolution Detection | APP-04 | Not started |
 | 28 | Logging Infrastructure | APP-01, APP-02, APP-03 | Not started |
 | 29 | Integration Testing and Field Validation | FIX-02, PI-06 | Not started |
@@ -69,6 +69,9 @@ Decisions affecting current work (v4.0):
 - [Phase 25-windows-inno-setup-installer]: Firewall rules use delete-before-add pattern so reinstalling does not duplicate rules (idempotent)
 - [Phase 25-windows-inno-setup-installer]: AppId GUID is fixed per-script so Windows tracks upgrades correctly via Add/Remove Programs
 - [Phase 25-windows-inno-setup-installer]: Installer verified on real Windows 11: all WIN-03/WIN-04/WIN-06 criteria confirmed, APPDATA preservation and firewall rule cleanup working
+- [Phase 26-01]: _get_data_dir() Linux branch uses elif sys.platform == 'linux' — preserves all existing Windows behavior
+- [Phase 26-01]: gclib 1.0.1 py3-none-any wheel — pure-Python ctypes wrapper, architecture-neutral; native .so from apt
+- [Phase 26-01]: binh-an-hmi.png is 1x1 PNG placeholder from stdlib; real icon deferred to later phase
 
 ### Critical Pitfalls (from research)
 
@@ -94,7 +97,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T00:51:34.500Z
-Stopped at: Phase 26 context gathered
-Resume file: .planning/phases/26-pi-os-preparation-and-install-script/26-CONTEXT.md
+Last session: 2026-04-22T01:25:34.527Z
+Stopped at: Completed 26-01-PLAN.md
+Resume file: None
 Next action: /gsd:plan-phase 26

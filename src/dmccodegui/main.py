@@ -32,16 +32,165 @@ def _get_data_dir() -> str:
     return data_dir
 
 
+# ---------------------------------------------------------------------------
+# Display preset detection -- runs before any Kivy import
+# ---------------------------------------------------------------------------
+# Density values are initial estimates pending hardware validation on each
+# display size. Kept as named constants here for easy tuning.
+_DISPLAY_PRESETS: dict[str, dict] = {
+    "7inch": {
+        "density": "0.65",
+        "width": 800,
+        "height": 480,
+        "fullscreen_mode": "auto",
+        "borderless": "0",
+        "maximized": "0",
+        "resizable": "0",
+    },
+    "10inch": {
+        "density": "0.75",
+        "width": 1024,
+        "height": 600,
+        "fullscreen_mode": "auto",
+        "borderless": "0",
+        "maximized": "0",
+        "resizable": "0",
+    },
+    "15inch": {
+        "density": "1",
+        "width": 1920,
+        "height": 1080,
+        "fullscreen_mode": "0",
+        "borderless": "1",
+        "maximized": "0",
+        "resizable": "0",
+    },
+}
+
+
+def _classify_resolution(width: int, height: int) -> str:
+    """Classify a display resolution into a preset name.
+
+    Uses the short dimension (min of width/height) to handle portrait vs
+    landscape orientations uniformly.
+
+    Thresholds (inclusive):
+      short <= 480  → '7inch'
+      short <= 600  → '10inch'
+      else          → '15inch'
+
+    Ambiguous resolutions round DOWN to the larger preset (bigger fonts)
+    because the <= thresholds include each preset's native short dimension.
+
+    Args:
+        width: Display width in pixels.
+        height: Display height in pixels.
+
+    Returns:
+        One of '7inch', '10inch', '15inch'.
+    """
+    short = min(width, height)
+    if short <= 480:
+        return "7inch"
+    if short <= 600:
+        return "10inch"
+    return "15inch"
+
+
+def _early_settings_path() -> str:
+    """Return the settings.json path using the same logic as _get_data_dir().
+
+    This is a pre-init bootstrap read: Kivy has not been imported yet and
+    no App instance exists. We intentionally duplicate the path logic here
+    rather than calling _get_data_dir() so that this function has no side
+    effects (makedirs) at detection time.
+
+    Frozen (PyInstaller onedir, Windows): %APPDATA%\\BinhAnHMI\\settings.json
+    Linux (Pi, dev on Linux):             ~/.binh-an-hmi/settings.json
+    Dev (Windows, non-frozen):            src/dmccodegui/auth/settings.json
+    """
+    if getattr(sys, 'frozen', False):
+        appdata = os.environ.get('APPDATA', os.path.expanduser('~'))
+        data_dir = os.path.join(appdata, 'BinhAnHMI')
+    elif sys.platform == 'linux':
+        data_dir = os.path.join(os.path.expanduser('~'), '.binh-an-hmi')
+    else:
+        data_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), 'auth'
+        )
+    return os.path.join(data_dir, 'settings.json')
+
+
+def _detect_preset(settings_path: str) -> str:
+    """Detect the display preset to use, with settings.json override support.
+
+    Resolution detection priority:
+      1. settings.json ``display_size`` key (if file exists and value is valid).
+         Invalid value → return '15inch' immediately (do NOT fall through to
+         auto-detect, per locked decision).
+      2. screeninfo.get_monitors() auto-detection via _classify_resolution().
+      3. Any screeninfo failure → fall back to '15inch' (safe desktop default).
+
+    Args:
+        settings_path: Absolute path to settings.json. May not exist.
+
+    Returns:
+        One of '7inch', '10inch', '15inch'.
+    """
+    _VALID_PRESETS = set(_DISPLAY_PRESETS.keys())
+
+    # Priority 1: settings.json override
+    if os.path.exists(settings_path):
+        try:
+            with open(settings_path, "r", encoding="utf-8") as fh:
+                data = fh.read()
+            import json as _json
+            parsed = _json.loads(data)
+            override = parsed.get("display_size", "")
+            if override:
+                if override in _VALID_PRESETS:
+                    print(f"[display] Preset override from settings: {override}")
+                    return override
+                else:
+                    # Invalid override value — do NOT fall through to auto-detect
+                    print(f"[display] Invalid display_size '{override}' in settings.json — using 15inch default")
+                    return "15inch"
+        except Exception:
+            pass  # Corrupt/unreadable settings — fall through to auto-detect
+
+    # Priority 2: screeninfo auto-detection
+    try:
+        from screeninfo import get_monitors
+        from screeninfo.common import ScreenInfoError  # noqa: F401
+        monitors = get_monitors()
+        if monitors:
+            mon = monitors[0]
+            preset = _classify_resolution(mon.width, mon.height)
+            print(f"[display] Auto-detected preset '{preset}' from {mon.width}x{mon.height}")
+            return preset
+    except Exception as exc:
+        print(f"[display] screeninfo unavailable ({exc}) — using 15inch default")
+
+    # Priority 3: safe fallback
+    return "15inch"
+
+
+# Run preset detection and configure Kivy environment before any Kivy imports.
+_ACTIVE_PRESET_NAME: str = _detect_preset(_early_settings_path())
+_PRESET = _DISPLAY_PRESETS[_ACTIVE_PRESET_NAME]
+
 os.environ["KIVY_DPI_AWARE"] = "1"
-os.environ["KIVY_METRICS_DENSITY"] = "1"
+os.environ["KIVY_METRICS_DENSITY"] = _PRESET["density"]
 os.environ["KIVY_MOUSE"] = "mouse,multitouch_on_demand"
 from typing import cast
 from kivy.config import Config
 
-Config.set('graphics', 'fullscreen', '0')
-Config.set('graphics', 'maximized', '1')    # start maximized (fullscreen)
-Config.set('graphics', 'borderless', '0')   # keep window borders
-Config.set('graphics', 'resizable', '1')    # allow window resizing
+Config.set('graphics', 'fullscreen', _PRESET["fullscreen_mode"])
+Config.set('graphics', 'maximized', _PRESET["maximized"])
+Config.set('graphics', 'borderless', _PRESET["borderless"])
+Config.set('graphics', 'resizable', _PRESET["resizable"])
+Config.set('graphics', 'width', str(_PRESET["width"]))
+Config.set('graphics', 'height', str(_PRESET["height"]))
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')  # ensure mouse input
 
 from kivy.app import App
@@ -50,8 +199,6 @@ from kivy.clock import Clock
 from kivy.factory import Factory
 from kivy.properties import StringProperty
 from kivy.core.window import Window
-
-Window.size = (1920, 1080)                   # pick a window size you want
 
 # Register Noto Sans as the default font (Vietnamese + full Latin support)
 from kivy.core.text import LabelBase

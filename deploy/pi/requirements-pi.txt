@@ -5,5 +5,6 @@
 kivy==2.3.1
 matplotlib==3.9.4
 kivy-matplotlib-widget==0.15.0
+screeninfo==0.8.1
 # Galil gclib Python wrapper -- wraps system libgclib.so installed by apt
 gclib @ https://www.galil.com/sw/pub/python/gclib-1.0.1-py3-none-any.whl

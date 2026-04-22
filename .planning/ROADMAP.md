@@ -70,7 +70,7 @@ Full details: `.planning/milestones/v3.0-ROADMAP.md`
 **Milestone Goal:** Package the working HMI into installable bundles for Windows 11 and Raspberry Pi — zero pre-installed software required on target machines.
 
 - [ ] **Phase 24: Windows PyInstaller Bundle** — PyInstaller spec, gclib DLL vendoring, frozen path fixes (WIN-01, WIN-02, WIN-05, WIN-07)
-- [ ] **Phase 25: Windows Inno Setup Installer** — .exe installer, Start Menu/Desktop shortcuts, Add/Remove Programs, optional auto-start (WIN-03, WIN-04, WIN-06)
+- [x] **Phase 25: Windows Inno Setup Installer** — .exe installer, Start Menu/Desktop shortcuts, Add/Remove Programs, optional auto-start (WIN-03, WIN-04, WIN-06) (completed 2026-04-22)
 - [ ] **Phase 26: Pi OS Preparation and Install Script** — X11 switch, Galil .deb, venv, systemd kiosk, hardware watchdog (PI-01, PI-02, PI-03, PI-04, PI-05, PI-07)
 - [ ] **Phase 27: Screen Resolution Detection** — Auto-detect at startup, display profile presets, manual override in settings.json (APP-04)
 - [ ] **Phase 28: Logging Infrastructure** — Rotating log file, uncaught exception hook, dev artifact exclusion (APP-01, APP-02, APP-03)
@@ -328,7 +328,7 @@ Plans:
   1. Running BinhAn_HMI_v4.0.0_Setup.exe installs the app and creates Start Menu and Desktop shortcuts that launch it — confirmed on a machine that has never had the app installed
   2. The app appears in Windows Settings > Apps > Installed apps and uninstalling it via that interface removes all installed files with no leftovers in Program Files — APPDATA preserved
   3. Checking the optional "Launch at Windows startup" box during install causes the app to launch automatically on the next login — unchecking it removes the Run key
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 25-01-PLAN.md — Test scaffold, Inno Setup .iss script, build script ISCC integration
 - [ ] 25-02-PLAN.md — Build installer and human verification (shortcuts, Add/Remove, auto-start, firewall, uninstall)
@@ -405,7 +405,7 @@ Plans:
 | 22. Convex Screen Set | v3.0 | 2/2 | Complete | 2026-04-13 |
 | 23. Controller Communication Optimization | v3.0 | 3/3 | Complete | 2026-04-13 |
 | 24. Windows PyInstaller Bundle | v4.0 | 2/2 | Complete | 2026-04-21 |
-| 25. Windows Inno Setup Installer | 1/2 | In Progress|  | - |
+| 25. Windows Inno Setup Installer | 2/2 | Complete   | 2026-04-22 | - |
 | 26. Pi OS Preparation and Install Script | v4.0 | 0/TBD | Not started | - |
 | 27. Screen Resolution Detection | v4.0 | 0/TBD | Not started | - |
 | 28. Logging Infrastructure | v4.0 | 0/TBD | Not started | - |

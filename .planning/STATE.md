@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Packaging & Deployment
 status: unknown
-stopped_at: Completed 25-01-PLAN.md
-last_updated: "2026-04-21T15:22:12.160Z"
+stopped_at: Completed 25-02-PLAN.md
+last_updated: "2026-04-22T00:34:32.316Z"
 last_activity: 2026-04-21 — Phase 24 complete (PyInstaller bundle verified)
 progress:
   total_phases: 22
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -20,26 +20,26 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** An operator walks up, taps their PIN, runs parts while watching a live A/B position plot, and goes home — zero friction, zero confusion, zero access to things they shouldn't touch.
-**Current focus:** v4.0 — Phase 24 complete, ready for Phase 25
+**Current focus:** v4.0 — Phase 25 complete, ready for Phase 26
 
 ## Current Position
 
 ```
 Milestone : v4.0 Packaging & Deployment
-Phase     : 24 of 29 (Windows PyInstaller Bundle) — COMPLETE
+Phase     : 25 of 29 (Windows Inno Setup Installer) — COMPLETE
 Plan      : —
-Status    : Phase 24 done, ready for Phase 25
-Progress  : [█░░░░░░░░░] 17%
+Status    : Phase 25 done, ready for Phase 26
+Progress  : [██░░░░░░░░] 100%
 ```
 
-Last activity: 2026-04-21 — Phase 24 complete (PyInstaller bundle verified)
+Last activity: 2026-04-22 — Phase 25 complete (Inno Setup installer human-verified on Windows 11)
 
 ## v4.0 Phase Map
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 24 | Windows PyInstaller Bundle | WIN-01, WIN-02, WIN-05, WIN-07 | **Complete** |
-| 25 | Windows Inno Setup Installer | WIN-03, WIN-04, WIN-06 | Not started |
+| 25 | Windows Inno Setup Installer | WIN-03, WIN-04, WIN-06 | **Complete** |
 | 26 | Pi OS Preparation and Install Script | PI-01 through PI-05, PI-07 | Not started |
 | 27 | Screen Resolution Detection | APP-04 | Not started |
 | 28 | Logging Infrastructure | APP-01, APP-02, APP-03 | Not started |
@@ -68,6 +68,7 @@ Decisions affecting current work (v4.0):
 - [Phase 25-windows-inno-setup-installer]: ISCC step in build_windows.bat is non-fatal: PyInstaller bundle remains usable without Inno Setup installed
 - [Phase 25-windows-inno-setup-installer]: Firewall rules use delete-before-add pattern so reinstalling does not duplicate rules (idempotent)
 - [Phase 25-windows-inno-setup-installer]: AppId GUID is fixed per-script so Windows tracks upgrades correctly via Add/Remove Programs
+- [Phase 25-windows-inno-setup-installer]: Installer verified on real Windows 11: all WIN-03/WIN-04/WIN-06 criteria confirmed, APPDATA preservation and firewall rule cleanup working
 
 ### Critical Pitfalls (from research)
 
@@ -93,7 +94,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T15:22:12.157Z
-Stopped at: Completed 25-01-PLAN.md
+Last session: 2026-04-22T00:34:32.313Z
+Stopped at: Completed 25-02-PLAN.md
 Resume file: None
-Next action: /gsd:plan-phase 25
+Next action: /gsd:plan-phase 26

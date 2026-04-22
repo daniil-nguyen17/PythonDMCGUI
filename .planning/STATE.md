@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Packaging & Deployment
 status: unknown
-stopped_at: Completed 26-01-PLAN.md
-last_updated: "2026-04-22T01:25:34.531Z"
-last_activity: 2026-04-22 — Phase 25 complete (Inno Setup installer human-verified on Windows 11)
+stopped_at: Completed 26-02-PLAN.md
+last_updated: "2026-04-22T01:30:52.597Z"
+last_activity: 2026-04-22 — Phase 26 Plan 01 complete (Linux data-dir branch + deploy/pi/ skeleton)
 progress:
   total_phases: 22
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 6
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # Project State
@@ -20,19 +20,19 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** An operator walks up, taps their PIN, runs parts while watching a live A/B position plot, and goes home — zero friction, zero confusion, zero access to things they shouldn't touch.
-**Current focus:** v4.0 — Phase 26 in progress (Plan 01 done, Plan 02 next)
+**Current focus:** v4.0 — Phase 26 complete; Phase 27 (Screen Resolution Detection) next
 
 ## Current Position
 
 ```
 Milestone : v4.0 Packaging & Deployment
-Phase     : 26 of 29 (Pi OS Preparation and Install Script) — In Progress
-Plan      : 1 of 2 complete
-Status    : 26-01 done (Linux data-dir + deploy/pi/ skeleton); 26-02 (install.sh) next
+Phase     : 26 of 29 (Pi OS Preparation and Install Script) — Complete
+Plan      : 2 of 2 complete
+Status    : 26-01 done (Linux data-dir + deploy/pi/ skeleton); 26-02 done (install.sh + tests)
 Progress  : [██████████] 100%
 ```
 
-Last activity: 2026-04-22 — Phase 26 Plan 01 complete (Linux data-dir branch + deploy/pi/ skeleton)
+Last activity: 2026-04-22 — Phase 26 Plan 02 complete (install.sh + 18 content-inspection tests)
 
 ## v4.0 Phase Map
 
@@ -40,7 +40,7 @@ Last activity: 2026-04-22 — Phase 26 Plan 01 complete (Linux data-dir branch +
 |-------|------|--------------|--------|
 | 24 | Windows PyInstaller Bundle | WIN-01, WIN-02, WIN-05, WIN-07 | **Complete** |
 | 25 | Windows Inno Setup Installer | WIN-03, WIN-04, WIN-06 | **Complete** |
-| 26 | Pi OS Preparation and Install Script | PI-01 through PI-05, PI-07 | **In Progress** (1/2) |
+| 26 | Pi OS Preparation and Install Script | PI-01 through PI-05, PI-07 | **Complete** |
 | 27 | Screen Resolution Detection | APP-04 | Not started |
 | 28 | Logging Infrastructure | APP-01, APP-02, APP-03 | Not started |
 | 29 | Integration Testing and Field Validation | FIX-02, PI-06 | Not started |
@@ -72,6 +72,8 @@ Decisions affecting current work (v4.0):
 - [Phase 26-01]: _get_data_dir() Linux branch uses elif sys.platform == 'linux' — preserves all existing Windows behavior
 - [Phase 26-01]: gclib 1.0.1 py3-none-any wheel — pure-Python ctypes wrapper, architecture-neutral; native .so from apt
 - [Phase 26-01]: binh-an-hmi.png is 1x1 PNG placeholder from stdlib; real icon deferred to later phase
+- [Phase 26]: Test regex for aarch64 arch_info check uses if/fi block pattern rather than re.DOTALL to avoid false-positive matches across full file
+- [Phase 26]: install.sh places X11 forcing (do_wayland W1) before all apt/venv/gclib steps — enforced by test asserting x11_pos < apt_pos
 
 ### Critical Pitfalls (from research)
 
@@ -97,7 +99,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T01:25:34.527Z
-Stopped at: Completed 26-01-PLAN.md
+Last session: 2026-04-22T01:30:52.594Z
+Stopped at: Completed 26-02-PLAN.md
 Resume file: None
 Next action: /gsd:plan-phase 26

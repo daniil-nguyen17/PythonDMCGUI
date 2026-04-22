@@ -15,12 +15,15 @@ import os
 def _get_data_dir() -> str:
     """Return writable directory for mutable data files.
 
-    Frozen (PyInstaller onedir): %APPDATA%\\BinhAnHMI\\
-    Dev (python -m dmccodegui):  src/dmccodegui/auth/  (unchanged)
+    Frozen (PyInstaller onedir, Windows): %APPDATA%\\BinhAnHMI\\
+    Linux (Pi, dev on Linux):             ~/.binh-an-hmi/
+    Dev (Windows, non-frozen):            src/dmccodegui/auth/
     """
     if getattr(sys, 'frozen', False):
         appdata = os.environ.get('APPDATA', os.path.expanduser('~'))
         data_dir = os.path.join(appdata, 'BinhAnHMI')
+    elif sys.platform == 'linux':
+        data_dir = os.path.join(os.path.expanduser('~'), '.binh-an-hmi')
     else:
         data_dir = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), 'auth'

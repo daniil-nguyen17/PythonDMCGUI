@@ -72,3 +72,46 @@ def test_frozen_fallback_no_appdata(monkeypatch, tmp_path):
         f"Fallback path must include 'BinhAnHMI', got {result!r}"
     )
     assert os.path.isdir(result), "Fallback directory must be created"
+
+
+def test_linux_mode_returns_home_dir(monkeypatch, tmp_path):
+    """On Linux (non-frozen), _get_data_dir() returns ~/.binh-an-hmi/."""
+    # Arrange: simulate Linux non-frozen environment
+    monkeypatch.delattr(sys, "frozen", raising=False)
+    monkeypatch.setattr(sys, "platform", "linux")
+    # Point HOME to tmp_path for deterministic expanduser("~")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+
+    import importlib
+    import dmccodegui.main as m
+    importlib.reload(m)
+
+    result = m._get_data_dir()
+
+    expected = os.path.join(str(tmp_path), ".binh-an-hmi")
+    assert result == expected, f"Expected {expected!r}, got {result!r}"
+    assert os.path.isdir(result), "_get_data_dir() must create ~/.binh-an-hmi/"
+
+
+def test_linux_mode_creates_directory(monkeypatch, tmp_path):
+    """On Linux (non-frozen), _get_data_dir() creates ~/.binh-an-hmi/ if absent."""
+    monkeypatch.delattr(sys, "frozen", raising=False)
+    monkeypatch.setattr(sys, "platform", "linux")
+    # Use a nested path that does not exist yet
+    fake_home = tmp_path / "newhome"
+    monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.setenv("USERPROFILE", str(fake_home))
+
+    import importlib
+    import dmccodegui.main as m
+    importlib.reload(m)
+
+    result = m._get_data_dir()
+
+    assert os.path.isdir(result), (
+        f"Directory {result!r} must be created even if it did not exist"
+    )
+    assert result.endswith(".binh-an-hmi"), (
+        f"Expected path ending in '.binh-an-hmi', got {result!r}"
+    )

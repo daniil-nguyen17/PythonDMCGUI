@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import logging
 import time
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 # Define CommError here to avoid circular imports
 class CommError(Exception):
@@ -60,7 +63,8 @@ class GalilTransport:
             except Exception as e:  # pragma: no cover - actual driver only in integration
                 last_err = e
                 attempt += 1
-                print(f"[TRANSPORT] command failed (attempt {attempt}/{retries+1}): {cmd} -> {e}")
+                logger.warning("command failed (attempt %d/%d): %s -> %s",
+                               attempt, retries + 1, cmd, e)
                 if attempt > retries:
                     break
                 if deadline is not None and time.monotonic() >= deadline:
@@ -68,7 +72,7 @@ class GalilTransport:
                 # short backoff
                 time.sleep(backoff_s)
         err_msg = str(last_err) if last_err else "transport error"
-        print(f"[TRANSPORT] giving up on: {cmd} err={err_msg}")
+        logger.error("giving up on command: %s err=%s", cmd, err_msg)
         raise CommError(err_msg)
 
     def _ensure_driver(self) -> GalilDriverProtocol:

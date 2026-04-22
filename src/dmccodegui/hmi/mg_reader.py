@@ -35,11 +35,14 @@ wakes every 500 ms to check the stop event regardless of DMC activity.
 """
 from __future__ import annotations
 
+import logging
 import re
 import threading
 from typing import Any, Callable
 
 from kivy.clock import Clock
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Message classification constants
@@ -188,7 +191,7 @@ class MgReader:
         try:
             import gclib  # type: ignore
         except ImportError:
-            print("[MgReader] gclib not available — MG reader disabled")
+            logger.warning("gclib not available — MG reader disabled")
             return
 
         handle = None
@@ -197,9 +200,9 @@ class MgReader:
             connection_string = f"{address} --direct --subscribe MG --timeout 500"
             handle.GOpen(connection_string)
             handle.GTimeout(500)
-            print(f"[MgReader] connected: {connection_string}")
+            logger.info("connected: %s", connection_string)
         except Exception as exc:
-            print(f"[MgReader] GOpen failed: {exc}")
+            logger.warning("GOpen failed: %s", exc)
             if handle:
                 try:
                     handle.GClose()
@@ -224,7 +227,7 @@ class MgReader:
                 handle.GClose()
             except Exception:
                 pass
-            print("[MgReader] handle closed")
+            logger.info("handle closed")
 
     # ------------------------------------------------------------------
     # Lifecycle

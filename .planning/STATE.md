@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Packaging & Deployment
 status: unknown
-stopped_at: Phase 29 context gathered
-last_updated: "2026-04-22T03:45:06.500Z"
+stopped_at: Completed 29-01-PLAN.md
+last_updated: "2026-04-22T04:16:46.647Z"
 last_activity: 2026-04-22 — Phase 28 Plan 02 complete (135 print() calls migrated to structured logging across 9 source files)
 progress:
   total_phases: 22
   completed_phases: 5
-  total_plans: 10
-  completed_plans: 11
+  total_plans: 12
+  completed_plans: 12
 ---
 
 # Project State
@@ -83,6 +83,10 @@ Decisions affecting current work (v4.0):
 - [Phase 28-logging-infrastructure]: StreamHandler uses sys.__stderr__ (not sys.stderr) to avoid Kivy stderr-proxy infinite recursion loop
 - [Phase 28-logging-infrastructure]: RotatingFileHandler at _get_data_dir()/logs/app.log with 5MB/3-backup rotation is the sole file-based log sink
 - [Phase 28-logging-infrastructure]: controller.py uses log (not logger) — matches existing pattern established before plan 02
+- [Phase 29-integration-testing-and-field-validation]: mg_reader._dispatch_message filters STATE and position out of log_handlers — class docstring intention enforced over incorrect inline docstring
+- [Phase 29-integration-testing-and-field-validation]: base._enter_setup_if_needed captures cached_state BEFORE the optimistic pre-set to correctly distinguish already-in-setup vs entering-setup cases
+- [Phase 29-integration-testing-and-field-validation]: e_stop sends HX (halt execution) before reset_handle — correct controller sequencing
+- [Phase 29-integration-testing-and-field-validation]: deltaC cumulative mode uses original windowed triangular ramp algorithm (stone contact window ~30 indices) — net-zero per segment, additive for adjacent uniform segments
 
 ### Critical Pitfalls (from research)
 
@@ -108,7 +112,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T03:45:06.496Z
-Stopped at: Phase 29 context gathered
-Resume file: .planning/phases/29-integration-testing-and-field-validation/29-CONTEXT.md
+Last session: 2026-04-22T04:16:46.643Z
+Stopped at: Completed 29-01-PLAN.md
+Resume file: None
 Next action: /gsd:plan-phase 26

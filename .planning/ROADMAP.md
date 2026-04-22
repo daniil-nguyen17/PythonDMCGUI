@@ -381,7 +381,7 @@ Plans:
   2. Running a Flat Grind cycle on the real Galil controller through the Windows installer shows the live A/B plot updating, buttons graying out during motion, and machine state updating in real-time
   3. All three Pi deployment methods produce a working kiosk: (a) USB/SCP folder transfer + install.sh, (b) SD card image write, (c) git clone + install.sh — each confirmed by a full boot-to-login-screen test
   4. The Pi kiosk with controller connected successfully runs a Flat Grind cycle — DR streaming produces live position data on the run screen
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 29-01-PLAN.md — Fix 3 pre-existing bugs (17 test failures) and create deployment READMEs
 - [ ] 29-02-PLAN.md — Windows clean-PC validation, Pi 3-method deployment validation, live Flat Grind controller test
@@ -420,7 +420,7 @@ Plans:
 | 26. Pi OS Preparation and Install Script | v4.0 | 2/2 | Complete | 2026-04-22 |
 | 27. Screen Resolution Detection | v4.0 | 1/1 | Complete | 2026-04-22 |
 | 28. Logging Infrastructure | v4.0 | 3/3 | Complete | 2026-04-22 |
-| 29. Integration Testing and Field Validation | v4.0 | 0/2 | Not started | - |
+| 29. Integration Testing and Field Validation | 1/2 | In Progress|  | - |
 
 ---
 

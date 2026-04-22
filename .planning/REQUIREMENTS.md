@@ -8,7 +8,7 @@
 ### Bug Fixes
 
 - [x] **FIX-01**: Grind-end race condition fixed — 2s grace period after on_start_grind prevents false grind-end detection from stale IDLE state in both DR and TCP poll paths (Flat Grind + Serration)
-- [ ] **FIX-02**: Flat Grind run page validated on real controller — graph draws during grind, buttons gray out during motion, machine state updates in real-time
+- [x] **FIX-02**: Flat Grind run page validated on real controller — graph draws during grind, buttons gray out during motion, machine state updates in real-time
 
 ### Windows Packaging
 
@@ -27,7 +27,7 @@
 - [ ] **PI-03**: App runs fullscreen on Pi with no path for operators to reach the desktop, file manager, or terminal
 - [x] **PI-04**: install.sh forces X11 session (disables Wayland) as its first operation — Kivy cannot run on Wayland
 - [x] **PI-05**: A single install.sh script handles all Pi setup: apt deps, Galil .deb, venv creation, pip install, systemd enable, kiosk config
-- [ ] **PI-06**: Three deployment methods documented and tested: USB/SCP folder transfer, SD card image, git clone + install.sh
+- [x] **PI-06**: Three deployment methods documented and tested: USB/SCP folder transfer, SD card image, git clone + install.sh
 - [ ] **PI-07**: systemd hardware watchdog (WatchdogSec=30) with sdnotify heartbeat in the app detects frozen-but-alive states and restarts
 
 ### App Infrastructure
@@ -62,7 +62,7 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | FIX-01 | Pre-milestone | Complete |
-| FIX-02 | Phase 29 | Pending |
+| FIX-02 | Phase 29 | Complete |
 | WIN-01 | Phase 24 | Pending |
 | WIN-02 | Phase 24 | Pending |
 | WIN-03 | Phase 25 | Complete |
@@ -75,7 +75,7 @@
 | PI-03 | Phase 26 | Pending |
 | PI-04 | Phase 26 | Complete |
 | PI-05 | Phase 26 | Complete |
-| PI-06 | Phase 29 | Pending |
+| PI-06 | Phase 29 | Complete |
 | PI-07 | Phase 26 | Pending |
 | APP-01 | Phase 28 | Complete |
 | APP-02 | Phase 28 | Complete |

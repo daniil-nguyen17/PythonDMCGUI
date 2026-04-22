@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Packaging & Deployment
 status: unknown
-stopped_at: Completed 28-01-PLAN.md
-last_updated: "2026-04-22T02:43:54.103Z"
+stopped_at: Completed 28-02-PLAN.md
+last_updated: "2026-04-22T02:55:08.303Z"
 last_activity: 2026-04-22 — Phase 28 Plan 01 complete (RotatingFileHandler logging, excepthook patch, print migration, 8 TDD tests)
 progress:
   total_phases: 22
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 10
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -20,19 +20,19 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** An operator walks up, taps their PIN, runs parts while watching a live A/B position plot, and goes home — zero friction, zero confusion, zero access to things they shouldn't touch.
-**Current focus:** v4.0 — Phase 28 Plan 01 complete; Phase 28 Plan 02 next (print migration complete, logging foundation in place)
+**Current focus:** v4.0 — Phase 28 Plan 02 complete; Phase 28 Plan 03 next (zero print() in production, all 9 files migrated)
 
 ## Current Position
 
 ```
 Milestone : v4.0 Packaging & Deployment
 Phase     : 28 of 29 (Logging Infrastructure) — In Progress
-Plan      : 1 of 3 complete
-Status    : 28-01 done (setup_logging + _setup_excepthook + 7 print() migrated, 8 new tests)
+Plan      : 2 of 3 complete
+Status    : 28-02 done (135 print() calls migrated across 9 files, zero production prints remain)
 Progress  : [██████████] 100%
 ```
 
-Last activity: 2026-04-22 — Phase 28 Plan 01 complete (RotatingFileHandler logging, excepthook patch, print migration, 8 TDD tests)
+Last activity: 2026-04-22 — Phase 28 Plan 02 complete (135 print() calls migrated to structured logging across 9 source files)
 
 ## v4.0 Phase Map
 
@@ -82,6 +82,7 @@ Decisions affecting current work (v4.0):
 - [Phase 28-logging-infrastructure]: _log placed in pre-Kivy execution block after setup_logging() so _detect_preset() can use it at module load time
 - [Phase 28-logging-infrastructure]: StreamHandler uses sys.__stderr__ (not sys.stderr) to avoid Kivy stderr-proxy infinite recursion loop
 - [Phase 28-logging-infrastructure]: RotatingFileHandler at _get_data_dir()/logs/app.log with 5MB/3-backup rotation is the sole file-based log sink
+- [Phase 28-logging-infrastructure]: controller.py uses log (not logger) — matches existing pattern established before plan 02
 
 ### Critical Pitfalls (from research)
 
@@ -107,7 +108,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T02:43:54.100Z
-Stopped at: Completed 28-01-PLAN.md
+Last session: 2026-04-22T02:55:08.300Z
+Stopped at: Completed 28-02-PLAN.md
 Resume file: None
 Next action: /gsd:plan-phase 26

@@ -73,7 +73,7 @@ Full details: `.planning/milestones/v3.0-ROADMAP.md`
 - [x] **Phase 25: Windows Inno Setup Installer** — .exe installer, Start Menu/Desktop shortcuts, Add/Remove Programs, optional auto-start (WIN-03, WIN-04, WIN-06) (completed 2026-04-22)
 - [x] **Phase 26: Pi OS Preparation and Install Script** — X11 switch, Galil .deb, venv, desktop app install (PI-01, PI-04, PI-05) (completed 2026-04-22)
 - [x] **Phase 27: Screen Resolution Detection** — Auto-detect at startup, display profile presets, manual override in settings.json (APP-04) (completed 2026-04-22)
-- [ ] **Phase 28: Logging Infrastructure** — Rotating log file, uncaught exception hook, dev artifact exclusion (APP-01, APP-02, APP-03)
+- [x] **Phase 28: Logging Infrastructure** — Rotating log file, uncaught exception hook, dev artifact exclusion (APP-01, APP-02, APP-03) (completed 2026-04-22)
 - [ ] **Phase 29: Integration Testing and Field Validation** — Clean-VM Windows gate, Pi hardware gate, real controller validation (FIX-02, PI-06)
 
 ---
@@ -366,7 +366,7 @@ Plans:
   1. After a normal app session on Windows, app.log exists in %APPDATA%/DMCGrindingGUI/logs/ and contains timestamped entries — on Pi it exists in ~/.dmc_gui/logs/
   2. Triggering an unhandled exception (e.g., passing bad data to a controller call) causes the full traceback to appear in app.log before the app exits — the exception is not silently swallowed
   3. The installed Windows bundle and Pi deployment directory contain no .md files, no .planning/ directory, no test files, no .xlsx files, and no .dmc files
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [ ] 28-01-PLAN.md — TDD: setup_logging() + sys.excepthook + main.py print migration
 - [ ] 28-02-PLAN.md — Migrate remaining 135 print() calls across 9 source files to logger
@@ -416,7 +416,7 @@ Plans:
 | 25. Windows Inno Setup Installer | v4.0 | 2/2 | Complete | 2026-04-22 |
 | 26. Pi OS Preparation and Install Script | 2/2 | Complete    | 2026-04-22 | - |
 | 27. Screen Resolution Detection | 1/1 | Complete    | 2026-04-22 | - |
-| 28. Logging Infrastructure | 2/3 | In Progress|  | - |
+| 28. Logging Infrastructure | 3/3 | Complete   | 2026-04-22 | - |
 | 29. Integration Testing and Field Validation | v4.0 | 0/TBD | Not started | - |
 
 ---

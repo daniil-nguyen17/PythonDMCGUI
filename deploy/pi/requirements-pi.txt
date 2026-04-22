@@ -1,0 +1,9 @@
+# Binh An HMI -- Pi OS Bookworm (aarch64) pip dependencies
+# Kivy must compile from source on 64-bit Pi OS (no PiWheels aarch64 wheels).
+# Build dependencies (cmake, build-essential, pkg-config, etc.) are installed
+# by install.sh before pip install.
+kivy==2.3.1
+matplotlib==3.9.4
+kivy-matplotlib-widget==0.15.0
+# Galil gclib Python wrapper -- wraps system libgclib.so installed by apt
+gclib @ https://www.galil.com/sw/pub/python/gclib-1.0.1-py3-none-any.whl

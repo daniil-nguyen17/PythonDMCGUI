@@ -354,7 +354,9 @@ Plans:
   1. Launching the app on a 7-inch Pi touchscreen (800x480) applies the 7inch preset — font sizes and touch targets are legible and tappable without zooming
   2. Setting display_size: "10inch" in settings.json and restarting forces the 10-inch preset regardless of what screeninfo detects — the override is confirmed by a log line at startup
   3. Launching on a 1920x1080 Windows monitor applies the 15inch/desktop preset with no manual configuration
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 27-01-PLAN.md — TDD: resolution detection, preset dict, settings.json override, fullscreen fix
 
 ### Phase 28: Logging Infrastructure
 **Goal**: Every app run produces a rotating log file in the platform-correct location, uncaught exceptions are captured with full traceback before the app exits, and installed packages contain only runtime files

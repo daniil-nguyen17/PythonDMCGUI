@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Packaging & Deployment
 status: unknown
-stopped_at: Completed 28-03-PLAN.md
-last_updated: "2026-04-22T02:36:32.222Z"
-last_activity: 2026-04-22 — Phase 27 Plan 01 complete (screeninfo preset detection, 10 TDD tests, Window.size hardcode removed)
+stopped_at: Completed 28-01-PLAN.md
+last_updated: "2026-04-22T02:43:54.103Z"
+last_activity: 2026-04-22 — Phase 28 Plan 01 complete (RotatingFileHandler logging, excepthook patch, print migration, 8 TDD tests)
 progress:
   total_phases: 22
   completed_phases: 4
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State
@@ -20,19 +20,19 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** An operator walks up, taps their PIN, runs parts while watching a live A/B position plot, and goes home — zero friction, zero confusion, zero access to things they shouldn't touch.
-**Current focus:** v4.0 — Phase 27 complete; Phase 28 (Logging Infrastructure) next
+**Current focus:** v4.0 — Phase 28 Plan 01 complete; Phase 28 Plan 02 next (print migration complete, logging foundation in place)
 
 ## Current Position
 
 ```
 Milestone : v4.0 Packaging & Deployment
-Phase     : 27 of 29 (Screen Resolution Detection) — Complete
-Plan      : 1 of 1 complete
-Status    : 27-01 done (display preset detection + 10 tests + screeninfo in pi requirements)
+Phase     : 28 of 29 (Logging Infrastructure) — In Progress
+Plan      : 1 of 3 complete
+Status    : 28-01 done (setup_logging + _setup_excepthook + 7 print() migrated, 8 new tests)
 Progress  : [██████████] 100%
 ```
 
-Last activity: 2026-04-22 — Phase 27 Plan 01 complete (screeninfo preset detection, 10 TDD tests, Window.size hardcode removed)
+Last activity: 2026-04-22 — Phase 28 Plan 01 complete (RotatingFileHandler logging, excepthook patch, print migration, 8 TDD tests)
 
 ## v4.0 Phase Map
 
@@ -42,7 +42,7 @@ Last activity: 2026-04-22 — Phase 27 Plan 01 complete (screeninfo preset detec
 | 25 | Windows Inno Setup Installer | WIN-03, WIN-04, WIN-06 | **Complete** |
 | 26 | Pi OS Preparation and Install Script | PI-01 through PI-05, PI-07 | **Complete** |
 | 27 | Screen Resolution Detection | APP-04 | **Complete** |
-| 28 | Logging Infrastructure | APP-01, APP-02, APP-03 | Not started |
+| 28 | Logging Infrastructure | APP-01, APP-02, APP-03 | **In Progress** (1/3 plans) |
 | 29 | Integration Testing and Field Validation | FIX-02, PI-06 | Not started |
 
 ## Accumulated Context
@@ -79,6 +79,9 @@ Decisions affecting current work (v4.0):
 - [Phase 27-screen-resolution-detection]: Pi 7/10inch presets use fullscreen=auto; Windows 15inch uses borderless=1 — each preset encodes its platform fullscreen strategy
 - [Phase 28-logging-infrastructure]: Rsync --exclude='*.md' glob (no leading slash) applies recursively at any depth in Pi deployment
 - [Phase 28-logging-infrastructure]: Windows spec tests slice datas=[ block by string bounds to scope assertions, avoid false positives from comments
+- [Phase 28-logging-infrastructure]: _log placed in pre-Kivy execution block after setup_logging() so _detect_preset() can use it at module load time
+- [Phase 28-logging-infrastructure]: StreamHandler uses sys.__stderr__ (not sys.stderr) to avoid Kivy stderr-proxy infinite recursion loop
+- [Phase 28-logging-infrastructure]: RotatingFileHandler at _get_data_dir()/logs/app.log with 5MB/3-backup rotation is the sole file-based log sink
 
 ### Critical Pitfalls (from research)
 
@@ -104,7 +107,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T02:36:32.218Z
-Stopped at: Completed 28-03-PLAN.md
+Last session: 2026-04-22T02:43:54.100Z
+Stopped at: Completed 28-01-PLAN.md
 Resume file: None
 Next action: /gsd:plan-phase 26

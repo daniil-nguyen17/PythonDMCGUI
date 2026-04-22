@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Packaging & Deployment
 status: unknown
-stopped_at: Phase 28 context gathered
-last_updated: "2026-04-22T02:15:00.399Z"
+stopped_at: Completed 28-03-PLAN.md
+last_updated: "2026-04-22T02:36:32.222Z"
 last_activity: 2026-04-22 — Phase 27 Plan 01 complete (screeninfo preset detection, 10 TDD tests, Window.size hardcode removed)
 progress:
   total_phases: 22
   completed_phases: 4
-  total_plans: 7
-  completed_plans: 8
+  total_plans: 10
+  completed_plans: 9
 ---
 
 # Project State
@@ -77,6 +77,8 @@ Decisions affecting current work (v4.0):
 - [Phase 27-screen-resolution-detection]: screeninfo imported lazily inside _detect_preset() — prevents ImportError from blocking module load in dev/test environments
 - [Phase 27-screen-resolution-detection]: Invalid display_size in settings.json returns 15inch immediately — no auto-detect fallback (per locked plan decision)
 - [Phase 27-screen-resolution-detection]: Pi 7/10inch presets use fullscreen=auto; Windows 15inch uses borderless=1 — each preset encodes its platform fullscreen strategy
+- [Phase 28-logging-infrastructure]: Rsync --exclude='*.md' glob (no leading slash) applies recursively at any depth in Pi deployment
+- [Phase 28-logging-infrastructure]: Windows spec tests slice datas=[ block by string bounds to scope assertions, avoid false positives from comments
 
 ### Critical Pitfalls (from research)
 
@@ -102,7 +104,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T02:15:00.395Z
-Stopped at: Phase 28 context gathered
-Resume file: .planning/phases/28-logging-infrastructure/28-CONTEXT.md
+Last session: 2026-04-22T02:36:32.218Z
+Stopped at: Completed 28-03-PLAN.md
+Resume file: None
 Next action: /gsd:plan-phase 26

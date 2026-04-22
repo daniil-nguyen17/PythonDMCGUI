@@ -73,7 +73,7 @@ Full details: `.planning/milestones/v3.0-ROADMAP.md`
 - [x] **Phase 25: Windows Inno Setup Installer** — .exe installer, Start Menu/Desktop shortcuts, Add/Remove Programs, optional auto-start (WIN-03, WIN-04, WIN-06) (completed 2026-04-22)
 - [x] **Phase 26: Pi OS Preparation and Install Script** — X11 switch, Galil .deb, venv, desktop app install (PI-01, PI-04, PI-05) (completed 2026-04-22)
 - [x] **Phase 27: Screen Resolution Detection** — Auto-detect at startup, display profile presets, manual override in settings.json (APP-04) (completed 2026-04-22)
-- [x] **Phase 28: Logging Infrastructure** — Rotating log file, uncaught exception hook, dev artifact exclusion (APP-01, APP-02, APP-03) (completed 2026-04-22)
+- [x] **Phase 28: Logging Infrastructure** — Rotating log file, uncaught exception hook, dev artifact exclusion (APP-01, APP-02, APP-03) (completed 2026-04-22)
 - [ ] **Phase 29: Integration Testing and Field Validation** — Clean-VM Windows gate, Pi hardware gate, real controller validation (FIX-02, PI-06)
 
 ---
@@ -381,7 +381,10 @@ Plans:
   2. Running a Flat Grind cycle on the real Galil controller through the Windows installer shows the live A/B plot updating, buttons graying out during motion, and machine state updating in real-time
   3. All three Pi deployment methods produce a working kiosk: (a) USB/SCP folder transfer + install.sh, (b) SD card image write, (c) git clone + install.sh — each confirmed by a full boot-to-login-screen test
   4. The Pi kiosk with controller connected successfully runs a Flat Grind cycle — DR streaming produces live position data on the run screen
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 29-01-PLAN.md — Fix 3 pre-existing bugs (17 test failures) and create deployment READMEs
+- [ ] 29-02-PLAN.md — Windows clean-PC validation, Pi 3-method deployment validation, live Flat Grind controller test
 
 ---
 
@@ -414,10 +417,10 @@ Plans:
 | 23. Controller Communication Optimization | v3.0 | 3/3 | Complete | 2026-04-13 |
 | 24. Windows PyInstaller Bundle | v4.0 | 2/2 | Complete | 2026-04-21 |
 | 25. Windows Inno Setup Installer | v4.0 | 2/2 | Complete | 2026-04-22 |
-| 26. Pi OS Preparation and Install Script | 2/2 | Complete    | 2026-04-22 | - |
-| 27. Screen Resolution Detection | 1/1 | Complete    | 2026-04-22 | - |
-| 28. Logging Infrastructure | 3/3 | Complete    | 2026-04-22 | - |
-| 29. Integration Testing and Field Validation | v4.0 | 0/TBD | Not started | - |
+| 26. Pi OS Preparation and Install Script | v4.0 | 2/2 | Complete | 2026-04-22 |
+| 27. Screen Resolution Detection | v4.0 | 1/1 | Complete | 2026-04-22 |
+| 28. Logging Infrastructure | v4.0 | 3/3 | Complete | 2026-04-22 |
+| 29. Integration Testing and Field Validation | v4.0 | 0/2 | Not started | - |
 
 ---
 

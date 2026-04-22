@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Packaging & Deployment
 status: unknown
-stopped_at: Completed 25-02-PLAN.md
-last_updated: "2026-04-22T00:34:32.316Z"
-last_activity: 2026-04-21 — Phase 24 complete (PyInstaller bundle verified)
+stopped_at: Phase 26 context gathered
+last_updated: "2026-04-22T00:51:34.503Z"
+last_activity: 2026-04-22 — Phase 25 complete (Inno Setup installer human-verified on Windows 11)
 progress:
   total_phases: 22
   completed_phases: 2
@@ -94,7 +94,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T00:34:32.313Z
-Stopped at: Completed 25-02-PLAN.md
-Resume file: None
+Last session: 2026-04-22T00:51:34.500Z
+Stopped at: Phase 26 context gathered
+Resume file: .planning/phases/26-pi-os-preparation-and-install-script/26-CONTEXT.md
 Next action: /gsd:plan-phase 26

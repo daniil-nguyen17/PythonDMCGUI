@@ -141,6 +141,11 @@ rsync -a --delete "$SCRIPT_DIR/../../" "$INSTALL_DIR/" \
     --exclude='.planning/' \
     --exclude='tests/' \
     --exclude='__pycache__' \
+    --exclude='.claude/' \
+    --exclude='*.md' \
+    --exclude='*.xlsx' \
+    --exclude='*.dmc' \
+    --exclude='pyproject.toml' \
     2>&1 | tee -a "$LOG_FILE"
 
 # Copy deploy/pi assets that the app needs at runtime

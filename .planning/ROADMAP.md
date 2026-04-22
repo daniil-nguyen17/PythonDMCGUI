@@ -366,7 +366,11 @@ Plans:
   1. After a normal app session on Windows, app.log exists in %APPDATA%/DMCGrindingGUI/logs/ and contains timestamped entries — on Pi it exists in ~/.dmc_gui/logs/
   2. Triggering an unhandled exception (e.g., passing bad data to a controller call) causes the full traceback to appear in app.log before the app exits — the exception is not silently swallowed
   3. The installed Windows bundle and Pi deployment directory contain no .md files, no .planning/ directory, no test files, no .xlsx files, and no .dmc files
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 28-01-PLAN.md — TDD: setup_logging() + sys.excepthook + main.py print migration
+- [ ] 28-02-PLAN.md — Migrate remaining 135 print() calls across 9 source files to logger
+- [ ] 28-03-PLAN.md — Artifact exclusion: install.sh rsync + content-inspection tests
 
 ### Phase 29: Integration Testing and Field Validation
 **Goal**: Both platform packages pass a hardware gate — the Windows installer is validated on a real factory-floor machine and the Pi kiosk is validated with a live Galil controller connected — and three Pi deployment methods are confirmed working
@@ -412,7 +416,7 @@ Plans:
 | 25. Windows Inno Setup Installer | v4.0 | 2/2 | Complete | 2026-04-22 |
 | 26. Pi OS Preparation and Install Script | 2/2 | Complete    | 2026-04-22 | - |
 | 27. Screen Resolution Detection | 1/1 | Complete    | 2026-04-22 | - |
-| 28. Logging Infrastructure | v4.0 | 0/TBD | Not started | - |
+| 28. Logging Infrastructure | v4.0 | 0/3 | Planned | - |
 | 29. Integration Testing and Field Validation | v4.0 | 0/TBD | Not started | - |
 
 ---

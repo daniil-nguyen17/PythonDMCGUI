@@ -927,7 +927,7 @@ class SerrationRunScreen(BaseRunScreen):
         try:
             import gclib  # type: ignore
         except ImportError:
-            print("[SerrationRunScreen] MG reader: gclib not available")
+            logger.warning("MG reader: gclib not available")
             return
 
         handle = None
@@ -935,9 +935,9 @@ class SerrationRunScreen(BaseRunScreen):
             handle = gclib.py()
             handle.GOpen(f"{address} --subscribe MG")
             handle.GTimeout(500)
-            print(f"[SerrationRunScreen] MG reader connected: {address} --subscribe MG")
+            logger.info("MG reader connected: %s --subscribe MG", address)
         except Exception as e:
-            print(f"[SerrationRunScreen] MG reader open failed: {e}")
+            logger.warning("MG reader open failed: %s", e)
             if handle:
                 try:
                     handle.GClose()
@@ -963,4 +963,4 @@ class SerrationRunScreen(BaseRunScreen):
                 handle.GClose()
             except Exception:
                 pass
-            print("[SerrationRunScreen] MG reader closed")
+            logger.info("MG reader closed")

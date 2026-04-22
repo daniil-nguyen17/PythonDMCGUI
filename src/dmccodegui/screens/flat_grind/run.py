@@ -1,9 +1,12 @@
 """FlatGrindRunScreen — operator run screen with live axis positions and cycle monitoring."""
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from collections import deque
+
+logger = logging.getLogger(__name__)
 
 from kivy.clock import Clock
 from kivy.core.text import Label as CoreLabel
@@ -452,7 +455,7 @@ class FlatGrindRunScreen(BaseRunScreen):
                 raw_dc = ctrl.upload_array_auto("deltaC")
                 if raw_dc:
                     existing_delta_c = [float(v) for v in raw_dc]
-                    print(f"[FlatGrindRunScreen] Read existing deltaC: {len(existing_delta_c)} elements")
+                    logger.debug("Read existing deltaC: %d elements", len(existing_delta_c))
             except Exception:
                 pass
 
@@ -720,12 +723,12 @@ class FlatGrindRunScreen(BaseRunScreen):
             try:
                 # Step 1: Enter setup mode
                 ctrl.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}")
-                print("[Shutdown] hmiSetp fired — entering setup")
+                logger.info("hmiSetp fired — entering setup")
                 _t.sleep(0.5)
 
                 # Step 2: Trigger homing
                 ctrl.cmd(f"{HMI_HOME}={HMI_TRIGGER_FIRE}")
-                print("[Shutdown] hmiHome fired — homing axes")
+                logger.info("hmiHome fired — homing axes")
 
                 # Step 3: Wait for homing to complete (poll hmiState)
                 # hmiState goes 4 (HOMING) during home, returns to 3 (SETUP) when done
@@ -735,12 +738,12 @@ class FlatGrindRunScreen(BaseRunScreen):
                         raw = ctrl.cmd(f"MG {HMI_STATE_VAR}").strip()
                         state = int(float(raw))
                         if state == STATE_SETUP:
-                            print("[Shutdown] Homing complete — state back to SETUP")
+                            logger.info("homing complete — state back to SETUP")
                             break
                     except Exception:
                         pass
                 else:
-                    print("[Shutdown] Homing timeout — proceeding with BV anyway")
+                    logger.warning("homing timeout — proceeding with BV anyway")
 
                 # Step 4: Save all variables to NV
                 # BV can take several seconds — wait then retry once
@@ -748,16 +751,16 @@ class FlatGrindRunScreen(BaseRunScreen):
                 try:
                     ctrl.cmd("BV")
                 except Exception:
-                    print("[Shutdown] BV first attempt timed out — retrying")
+                    logger.warning("BV first attempt timed out — retrying")
                     _t.sleep(2.0)
                     ctrl.cmd("BV")
-                print("[Shutdown] BV done — all variables saved")
+                logger.info("BV done — all variables saved")
 
                 Clock.schedule_once(lambda *_: setattr(self, 'motion_active', False))
 
             except Exception as e:
                 msg = f"Shutdown failed: {e}"
-                print(f"[Shutdown] error: {e}")
+                logger.error("shutdown error: %s", e)
                 Clock.schedule_once(lambda *_, m=msg: self._alert(m))
                 Clock.schedule_once(lambda *_: setattr(self, 'motion_active', False))
 
@@ -831,9 +834,9 @@ class FlatGrindRunScreen(BaseRunScreen):
             try:
                 before_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
                 before = int(float(before_raw))
-                print(f"[FlatGrindRunScreen] More stone — startPtC BEFORE: {before}")
+                logger.debug("More stone — startPtC BEFORE: %s", before)
             except Exception as e:
-                print(f"[FlatGrindRunScreen] More stone — failed to read startPtC before: {e}")
+                logger.debug("More stone — failed to read startPtC before: %s", e)
 
             try:
                 ctrl.cmd(f"{HMI_MORE}={HMI_TRIGGER_FIRE}")
@@ -848,13 +851,13 @@ class FlatGrindRunScreen(BaseRunScreen):
                 try:
                     after_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
                     after = int(float(after_raw))
-                    print(f"[FlatGrindRunScreen] More stone — startPtC AFTER: {after}")
+                    logger.debug("More stone — startPtC AFTER: %s", after)
                     Clock.schedule_once(
                         lambda *_, v=after: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
                     )
                     break
                 except Exception as e:
-                    print(f"[FlatGrindRunScreen] More stone — readback attempt {attempt + 1} failed: {e}")
+                    logger.warning("More stone — readback attempt %d failed: %s", attempt + 1, e)
 
         from ...utils.jobs import submit_urgent
         submit_urgent(_fire)
@@ -875,9 +878,9 @@ class FlatGrindRunScreen(BaseRunScreen):
             try:
                 before_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
                 before = int(float(before_raw))
-                print(f"[FlatGrindRunScreen] Less stone — startPtC BEFORE: {before}")
+                logger.debug("Less stone — startPtC BEFORE: %s", before)
             except Exception as e:
-                print(f"[FlatGrindRunScreen] Less stone — failed to read startPtC before: {e}")
+                logger.debug("Less stone — failed to read startPtC before: %s", e)
 
             try:
                 ctrl.cmd(f"{HMI_LESS}={HMI_TRIGGER_FIRE}")
@@ -892,13 +895,13 @@ class FlatGrindRunScreen(BaseRunScreen):
                 try:
                     after_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
                     after = int(float(after_raw))
-                    print(f"[FlatGrindRunScreen] Less stone — startPtC AFTER: {after}")
+                    logger.debug("Less stone — startPtC AFTER: %s", after)
                     Clock.schedule_once(
                         lambda *_, v=after: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
                     )
                     break
                 except Exception as e:
-                    print(f"[FlatGrindRunScreen] Less stone — readback attempt {attempt + 1} failed: {e}")
+                    logger.warning("Less stone — readback attempt %d failed: %s", attempt + 1, e)
 
         from ...utils.jobs import submit_urgent
         submit_urgent(_fire)
@@ -1025,7 +1028,7 @@ class FlatGrindRunScreen(BaseRunScreen):
             self.comp_mode = "spline"
         else:
             self.comp_mode = "cumulative"
-        print(f"[FlatGrindRunScreen] Compensation mode: {self.comp_mode}")
+        logger.info("compensation mode: %s", self.comp_mode)
 
     def on_clear_delta_c(self) -> None:
         """Reset all section offsets to zero."""
@@ -1071,11 +1074,11 @@ class FlatGrindRunScreen(BaseRunScreen):
                 changed.append((i, v))
 
         if not changed:
-            print("[FlatGrindRunScreen] deltaC: no changes to apply")
+            logger.debug("deltaC: no changes to apply")
             return
 
-        print(f"[FlatGrindRunScreen] Apply deltaC: {len(changed)} changed indices "
-              f"(out of {len(values)} total)")
+        logger.debug("Apply deltaC: %d changed indices (out of %d total)",
+                     len(changed), len(values))
 
         def _send():
             try:
@@ -1094,10 +1097,10 @@ class FlatGrindRunScreen(BaseRunScreen):
                     written += line.count("=")
                 # Cache sent values for next diff
                 self._last_delta_c = list(values)
-                print(f"[FlatGrindRunScreen] deltaC written: {written} elements")
+                logger.debug("deltaC written: %d elements", written)
             except Exception as e:
                 err_msg = f"Apply failed: {e}"
-                print(f"[FlatGrindRunScreen] Apply deltaC error: {e}")
+                logger.error("Apply deltaC error: %s", e)
                 Clock.schedule_once(lambda *_, msg=err_msg: self._alert(msg))
 
         jobs.submit(_send)
@@ -1308,12 +1311,12 @@ class FlatGrindRunScreen(BaseRunScreen):
                 start_b = float(ctrl.cmd(f"MG {STARTPT_B}").strip())
                 start_a_mm = start_a / self._cpm_a_raw
                 start_b_mm = start_b / self._cpm_b_raw
-                print(f"[FlatGrindRunScreen] Stone: startPt=({start_a_mm:.1f}, {start_b_mm:.1f})mm")
+                logger.debug("Stone: startPt=(%.1f, %.1f)mm", start_a_mm, start_b_mm)
 
                 # Read delta arrays for knife contour
                 delta_a = ctrl.upload_array_auto("deltaA")
                 delta_b = ctrl.upload_array_auto("deltaB")
-                print(f"[FlatGrindRunScreen] Contour: deltaA[{len(delta_a)}], deltaB[{len(delta_b)}]")
+                logger.debug("Contour: deltaA[%d], deltaB[%d]", len(delta_a), len(delta_b))
 
                 # Build contour path: cumsum from startPt
                 contour_a_mm = None
@@ -1332,14 +1335,14 @@ class FlatGrindRunScreen(BaseRunScreen):
                         cb.append(acc_b / cpm_b)
                     contour_a_mm = ca
                     contour_b_mm = cb
-                    print(f"[FlatGrindRunScreen] Contour: A={ca[0]:.1f}->{ca[-1]:.1f}, "
-                          f"B={cb[0]:.1f}->{cb[-1]:.1f}")
+                    logger.debug("Contour: A=%.1f->%.1f, B=%.1f->%.1f",
+                                 ca[0], ca[-1], cb[0], cb[-1])
 
                 def _apply(*_):
                     self._draw_stone(start_a_mm, start_b_mm, contour_a_mm, contour_b_mm)
                 Clock.schedule_once(_apply)
             except Exception as e:
-                print(f"[FlatGrindRunScreen] Read startPt/contour error: {e}")
+                logger.warning("Read startPt/contour error: %s", e)
 
         # Route through jobs queue — thread-safe, runs on worker thread
         jobs.submit(_do)
@@ -1462,7 +1465,7 @@ class FlatGrindRunScreen(BaseRunScreen):
         try:
             import gclib  # type: ignore
         except ImportError:
-            print("[RunScreen] MG reader: gclib not available")
+            logger.warning("MG reader: gclib not available")
             return
 
         handle = None
@@ -1470,9 +1473,9 @@ class FlatGrindRunScreen(BaseRunScreen):
             handle = gclib.py()
             handle.GOpen(f"{address} --subscribe MG")
             handle.GTimeout(500)  # 500ms so loop checks stop_event regularly
-            print(f"[RunScreen] MG reader connected: {address} --subscribe MG")
+            logger.info("MG reader connected: %s --subscribe MG", address)
         except Exception as e:
-            print(f"[RunScreen] MG reader open failed: {e}")
+            logger.warning("MG reader open failed: %s", e)
             if handle:
                 try:
                     handle.GClose()
@@ -1499,7 +1502,7 @@ class FlatGrindRunScreen(BaseRunScreen):
                 handle.GClose()
             except Exception:
                 pass
-            print("[RunScreen] MG reader closed")
+            logger.info("MG reader closed")
 
     # -----------------------------------------------------------------------
     # Utilities

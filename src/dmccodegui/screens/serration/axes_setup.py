@@ -52,6 +52,8 @@ KV FILE: ui/serration/axes_setup.kv
 """
 from __future__ import annotations
 
+import logging
+
 from kivy.properties import (
     StringProperty,
     NumericProperty,
@@ -70,6 +72,8 @@ from ...hmi.dmc_vars import (
 )
 import dmccodegui.machine_config as mc
 from ..base import BaseAxesSetupScreen
+
+logger = logging.getLogger(__name__)
 
 # Default CPM values per axis. Serration is 3-axis (A, B, C) — no D axis.
 AXIS_CPM_DEFAULTS: dict[str, float] = {
@@ -204,7 +208,7 @@ class SerrationAxesSetupScreen(BaseAxesSetupScreen):
             axis_list = ["A", "B", "C"]
 
         if not axis_list:
-            print("[SerrationAxesSetupScreen] _rebuild_axis_rows: empty axis_list, skipping")
+            logger.warning("_rebuild_axis_rows: empty axis_list, skipping")
             return
 
         for axis, row_id in _AXIS_ROW_IDS.items():
@@ -337,7 +341,7 @@ class SerrationAxesSetupScreen(BaseAxesSetupScreen):
             axis_list = ["A", "B", "C"]
 
         if not axis_list:
-            print("[SerrationAxesSetupScreen] teach_rest_point: empty axis_list, aborting")
+            logger.warning("teach_rest_point: empty axis_list, aborting")
             return
 
         ctrl = self.controller
@@ -409,7 +413,7 @@ class SerrationAxesSetupScreen(BaseAxesSetupScreen):
             axis_list = ["A", "B", "C"]
 
         if not axis_list:
-            print("[SerrationAxesSetupScreen] teach_start_point: empty axis_list, aborting")
+            logger.warning("teach_start_point: empty axis_list, aborting")
             return
 
         ctrl = self.controller
@@ -482,7 +486,7 @@ class SerrationAxesSetupScreen(BaseAxesSetupScreen):
             try:
                 ctrl.cmd(f"{trigger_var}={HMI_TRIGGER_FIRE}")
             except Exception as e:
-                print(f"[SerrationAxesSetupScreen] {label} failed: {e}")
+                logger.warning("%s failed: %s", label, e)
 
         jobs.submit(do_fire)
 
@@ -530,7 +534,7 @@ class SerrationAxesSetupScreen(BaseAxesSetupScreen):
             raw = ctrl.cmd(command).strip()
             return raw
         except Exception as e:
-            print(f"[SerrationAxesSetupScreen] Read failed: {command} -> {e}")
+            logger.warning("Read failed: %s -> %s", command, e)
             return None
 
     def _read_initial_values(self) -> None:
@@ -564,12 +568,13 @@ class SerrationAxesSetupScreen(BaseAxesSetupScreen):
                     if val > 0:
                         cpm_updates[axis] = val
                     else:
-                        print(f"[SerrationAxesSetupScreen] CPM {axis} returned {val} (not positive), jog blocked for this axis")
+                        logger.warning("CPM %s returned %s (not positive), jog blocked for this axis",
+                                       axis, val)
                 except (ValueError, TypeError):
-                    print(f"[SerrationAxesSetupScreen] CPM {axis} parse failed: '{raw}', jog blocked for this axis")
+                    logger.warning("CPM %s parse failed: '%s', jog blocked for this axis", axis, raw)
             else:
-                print(f"[SerrationAxesSetupScreen] CPM {axis} read failed, jog blocked for this axis")
-        print(f"[SerrationAxesSetupScreen] CPM values from controller: {cpm_updates}")
+                logger.warning("CPM %s read failed, jog blocked for this axis", axis)
+        logger.info("CPM values from controller: %s", cpm_updates)
 
         # -- 2. Rest points (active axes only) ---------------------------------
         rest_updates: dict[str, str] = {}
@@ -580,7 +585,7 @@ class SerrationAxesSetupScreen(BaseAxesSetupScreen):
                     rest_updates[axis] = f"{float(raw):.1f}"
                 except (ValueError, TypeError):
                     pass
-        print(f"[SerrationAxesSetupScreen] Rest points read: {rest_updates}")
+        logger.debug("Rest points read: %s", rest_updates)
 
         # -- 3. Start points (active axes only) --------------------------------
         start_updates: dict[str, str] = {}
@@ -591,7 +596,7 @@ class SerrationAxesSetupScreen(BaseAxesSetupScreen):
                     start_updates[axis] = f"{float(raw):.1f}"
                 except (ValueError, TypeError):
                     pass
-        print(f"[SerrationAxesSetupScreen] Start points read: {start_updates}")
+        logger.debug("Start points read: %s", start_updates)
 
         # -- 4. Current positions LAST (active axes only) ----------------------
         # Read _TD last so it reflects the most up-to-date position
@@ -603,7 +608,7 @@ class SerrationAxesSetupScreen(BaseAxesSetupScreen):
                     current_updates[axis] = f"{float(raw):.1f}"
                 except (ValueError, TypeError):
                     pass
-        print(f"[SerrationAxesSetupScreen] Current positions read: {current_updates}")
+        logger.debug("Current positions read: %s", current_updates)
 
         def apply_updates(*_):
             self._axis_cpm.update(cpm_updates)

@@ -8,8 +8,11 @@ KV FILE: ui/convex/run.kv
 """
 from __future__ import annotations
 
+import logging
 import time
 from collections import deque
+
+logger = logging.getLogger(__name__)
 
 from kivy.clock import Clock
 from kivy.core.text import Label as CoreLabel
@@ -543,9 +546,9 @@ class ConvexRunScreen(BaseRunScreen):
             try:
                 before_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
                 before = int(float(before_raw))
-                print(f"[ConvexRunScreen] More stone — startPtC BEFORE: {before}")
+                logger.debug("More stone — startPtC BEFORE: %s", before)
             except Exception as e:
-                print(f"[ConvexRunScreen] More stone — failed to read startPtC before: {e}")
+                logger.debug("More stone — failed to read startPtC before: %s", e)
                 before = None
 
             try:
@@ -560,12 +563,12 @@ class ConvexRunScreen(BaseRunScreen):
             try:
                 after_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
                 after = int(float(after_raw))
-                print(f"[ConvexRunScreen] More stone — startPtC AFTER: {after}")
+                logger.debug("More stone — startPtC AFTER: %s", after)
                 Clock.schedule_once(
                     lambda *_, v=after: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
                 )
             except Exception as e:
-                print(f"[ConvexRunScreen] More stone — failed to read startPtC after: {e}")
+                logger.warning("More stone — failed to read startPtC after: %s", e)
 
         from ...utils.jobs import submit_urgent
         submit_urgent(_fire)
@@ -587,9 +590,9 @@ class ConvexRunScreen(BaseRunScreen):
             try:
                 before_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
                 before = int(float(before_raw))
-                print(f"[ConvexRunScreen] Less stone — startPtC BEFORE: {before}")
+                logger.debug("Less stone — startPtC BEFORE: %s", before)
             except Exception as e:
-                print(f"[ConvexRunScreen] Less stone — failed to read startPtC before: {e}")
+                logger.debug("Less stone — failed to read startPtC before: %s", e)
                 before = None
 
             try:
@@ -604,12 +607,12 @@ class ConvexRunScreen(BaseRunScreen):
             try:
                 after_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
                 after = int(float(after_raw))
-                print(f"[ConvexRunScreen] Less stone — startPtC AFTER: {after}")
+                logger.debug("Less stone — startPtC AFTER: %s", after)
                 Clock.schedule_once(
                     lambda *_, v=after: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
                 )
             except Exception as e:
-                print(f"[ConvexRunScreen] Less stone — failed to read startPtC after: {e}")
+                logger.warning("Less stone — failed to read startPtC after: %s", e)
 
         from ...utils.jobs import submit_urgent
         submit_urgent(_fire)
@@ -710,11 +713,11 @@ class ConvexRunScreen(BaseRunScreen):
                 changed.append((i, v))
 
         if not changed:
-            print("[ConvexRunScreen] deltaC: no changes to apply")
+            logger.debug("deltaC: no changes to apply")
             return
 
-        print(f"[ConvexRunScreen] Apply deltaC: {len(changed)} changed indices "
-              f"(out of {len(values)} total)")
+        logger.debug("Apply deltaC: %d changed indices (out of %d total)",
+                     len(changed), len(values))
 
         def _send():
             try:
@@ -732,9 +735,9 @@ class ConvexRunScreen(BaseRunScreen):
                     ctrl.cmd(line)
                     written += line.count("=")
                 self._last_delta_c = list(values)
-                print(f"[ConvexRunScreen] deltaC written: {written} elements")
+                logger.debug("deltaC written: %d elements", written)
             except Exception as e:
-                print(f"[ConvexRunScreen] Apply deltaC error: {e}")
+                logger.error("Apply deltaC error: %s", e)
                 msg = f"Apply failed: {e}"
                 Clock.schedule_once(lambda *_, m=msg: self._alert(m))
 
@@ -826,7 +829,7 @@ class ConvexRunScreen(BaseRunScreen):
             self.comp_mode = "spline"
         else:
             self.comp_mode = "cumulative"
-        print(f"[ConvexRunScreen] Compensation mode: {self.comp_mode}")
+        logger.info("compensation mode: %s", self.comp_mode)
 
     # -----------------------------------------------------------------------
     # Stone Compensation and CPM
@@ -847,7 +850,7 @@ class ConvexRunScreen(BaseRunScreen):
                         self._controller_delta_c = baseline
                         self._last_delta_c = list(baseline)
                     Clock.schedule_once(_apply)
-                    print(f"[ConvexRunScreen] Read deltaC baseline: {len(baseline)} elements")
+                    logger.debug("Read deltaC baseline: %d elements", len(baseline))
             except Exception:
                 pass
 
@@ -917,12 +920,12 @@ class ConvexRunScreen(BaseRunScreen):
                 start_b = float(ctrl.cmd(f"MG {STARTPT_B}").strip())
                 start_a_mm = start_a / self._cpm_a_raw
                 start_b_mm = start_b / self._cpm_b_raw
-                print(f"[ConvexRunScreen] Stone: startPt=({start_a_mm:.1f}, {start_b_mm:.1f})mm")
+                logger.debug("Stone: startPt=(%.1f, %.1f)mm", start_a_mm, start_b_mm)
 
                 # Read delta arrays for knife contour
                 delta_a = ctrl.upload_array_auto("deltaA")
                 delta_b = ctrl.upload_array_auto("deltaB")
-                print(f"[ConvexRunScreen] Contour: deltaA[{len(delta_a)}], deltaB[{len(delta_b)}]")
+                logger.debug("Contour: deltaA[%d], deltaB[%d]", len(delta_a), len(delta_b))
 
                 # Build contour path: cumsum from startPt
                 contour_a_mm = None
@@ -941,14 +944,14 @@ class ConvexRunScreen(BaseRunScreen):
                         cb.append(acc_b / cpm_b)
                     contour_a_mm = ca
                     contour_b_mm = cb
-                    print(f"[ConvexRunScreen] Contour: A={ca[0]:.1f}->{ca[-1]:.1f}, "
-                          f"B={cb[0]:.1f}->{cb[-1]:.1f}")
+                    logger.debug("Contour: A=%.1f->%.1f, B=%.1f->%.1f",
+                                 ca[0], ca[-1], cb[0], cb[-1])
 
                 def _apply(*_):
                     self._draw_stone(start_a_mm, start_b_mm, contour_a_mm, contour_b_mm)
                 Clock.schedule_once(_apply)
             except Exception as e:
-                print(f"[ConvexRunScreen] Read startPt/contour error: {e}")
+                logger.warning("Read startPt/contour error: %s", e)
 
         # Route through jobs queue — thread-safe, runs on worker thread
         jobs.submit(_do)

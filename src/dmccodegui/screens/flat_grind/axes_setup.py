@@ -54,6 +54,8 @@ KV FILE: ui/flat_grind/axes_setup.kv
 """
 from __future__ import annotations
 
+import logging
+
 from kivy.properties import (
     StringProperty,
     NumericProperty,
@@ -72,6 +74,8 @@ from ...hmi.dmc_vars import (
 )
 import dmccodegui.machine_config as mc
 from ..base import BaseAxesSetupScreen
+
+logger = logging.getLogger(__name__)
 
 # Default CPM values per axis. Read from controller on enter; fall back if read fails.
 AXIS_CPM_DEFAULTS: dict[str, float] = {
@@ -207,7 +211,7 @@ class FlatGrindAxesSetupScreen(BaseAxesSetupScreen):
             axis_list = ["A", "B", "C", "D"]
 
         if not axis_list:
-            print("[FlatGrindAxesSetupScreen] _rebuild_axis_rows: empty axis_list, skipping")
+            logger.warning("_rebuild_axis_rows: empty axis_list, skipping")
             return
 
         for axis, row_id in _AXIS_ROW_IDS.items():
@@ -371,7 +375,7 @@ class FlatGrindAxesSetupScreen(BaseAxesSetupScreen):
             axis_list = ["A", "B", "C", "D"]
 
         if not axis_list:
-            print("[FlatGrindAxesSetupScreen] teach_rest_point: empty axis_list, aborting")
+            logger.warning("teach_rest_point: empty axis_list, aborting")
             return
 
         ctrl = self.controller
@@ -443,7 +447,7 @@ class FlatGrindAxesSetupScreen(BaseAxesSetupScreen):
             axis_list = ["A", "B", "C", "D"]
 
         if not axis_list:
-            print("[FlatGrindAxesSetupScreen] teach_start_point: empty axis_list, aborting")
+            logger.warning("teach_start_point: empty axis_list, aborting")
             return
 
         ctrl = self.controller
@@ -552,7 +556,7 @@ class FlatGrindAxesSetupScreen(BaseAxesSetupScreen):
             try:
                 ctrl.cmd(f"{trigger_var}={HMI_TRIGGER_FIRE}")
             except Exception as e:
-                print(f"[FlatGrindAxesSetupScreen] {label} failed: {e}")
+                logger.warning("%s failed: %s", label, e)
 
         jobs.submit(do_fire)
 
@@ -600,7 +604,7 @@ class FlatGrindAxesSetupScreen(BaseAxesSetupScreen):
             raw = ctrl.cmd(command).strip()
             return raw
         except Exception as e:
-            print(f"[FlatGrindAxesSetupScreen] Read failed: {command} -> {e}")
+            logger.warning("Read failed: %s -> %s", command, e)
             return None
 
     def _read_initial_values(self) -> None:
@@ -634,11 +638,12 @@ class FlatGrindAxesSetupScreen(BaseAxesSetupScreen):
                     if val > 0:
                         cpm_updates[axis] = val
                     else:
-                        print(f"[FlatGrindAxesSetupScreen] CPM {axis} returned {val} (not positive), jog blocked for this axis")
+                        logger.warning("CPM %s returned %s (not positive), jog blocked for this axis",
+                                       axis, val)
                 except (ValueError, TypeError):
-                    print(f"[FlatGrindAxesSetupScreen] CPM {axis} parse failed: '{raw}', jog blocked for this axis")
+                    logger.warning("CPM %s parse failed: '%s', jog blocked for this axis", axis, raw)
             else:
-                print(f"[FlatGrindAxesSetupScreen] CPM {axis} read failed, jog blocked for this axis")
+                logger.warning("CPM %s read failed, jog blocked for this axis", axis)
 
         # --- TEMPORARY OVERRIDE: force cpmD=1000 for Flat Grind -----------
         # The controller's D-axis CPM is unpredictable right now (D-axis
@@ -648,9 +653,9 @@ class FlatGrindAxesSetupScreen(BaseAxesSetupScreen):
         # NOTE: only applies in-HMI — the controller's own grind loop still
         # uses whatever cpmD it computes from #VARCALC.
         cpm_updates["D"] = 1000.0
-        print("[FlatGrindAxesSetupScreen] CPM D forced to 1000 (HMI override, Flat Grind only)")
+        logger.info("CPM D forced to 1000 (HMI override, Flat Grind only)")
 
-        print(f"[FlatGrindAxesSetupScreen] CPM values from controller: {cpm_updates}")
+        logger.info("CPM values from controller: %s", cpm_updates)
 
         # -- 2. Rest points (active axes only) ---------------------------------
         rest_updates: dict[str, str] = {}
@@ -661,7 +666,7 @@ class FlatGrindAxesSetupScreen(BaseAxesSetupScreen):
                     rest_updates[axis] = f"{float(raw):.1f}"
                 except (ValueError, TypeError):
                     pass
-        print(f"[FlatGrindAxesSetupScreen] Rest points read: {rest_updates}")
+        logger.debug("Rest points read: %s", rest_updates)
 
         # -- 3. Start points (active axes only) --------------------------------
         start_updates: dict[str, str] = {}
@@ -672,7 +677,7 @@ class FlatGrindAxesSetupScreen(BaseAxesSetupScreen):
                     start_updates[axis] = f"{float(raw):.1f}"
                 except (ValueError, TypeError):
                     pass
-        print(f"[FlatGrindAxesSetupScreen] Start points read: {start_updates}")
+        logger.debug("Start points read: %s", start_updates)
 
         # -- 4. Current positions LAST (active axes only) ----------------------
         # Read _TD last so it reflects the most up-to-date position
@@ -684,7 +689,7 @@ class FlatGrindAxesSetupScreen(BaseAxesSetupScreen):
                     current_updates[axis] = f"{float(raw):.1f}"
                 except (ValueError, TypeError):
                     pass
-        print(f"[FlatGrindAxesSetupScreen] Current positions read: {current_updates}")
+        logger.debug("Current positions read: %s", current_updates)
 
         def apply_updates(*_):
             self._axis_cpm.update(cpm_updates)

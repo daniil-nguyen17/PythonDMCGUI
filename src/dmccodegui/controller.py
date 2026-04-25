@@ -125,6 +125,19 @@ class GalilController:
             self._driver.GOpen(f"{address} {PRIMARY_FLAGS}")
             self._connected = True
             self._address = address  # Store bare address (without flags) for reset_handle / MG handle
+            # CW2,1: third-party device mode + continue on buffer full.
+            #   n0=2: normal ASCII on unsolicited messages (no MSB mangling).
+            #   n1=1: controller continues executing the DMC program even if
+            #         the message output buffer fills up (drops characters
+            #         instead of stalling the program).
+            # Without this the controller defaults to CW1,0 — Galil Driver
+            # mode where MSB is set on MG output AND program execution pauses
+            # when the buffer is full, causing commands to queue until #AUTO
+            # re-enters its polling loop.
+            try:
+                self._driver.GCommand("CW2,1")
+            except Exception:
+                pass  # best-effort; some firmware revisions may not need it
             if self._logger:
                 try:
                     self._logger(f"[CTRL] Connected to {address} --direct, timeout=1000ms")
@@ -174,6 +187,11 @@ class GalilController:
             self._driver.GClose()
             self._driver.GOpen(f"{addr} {PRIMARY_FLAGS}")
             self._connected = True
+            # Re-issue CW2,1 after handle reset (see connect() for rationale).
+            try:
+                self._driver.GCommand("CW2,1")
+            except Exception:
+                pass
             return True
         except Exception as e:
             log.error("reset_handle error: %s", e)

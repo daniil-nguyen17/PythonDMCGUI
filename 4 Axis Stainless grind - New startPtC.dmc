@@ -1,0 +1,427 @@
+REM ============================================================
+REM  SERRATED KNIFE EDGE GRINDER - GALIL DMC PROGRAM (4-AXIS)
+REM  Axes:
+REM    A = Knife Length (along blade)
+REM    B = Width (in/out toward stationary grinder stone)
+REM       Decreases as D angle increases (less travel needed)
+REM    C = Grinder height (up/down)
+REM        Increases as D angle increases (stone contact rises)
+REM    D = Knife tilt angle (convex bevel angle)
+REM        Sweeps from lowang to highang per grind pass
+REM
+REM ============================================================
+REM  AUTO SUB  machType= 1 (flat grind) 2(serration) 3 (Convex grind)
+REM ============================================================
+#AUTO
+machType=1
+CB 1,2,3,4,5,6,7,8
+JS #HOME
+ctSesKni = 0
+XQ #UPDSPD, 2
+XQ #ZALOOP, 1
+WT 500
+MG "AUTO INIT COMPLETE"
+REM ============================================================
+REM  MAIN: Wait loop ? poll buttons
+REM ============================================================
+#MAIN
+hmiState = 1;              ' IDLE set immediately so HMI stays in sync
+MG "STATE:", hmiState
+WT 100
+MG "IDLING FOR INPUT", " A:", _TDA, " B:", _TDB, " C:", _TDC, " D:", _TDD
+MG " hmiState:", hmiState, "  ctSesKni:", ctSesKni, "  ctStnKni:", ctStnKni
+
+#WtAtRt
+CB 1;                        
+WT 100
+
+IF (@IN[29] = 0) | (hmiGrnd = 0);   ' GO GRIND button OR HMI trigger
+  hmiGrnd = 1;                       
+  hmiState = 2;                     
+  SB 1;
+  JS #GRIND
+  hmiState = 1;                       
+  MG "STATE:", hmiState
+  JP #WtAtRt
+ENDIF
+
+IF (@IN[41] = 0) | (hmiSetp = 0);   ' SETUP button OR HMI trigger
+  hmiSetp = 1;                       
+  hmiState = 3;                      
+  JS #SETUP
+  hmiState = 1;                    
+  MG "STATE:", hmiState
+  JP #WtAtRt
+ENDIF
+
+IF (@IN[33] = 0) | (hmiMore = 0); 
+  hmiMore = 1;                        
+  MG "MORE STONE FROM C"
+  JS #MOREGRI
+  JP #WtAtRt
+ENDIF
+
+IF (@IN[36] = 0) | (hmiLess = 0);  
+  hmiLess = 1;                     
+  MG "LESS STONE FROM C"
+  JS #LESSGRI
+  JP #WtAtRt
+ENDIF
+
+WT 50
+JP #WtAtRt;        
+EN
+
+REM ============================================================
+REM  MAIN GRIND PROGRAM
+REM ============================================================
+#GRIND
+SH ABCD
+feedADis=4
+MG "BAT DAU MAI"
+
+JS #GOSTR
+MG " A:", _TDA, " B:", _TDB, " C:", _TDC, " D:", _TDD
+
+' PHASE 2 - CONTOUR 
+LM ABCD
+VS 5000
+VA 100000
+VD 100000
+MG "  PRE-LI  A:", _TDA, "  B:", _TDB
+' Feed remaining contour segments
+n = 0
+#RLOOP
+JP #WBUF, (_LM=0)
+LI deltaA[n],deltaB[n],deltaC[n],deltaD[n]
+n = n + 1
+JP #RLOOP, (n < 200)
+JP #FDONE
+#WBUF
+WT 2
+JP #RLOOP
+#FDONE
+MG "ALL SEGMENTS QUEUED"
+LE
+MG "  LE ISSUED - WAITING FOR VECTOR"
+BGS
+' wait for vector complete with progress
+#VECWT
+JP #VDONE, (_BGS=0)
+MG "    RUNNING  A:", _TDA, "  B:", _TDB, "  C:", _TDC,  "  LM:", _LM
+JP #VECWT
+#VDONE
+AM S
+MG "  END REACHED  A:", _TDA, "  B:", _TDB, "  C:", _TDC, "  D:", _TDD
+
+' DONE: park all axes
+#DONE
+MG "MAI XONG"
+REM TU BU DA
+MG " cTouch before auto wear: " , cTouch
+cTouch= cTouch + autoWear;
+startPtC= cTouch-thkCt -cAbsHeel
+restPtC=startPtC-restClr
+MG " cTouch after auto wear: " , cTouch
+MG " START C after auto wear: " , startPtC
+JS #GOREST
+ctSesKni = ctSesKni + 1
+ctStnKni = ctStnKni + 1
+ST ABCD
+ZS
+JP #MAIN
+EN
+REM ============================================================
+REM  SETUP MENU
+#SETUP
+MG "SETUP MENU ACTIVE"
+#SULOOP
+WT 100
+
+'---- BUTTON 44 NEW STONE -----
+IF (@IN[44] = 0) | (hmiNewS = 0);   ' new grind stone OR HMI trigger
+  hmiNewS = 1;                  
+  JS #NEWSESS
+	hmiState=3
+  MG "STATE:", hmiState
+  JP #SULOOP
+ENDIF
+' --- BUTTON 25: RUN HOME ---
+IF (@IN[25] = 0) | (hmiHome = 0)
+  hmiHome = 1;
+  hmiState = 4;                    
+  MG "STATE:", hmiState
+  MG "STARTING HOMING SEQUENCE"
+  JS #HOME
+  hmiState = 3;                      
+  MG "STATE:", hmiState
+  JP #SULOOP
+ENDIF
+
+' --- BUTTON 26: CHANGE KNIFE / RECALCULATE ---
+IF (@IN[26] = 0) | (hmiCalc = 0)
+  hmiCalc = 1;                        
+  MG " NEW KNIFE CALCULATIONS"
+  JS #VARCALC
+  JP #SULOOP
+ENDIF
+
+' --- HMI: GO TO REST ---
+IF (hmiGoRs = 0)
+  hmiGoRs = 1
+  MG "HMI: GOING TO REST"
+  JS #GOREST
+  JP #SULOOP
+ENDIF
+
+' --- HMI: GO TO START ---
+IF (hmiGoSt = 0)
+  hmiGoSt = 1
+  MG "HMI: GOING TO START"
+  JS #GOSTR
+  JP #SULOOP
+ENDIF
+
+' --- BUTTON 32 OR HMI EXIT SETUP ---
+IF (@IN[32] = 0) | (hmiExSt = 0)
+  hmiExSt = 1
+  MG "RETURNING TO MAIN MENU"
+  JP #MAIN
+ENDIF
+
+JP #SULOOP
+
+REM ============================================================
+REM  SAVE POINTS ROUTINES
+REM ============================================================
+#SETREST
+restPtA = _TDA; WT 50; MG "SET REST A=", restPtA
+restPtB = _TDB; WT 50; MG "SET REST B=", restPtB
+restPtC = _TDC; WT 50; MG "SET REST C=", restPtC
+restPtD = _TDD; WT 50; MG "SET REST D=", restPtD
+BV; WT 200
+EN
+
+#SETSTR
+startPtA = _TDA; WT 50; MG "SET START A=", startPtA
+startPtB = _TDB; WT 50; MG "SET START B=", startPtB
+startPtC = _TDC; WT 50; MG "SET START C=", startPtC
+startPtD = _TDD; WT 50; MG "SET START D=", startPtD
+BV; WT 200
+EN
+
+REM ============================================================
+REM  HOMING ROUTINE - all 4 axes
+REM ============================================================
+#HOME
+hmiState = 4;
+MG "STATE:", hmiState
+SH ABCD
+SP 20000, 20000, 20000, 15000;
+HV 10000, 10000, 10000, 10000;
+
+HMC; BGC; AMC
+HMA; BGA; AMA
+HMB; BGB; AMB
+HMD; BGD; AMD
+
+WT 2000
+DP 0, 0, 0, 0;
+MG "A B C D - ALL AXES HOMED and got 0"
+hmiState = 1;              ' back to IDLE 
+EN
+
+REM ============================================================
+REM  GO REST - safe 4-axis park sequence
+REM ============================================================
+#GOREST
+MG "MOVING TO REST"
+SP fdA * cpmA ,fdB * cpmB, fdCup * cpmC,fdD * cpmD
+' C to rest height
+PAC=restPtC
+BGC
+
+PAD=restPtD
+BGD; AMD
+PAA= restPtA
+BGA; AMA
+PAB=restPtB
+BGB; AMB
+MG "O VI TRI NGHI"
+MG "restPtA: ", restPtA , " or ", _TDA;
+MG "restPtB: ", restPtB , " or ", _TDB;
+MG "restPtC: ", restPtC , " or ", _TDC;
+MG "restPtD: ", restPtD , " or ", _TDD;
+EN
+
+REM ============================================================
+REM  GO START RIGHT - safe 4-axis move to grind start position
+REM ============================================================
+#GOSTR
+MG "MOVING TO START"
+SH ABCD
+' B start position first
+SP fdA * cpmA,fdB * cpmB,fdCdn * cpmC,fdD * cpmD
+PAB= startPtB
+BGB; AMB
+PAA= startPtA
+BGA; AMA
+
+PAD=startPtD
+BGD; AMD
+PAC=startPtC
+BGC; AMC
+WT 100
+MG "O VI TRI BAT DAU MAI"
+MG "startPtA : ", startPtA , " or _TDA",  _TDA;
+MG "startPtB : ", startPtB , " or _TDA",  _TDB;
+MG "startPtC : ", startPtC , " or _TDA",  _TDC;
+MG "startPtD : ", startPtD , " or _TDA",  _TDD;
+
+EN
+
+REM ============================================================
+REM  MORE GRIND / LESS GRIND 
+REM ============================================================
+#MOREGRI
+SB 3;
+cTouch = cTouch + (cpmC * 0.03);       ' more grinding 0.03mm
+startPtC= cTouch-thkCt-cAbsHeel
+restPtC=startPtC-restClr
+MG "DA MOI THEM 0.03mm"
+WT 200
+EN
+
+#LESSGRI
+SB 3
+cTouch = cTouch - (cpmC * 0.03)
+startPtC= cTouch-thkCt-cAbsHeel
+restPtC=startPtC-restClr
+MG "DA MOI BOT 0.03mm"
+WT 200
+EN
+REM ============================================================
+REM  NEW SESSION - new grind stone
+REM ============================================================
+#NEWSESS
+MG "DA MAI MOI - dem dao thanh 0"
+JS #HOME;             
+ctStnKni = 0;                    ' reset stone knife count on new stone
+PRB = 120*cpmB
+BGB; AMB;
+startPtC=firstC
+MG "DANG TRONG VI TRI THAY DA MAI, DANG CHO O CAT DAT"
+EN
+
+REM ============================================================
+REM  UPDATE SPEED FROM MAIN KNOB
+REM ============================================================
+#UPDSPD
+mainSp = @AN[1] * 20000
+autoWear=  @AN[2]*20
+WT 100
+JP #UPDSPD
+EN
+REM ============================================================
+REM  CONFIG - machine hardware setup
+REM ============================================================
+#CONFIG
+REM MT values: 2.5 = step/dir servo
+MT 2.5, 2.5, 2.5, 2.5;          ' A B C D = step/dir servo
+SP 20000, 20000, 20000, 10000;  
+AC 50000, 50000, 50000, 25000
+DC 50000, 50000, 50000, 25000
+CN 1, 1
+CW2,1
+MG "CONFIG DONE - 4 AXIS"
+EN
+
+REM ============================================================
+REM  PARAMS - machine constants (never change day to day)
+REM ============================================================
+#PARAMS
+' --- axis scaling: pitch and gear ratios ---
+pitchA = 5;  ratioA = 4;  ctsRevA = 1250; 
+pitchB = 6;  ratioB = 4;  ctsRevB = 1500; 
+pitchC = 12;  ratioC = 16;  ctsRevC = 750; 
+pitchD = 1;  ratioD = 16;  ctsRevD = 22500; 
+
+' --- knife parameters - set these per knife type ---
+knfThk   = 1.1;           
+edgeThk  = 0.5;           
+backOff  = 2;                
+restClr= 12000;' distance between start and rest C
+' --- feed rates mm/s ---
+fdA = 50
+fdB = 40
+fdCdn  = 5
+fdCup  = 25
+fdPark = 10
+fdD    = 5
+
+MG "PARAMS DONE"
+EN
+
+REM ============================================================
+REM  COMPED - array declarations for compensation tables
+REM ============================================================
+#INIT1                  
+' ----- arrays to store deltas of the knife's edge
+DM deltaA[200]
+DM deltaB[200]
+DM deltaC[200]
+DM deltaD[200]
+MG "One time Init DONE"
+REM run time variables
+' --- runtime tracking ---
+ctSesKni = 0
+ctStnKni = 0
+lastSt   = 0
+ctKniNow = 0
+mainSp   = 10000
+idx      = 0
+autoWear=0
+
+' --- HMI trigger variables (default=1, send 0 to trigger) ---
+hmiGrnd = 1;  hmiSetp = 1;  hmiMore = 1;  hmiLess = 1
+hmiNewS = 1;  hmiHome = 1;  hmiJog  = 1;  hmiCalc = 1
+hmiGoRs = 1
+hmiGoSt = 1
+hmiExSt = 1;   ' HMI trigger: exit setup, return to #MAIN
+' --- Machine state (1=IDLE 2=GRINDING 3=SETUP 4=HOMING) ---
+hmiState = 1
+' --- Position scalars (4 axes, unused hold 0) ---
+startPtA = 0; startPtB = 0; startPtC = 0; startPtD = 0
+restPtA  = 0; restPtB  = 0; restPtC  = 0; restPtD  = 0
+cOff=0;' distance between stone and 0deg platform no knife/ barely touching
+firstC=0; 'first time setup to remember fresh stone position
+cAbsHeel=0;' cts of C going up depending on knife's angle and width/from csv
+
+cTouch=0; 'absolute postion where a fresh stone touches the platform
+EN
+
+REM ============================================================
+REM  VARCALC - calculate variables and burn
+REM ============================================================
+#VARCALC
+' --- calculate axis cpm values ---
+cpmA = (ctsRevA* ratioA) / pitchA; 
+cpmB = (ctsRevB* ratioB) / pitchB;  
+cpmC = (ctsRevC * ratioC) / pitchC;  
+cpmD = (ctsRevD * ratioD) / pitchD;   
+
+' --- derived values (order matters - cpmB must be before thkCt) ---
+thkCt   = knfThk * cpmC;             
+'---- start point c for knife
+startPtC= cTouch-thkCt-cAbsHeel
+
+MG "VARCALC DONE"
+BV;                            
+EN
+#ZALOOP
+ZAA=hmiState
+ZAB=ctSesKni
+ZAC=ctStnKni
+ZAD=cTouch
+WT 10
+JP#ZALOOP

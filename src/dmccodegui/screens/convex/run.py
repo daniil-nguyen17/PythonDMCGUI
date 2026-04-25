@@ -43,8 +43,6 @@ from dmccodegui.screens.flat_grind.widgets import (
     _BaseBarChart,
     DELTA_C_WRITABLE_START,
     DELTA_C_WRITABLE_END,
-    DELTA_C_ARRAY_SIZE,
-    DELTA_C_STEP,
     STONE_SURFACE_MM,
     STONE_OVERHANG_MM,
     STEP_MM,
@@ -147,7 +145,8 @@ class ConvexRunScreen(BaseRunScreen):
     section_count = NumericProperty(1)
     delta_c_offsets = ListProperty([0.0])        # one offset per section
     selected_section_value = StringProperty("0") # display value for the selected bar
-    comp_mode = StringProperty("cumulative")
+    delta_c_step = NumericProperty(1)            # adjustment increment (1, 2, or 3 cts)
+    delta_c_array_size = NumericProperty(100)    # actual size read from controller (dynamic)
 
     # Knife count display strings (Phase 10)
     session_knife_count = StringProperty("0")
@@ -645,7 +644,7 @@ class ConvexRunScreen(BaseRunScreen):
             self.selected_section_value = "0"
 
     def on_adjust_up(self) -> None:
-        """Add DELTA_C_STEP to the currently selected bar's offset."""
+        """Add delta_c_step to the currently selected bar's offset."""
         chart = self.ids.get("delta_c_chart")
         if chart is None:
             return
@@ -653,12 +652,12 @@ class ConvexRunScreen(BaseRunScreen):
         if idx < 0 or idx >= len(self.delta_c_offsets):
             return
         offsets = list(self.delta_c_offsets)
-        offsets[idx] += DELTA_C_STEP
+        offsets[idx] += self.delta_c_step
         self.delta_c_offsets = offsets
         self.selected_section_value = str(int(self.delta_c_offsets[idx]))
 
     def on_adjust_down(self) -> None:
-        """Subtract DELTA_C_STEP from the currently selected bar's offset."""
+        """Subtract delta_c_step from the currently selected bar's offset."""
         chart = self.ids.get("delta_c_chart")
         if chart is None:
             return
@@ -666,7 +665,7 @@ class ConvexRunScreen(BaseRunScreen):
         if idx < 0 or idx >= len(self.delta_c_offsets):
             return
         offsets = list(self.delta_c_offsets)
-        offsets[idx] -= DELTA_C_STEP
+        offsets[idx] -= self.delta_c_step
         self.delta_c_offsets = offsets
         self.selected_section_value = str(int(self.delta_c_offsets[idx]))
 
@@ -744,92 +743,39 @@ class ConvexRunScreen(BaseRunScreen):
         jobs.submit(_send)
 
     def _offsets_to_delta_c(self) -> list[float]:
-        """Dispatch to active compensation mode."""
-        if self.comp_mode == "spline":
-            return self._offsets_to_delta_c_spline()
-        return self._offsets_to_delta_c_cumulative()
+        """Expand per-section offsets into deltaC array.
 
-    def _offsets_to_delta_c_cumulative(self) -> list[float]:
-        """Cumulative mode: each bar's offset carries forward."""
+        Each segment maps to a contiguous slice of the deltaC array.
+        The user's offset value (in cts) is applied uniformly to every
+        index in that segment — no ramping, no interpolation.
+
+        The array size is dynamic (read from the controller at pre_enter).
+        Segments are divided evenly; the last segment absorbs any remainder.
+        """
         n = max(1, int(self.section_count))
-        size = DELTA_C_ARRAY_SIZE
+        size = self.delta_c_array_size
         offsets = list(self.delta_c_offsets)
         while len(offsets) < n:
             offsets.append(0.0)
 
-        position = [0.0] * size
+        result: list[float] = [0.0] * size
         chunk = size // n
-        cumulative = 0.0
 
         for i in range(n):
+            val = offsets[i]
+            if val == 0.0:
+                continue
             first = i * chunk
             last = (first + chunk - 1) if i < n - 1 else (size - 1)
-            prev_level = cumulative
-            cumulative += offsets[i]
-            span = last - first + 1
-            for j in range(span):
-                t = j / max(1, span - 1)
-                position[first + j] = prev_level + (cumulative - prev_level) * t
+            for j in range(first, last + 1):
+                result[j] = val
 
-        # Positive C = more grinding (stone moves down toward knife)
-        result = [0.0] * size
-        result[0] = position[0]
-        for i in range(1, size):
-            result[i] = position[i] - position[i - 1]
         return result
 
-    def _offsets_to_delta_c_spline(self) -> list[float]:
-        """Spline mode: smooth cubic interpolation between bar centers."""
-        import numpy as np
-        from scipy.interpolate import CubicSpline
-
-        n = max(1, int(self.section_count))
-        size = DELTA_C_ARRAY_SIZE
-        offsets = list(self.delta_c_offsets)
-        while len(offsets) < n:
-            offsets.append(0.0)
-
-        chunk = size // n
-        x_points, y_points = [0], [0.0]
-        for i in range(n):
-            first = i * chunk
-            last = (first + chunk - 1) if i < n - 1 else (size - 1)
-            center = (first + last) // 2
-            cum = sum(offsets[:i + 1])
-            x_points.append(center)
-            y_points.append(cum)
-        x_points.append(size - 1)
-        y_points.append(y_points[-1])
-
-        seen = set()
-        ux, uy = [], []
-        for xv, yv in zip(x_points, y_points):
-            if xv not in seen:
-                seen.add(xv)
-                ux.append(xv)
-                uy.append(yv)
-
-        if len(ux) < 2:
-            return [0.0] * size
-
-        cs = CubicSpline(ux, uy, bc_type='natural')
-        indices = np.arange(size, dtype=float)
-        position = cs(indices)
-
-        # Positive C = more grinding (stone moves down toward knife)
-        result = [0.0] * size
-        result[0] = float(position[0])
-        for i in range(1, size):
-            result[i] = float(position[i] - position[i - 1])
-        return result
-
-    def toggle_comp_mode(self) -> None:
-        """Toggle between cumulative and spline compensation modes."""
-        if self.comp_mode == "cumulative":
-            self.comp_mode = "spline"
-        else:
-            self.comp_mode = "cumulative"
-        logger.info("compensation mode: %s", self.comp_mode)
+    def set_delta_c_step(self, value: int) -> None:
+        """Set the deltaC adjustment increment (1, 2, or 3 cts)."""
+        self.delta_c_step = max(1, min(10, int(value)))
+        logger.info("deltaC step set to %d cts", self.delta_c_step)
 
     # -----------------------------------------------------------------------
     # Stone Compensation and CPM
@@ -849,6 +795,7 @@ class ConvexRunScreen(BaseRunScreen):
                     def _apply(*_):
                         self._controller_delta_c = baseline
                         self._last_delta_c = list(baseline)
+                        self.delta_c_array_size = len(baseline)
                     Clock.schedule_once(_apply)
                     logger.debug("Read deltaC baseline: %d elements", len(baseline))
             except Exception:

@@ -15,14 +15,10 @@ REM ============================================================
 #AUTO
 machType=1
 CB 1,2,3,4,5,6,7,8
-'JS #CONFIG
-'JS #PARAMS
-'JS #COMPED
 JS #HOME
 ctSesKni = 0
-XQ #SHOWPOS, 1
 XQ #UPDSPD, 2
-XQ #ZALOOP, 3
+XQ #ZALOOP, 1
 WT 500
 MG "AUTO INIT COMPLETE"
 REM ============================================================
@@ -40,33 +36,33 @@ CB 1;
 WT 100
 
 IF (@IN[29] = 0) | (hmiGrnd = 0);   ' GO GRIND button OR HMI trigger
-  hmiGrnd = 1;                        ' reset HMI var first
-  hmiState = 2;                        ' GRINDING
+  hmiGrnd = 1;                       
+  hmiState = 2;                     
   SB 1;
   JS #GRIND
-  hmiState = 1;                        ' back to IDLE
+  hmiState = 1;                       
   MG "STATE:", hmiState
   JP #WtAtRt
 ENDIF
 
 IF (@IN[41] = 0) | (hmiSetp = 0);   ' SETUP button OR HMI trigger
-  hmiSetp = 1;                        ' reset HMI var first
-  hmiState = 3;                        ' SETUP
+  hmiSetp = 1;                       
+  hmiState = 3;                      
   JS #SETUP
-  hmiState = 1;                        ' back to IDLE
+  hmiState = 1;                    
   MG "STATE:", hmiState
   JP #WtAtRt
 ENDIF
 
-IF (@IN[33] = 0) | (hmiMore = 0);   ' MORE STONE (C compensation down) OR HMI trigger
-  hmiMore = 1;                        ' reset HMI var first
+IF (@IN[33] = 0) | (hmiMore = 0); 
+  hmiMore = 1;                        
   MG "MORE STONE FROM C"
   JS #MOREGRI
   JP #WtAtRt
 ENDIF
 
-IF (@IN[36] = 0) | (hmiLess = 0);   ' LESS STONE (C compensation up) OR HMI trigger
-  hmiLess = 1;                        ' reset HMI var first
+IF (@IN[36] = 0) | (hmiLess = 0);  
+  hmiLess = 1;                     
   MG "LESS STONE FROM C"
   JS #LESSGRI
   JP #WtAtRt
@@ -99,7 +95,7 @@ n = 0
 JP #WBUF, (_LM=0)
 LI deltaA[n],deltaB[n],deltaC[n],deltaD[n]
 n = n + 1
-JP #RLOOP, (n < 99)
+JP #RLOOP, (n < 200)
 JP #FDONE
 #WBUF
 WT 2
@@ -141,7 +137,7 @@ WT 100
 
 '---- BUTTON 44 NEW STONE -----
 IF (@IN[44] = 0) | (hmiNewS = 0);   ' new grind stone OR HMI trigger
-  hmiNewS = 1;                        ' reset HMI var first
+  hmiNewS = 1;                  
   JS #NEWSESS
 	hmiState=3
   MG "STATE:", hmiState
@@ -150,11 +146,11 @@ ENDIF
 ' --- BUTTON 25: RUN HOME ---
 IF (@IN[25] = 0) | (hmiHome = 0)
   hmiHome = 1;
-  hmiState = 4;                         ' HOMING
+  hmiState = 4;                    
   MG "STATE:", hmiState
   MG "STARTING HOMING SEQUENCE"
   JS #HOME
-  hmiState = 3;                         ' back to SETUP
+  hmiState = 3;                      
   MG "STATE:", hmiState
   JP #SULOOP
 ENDIF
@@ -218,7 +214,7 @@ REM ============================================================
 hmiState = 4;
 MG "STATE:", hmiState
 SH ABCD
-SP 50000, 30000, 30000, 25000;
+SP 20000, 20000, 20000, 15000;
 HV 10000, 10000, 10000, 10000;
 
 HMC; BGC; AMC
@@ -229,8 +225,7 @@ HMD; BGD; AMD
 WT 2000
 DP 0, 0, 0, 0;
 MG "A B C D - ALL AXES HOMED and got 0"
-hmiState = 1;              ' back to IDLE (caller sets 3 if inside SULOOP)
-MG "STATE:", hmiState
+hmiState = 1;              ' back to IDLE 
 EN
 
 REM ============================================================
@@ -238,19 +233,15 @@ REM  GO REST - safe 4-axis park sequence
 REM ============================================================
 #GOREST
 MG "MOVING TO REST"
+SP fdA * cpmA ,fdB * cpmB, fdCup * cpmC,fdD * cpmD
 ' C to rest height
-SPC =fdCup * cpmC
 PAC=restPtC
 BGC
-SPD=fdD * cpmD
+
 PAD=restPtD
 BGD; AMD
-
-SPA =fdA * cpmA
 PAA= restPtA
 BGA; AMA
-
-SPB = fdB * cpmB
 PAB=restPtB
 BGB; AMB
 MG "O VI TRI NGHI"
@@ -267,23 +258,18 @@ REM ============================================================
 MG "MOVING TO START"
 SH ABCD
 ' B start position first
-SP , fdB * cpmB,,
-PA , startPtB,,
+SP fdA * cpmA,fdB * cpmB,fdCdn * cpmC,fdD * cpmD
+PAB= startPtB
 BGB; AMB
-' A to start position along blade
-SP fdA * cpmA,,,
-PA startPtA,,,
+PAA= startPtA
 BGA; AMA
 
-SP ,,, fdD * cpmD
-PA ,,, startPtD
+PAD=startPtD
 BGD; AMD
-
-SP ,, fdCdn * cpmC,
-PA ,, startPtC,
+PAC=startPtC
 BGC; AMC
 WT 100
-MG "O VI TRI BA DAU MAI"
+MG "O VI TRI BAT DAU MAI"
 MG "startPtA : ", startPtA , " or _TDA",  _TDA;
 MG "startPtB : ", startPtB , " or _TDA",  _TDB;
 MG "startPtC : ", startPtC , " or _TDA",  _TDC;
@@ -297,6 +283,7 @@ REM ============================================================
 #MOREGRI
 SB 3;
 startPtC = startPtC + (cpmC * 0.05);       ' more grinding 0.05mm
+restPtC=startPtC-15000
 MG "DA MOI THEM 0.05mm"
 WT 200; BV
 EN
@@ -304,6 +291,7 @@ EN
 #LESSGRI
 SB 3
 startPtC = startPtC - (cpmC * 0.05)
+restPtC=startPtC-15000
 MG "DA MOI BOT 0.05mm"
 WT 200; BV
 EN
@@ -313,9 +301,8 @@ REM ============================================================
 #NEWSESS
 MG "DA MAI MOI - dem dao thanh 0"
 JS #HOME;             
-ctSesKni = 0;                    ' reset knife count for new session
 ctStnKni = 0;                    ' reset stone knife count on new stone
-PRB = 100*cpmB
+PRB = 120*cpmB
 BGB; AMB;
 startPtC=firstC
 MG "DANG TRONG VI TRI THAY DA MAI, DANG CHO O CAT DAT"
@@ -330,31 +317,6 @@ autoWear=  @AN[2]*20
 WT 100
 JP #UPDSPD
 EN
-
-REM ============================================================
-REM  SHOWPOS - track all 4 axis positions (runs on thread 1)
-REM  Updates aPos/bPos/cPos/dPos every 50ms for HMI polling
-REM ============================================================
-#SHOWPOS
-WT 50
-aPos = _TDA
-bPos = _TDB
-cPos = _TDC
-dPos = _TDD
-
-' ring buffer write
-idx = idx + 1
-JP #IDXOK, idx < 300
-idx = 0
-#IDXOK
-aBuf[idx] = aPos
-bBuf[idx] = bPos
-cBuf[idx] = cPos
-dBuf[idx] = dPos
-
-JP #SHOWPOS
-EN
-
 REM ============================================================
 REM  CONFIG - machine hardware setup
 REM ============================================================
@@ -376,15 +338,15 @@ REM  PARAMS - machine constants (never change day to day)
 REM ============================================================
 #PARAMS
 ' --- axis scaling: pitch and gear ratios ---
-pitchA = 5;  ratioA = 4;  ctsRevA = 1500;  ' A: leadscrew
-pitchB = 6;  ratioB = 4;  ctsRevB = 1500;  ' B: leadscrew
-pitchC = 12;  ratioC = 16;  ctsRevC = 750;  ' C: 
-pitchD = 1;  ratioD = 16;  ctsRevD = 22500;  ' D: angle- calibrate
+pitchA = 5;  ratioA = 4;  ctsRevA = 1250; 
+pitchB = 6;  ratioB = 4;  ctsRevB = 1500; 
+pitchC = 12;  ratioC = 16;  ctsRevC = 750; 
+pitchD = 1;  ratioD = 16;  ctsRevD = 22500; 
 firstC=0
 ' --- knife parameters - set these per knife type ---
-knfThk   = 1.3;                  ' knife thickness mm
+knfThk   = 1.3;           
 edgeThk  = 0.3;           
-backOff  = 2;                    ' limit switch back-off distance mm
+backOff  = 2;                
 
 ' --- feed rates mm/s ---
 fdA = 50
@@ -394,6 +356,20 @@ fdCup  = 25
 fdPark = 10
 fdD    = 5
 
+MG "PARAMS DONE"
+EN
+
+REM ============================================================
+REM  COMPED - array declarations for compensation tables
+REM ============================================================
+#INIT1                  
+' ----- arrays to store deltas of the knife's edge
+DM deltaA[200]
+DM deltaB[200]
+DM deltaC[200]
+DM deltaD[200]
+MG "One time Init DONE"
+REM run time variables
 ' --- runtime tracking ---
 ctSesKni = 0
 ctStnKni = 0
@@ -414,28 +390,6 @@ hmiState = 1
 ' --- Position scalars (4 axes, unused hold 0) ---
 startPtA = 0; startPtB = 0; startPtC = 0; startPtD = 0
 restPtA  = 0; restPtB  = 0; restPtC  = 0; restPtD  = 0
-
-MG "PARAMS DONE"
-EN
-
-REM ============================================================
-REM  COMPED - array declarations for compensation tables
-REM ============================================================
-#INIT1
-aPos=0
-bPos=0
-cPos=0
-dPos=0
-DM aBuf[300]                 
-DM bBuf[300]
-DM cBuf[300]
-DM dBuf[300]                   
-' ----- arrays to store deltas of the knife's edge
-DM deltaA[100]
-DM deltaB[100]
-DM deltaC[100]
-DM deltaD[100]
-MG "One time Init DONE"
 EN
 
 REM ============================================================
@@ -452,7 +406,7 @@ cpmD = (ctsRevD * ratioD) / pitchD;
 thkCt   = knfThk * cpmC;             
 
 MG "VARCALC DONE"
-BV;                                   ' save all to EEPROM
+BV;                            
 EN
 #ZALOOP
 ZAA=hmiState

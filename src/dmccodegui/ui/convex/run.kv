@@ -1,6 +1,5 @@
 #:import theme dmccodegui.theme_manager.theme
 #:import DeltaCBarChart dmccodegui.screens.flat_grind.widgets
-#:import run_module dmccodegui.screens.convex.run
 #:import kivy_matplotlib_widget kivy_matplotlib_widget
 #:import ConvexAdjustPanel dmccodegui.screens.convex.widgets.ConvexAdjustPanel
 
@@ -99,7 +98,7 @@
                     padding: '6dp'
                     spacing: '3dp'
 
-                    # Header row: title + section count
+                    # Header row: title
                     BoxLayout:
                         size_hint_y: None
                         height: '28dp'
@@ -109,58 +108,104 @@
                             font_size: '11sp'
                             color: theme.text_mid
                             bold: True
-                            halign: 'left'
+                            halign: 'center'
                             text_size: self.size
                             valign: 'middle'
 
-                        BoxLayout:
+                    BoxLayout:
+                        size_hint_y: None
+                        height: '28dp'
+                        spacing: '4dp'
+
+                        # Step size buttons (1ct / 2ct / 3ct)
+                        Label:
+                            text: 'STEP:'
+                            font_size: '11sp'
+                            color: theme.text_mid
                             size_hint_x: None
-                            width: '120dp'
-                            spacing: '4dp'
+                            width: '36dp'
+                            halign: 'right'
+                            text_size: self.size
+                            valign: 'middle'
 
-                            Label:
-                                text: 'CHIA PHAN:'
-                                font_size: '11sp'
-                                color: theme.text_mid
-                                size_hint_x: None
-                                width: '60dp'
-                                halign: 'right'
-                                text_size: self.size
-                                valign: 'middle'
+                        Button:
+                            text: '1ct'
+                            size_hint_x: None
+                            width: '36dp'
+                            font_size: '11sp'
+                            bold: True
+                            background_normal: ''
+                            background_color: (0.024, 0.714, 0.831, 0.8) if root.delta_c_step == 1 else (0.1, 0.12, 0.16, 1)
+                            color: theme.text_main
+                            on_release: root.set_delta_c_step(1)
 
-                            Button:
-                                text: '-'
-                                size_hint_x: None
-                                width: '24dp'
-                                font_size: '14sp'
-                                background_normal: ''
-                                background_color: 0.1, 0.12, 0.16, 1
-                                on_release: root.on_section_count_change(root.section_count - 1)
+                        Button:
+                            text: '2ct'
+                            size_hint_x: None
+                            width: '36dp'
+                            font_size: '11sp'
+                            bold: True
+                            background_normal: ''
+                            background_color: (0.024, 0.714, 0.831, 0.8) if root.delta_c_step == 2 else (0.1, 0.12, 0.16, 1)
+                            color: theme.text_main
+                            on_release: root.set_delta_c_step(2)
 
-                            Label:
-                                id: section_count_label
-                                text: str(root.section_count)
-                                font_size: '13sp'
-                                color: theme.text_main
-                                bold: True
-                                size_hint_x: None
-                                width: '20dp'
-                                halign: 'center'
-                                text_size: self.size
-                                valign: 'middle'
+                        Button:
+                            text: '3ct'
+                            size_hint_x: None
+                            width: '36dp'
+                            font_size: '11sp'
+                            bold: True
+                            background_normal: ''
+                            background_color: (0.024, 0.714, 0.831, 0.8) if root.delta_c_step == 3 else (0.1, 0.12, 0.16, 1)
+                            color: theme.text_main
+                            on_release: root.set_delta_c_step(3)
 
-                            Button:
-                                text: '+'
-                                size_hint_x: None
-                                width: '24dp'
-                                font_size: '14sp'
-                                background_normal: ''
-                                background_color: 0.1, 0.12, 0.16, 1
-                                on_release: root.on_section_count_change(root.section_count + 1)
+                        Widget:
+
+                        Label:
+                            text: 'SEGMENTS:'
+                            font_size: '11sp'
+                            color: theme.text_mid
+                            size_hint_x: None
+                            width: '60dp'
+                            halign: 'right'
+                            text_size: self.size
+                            valign: 'middle'
+
+                        Button:
+                            text: '-'
+                            size_hint_x: None
+                            width: '24dp'
+                            font_size: '14sp'
+                            background_normal: ''
+                            background_color: 0.1, 0.12, 0.16, 1
+                            on_release: root.on_section_count_change(root.section_count - 1)
+
+                        Label:
+                            id: section_count_label
+                            text: str(root.section_count)
+                            font_size: '13sp'
+                            color: theme.text_main
+                            bold: True
+                            size_hint_x: None
+                            width: '20dp'
+                            halign: 'center'
+                            text_size: self.size
+                            valign: 'middle'
+
+                        Button:
+                            text: '+'
+                            size_hint_x: None
+                            width: '24dp'
+                            font_size: '14sp'
+                            background_normal: ''
+                            background_color: 0.1, 0.12, 0.16, 1
+                            on_release: root.on_section_count_change(root.section_count + 1)
 
                     # Less grinding (subtract) — top matches BOT DA position
                     Button:
-                        text: '\u25B2  BOT ' + str(run_module.DELTA_C_STEP)
+                        text: '\u25B2  BOT ' + str(root.delta_c_step)
                         font_size: '12sp'
                         bold: True
                         background_normal: ''
@@ -174,12 +219,14 @@
                     DeltaCBarChart:
                         id: delta_c_chart
                         offsets: root.delta_c_offsets
+                        array_size: root.delta_c_array_size
+                        max_offset: 20
                         size_hint_y: None
                         height: '90dp'
 
                     # More grinding (add) — bottom matches THEM DA position
                     Button:
-                        text: '\u25BC  THEM ' + str(run_module.DELTA_C_STEP)
+                        text: '\u25BC  THEM ' + str(root.delta_c_step)
                         font_size: '12sp'
                         bold: True
                         background_normal: ''

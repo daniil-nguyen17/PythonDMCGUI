@@ -122,26 +122,58 @@
                         spacing: '8dp'
                         padding: ['20dp', '0dp']
 
-                        Widget:
-
-                        # Mode toggle
-                        Button:
-                            text: root.comp_mode.upper()
+                        # Step size buttons (1ct / 2ct / 3ct)
+                        Label:
+                            text: 'STEP:'
+                            font_size: '13sp'
+                            color: theme.text_mid
                             size_hint_x: None
-                            width: '110dp'
-                            font_size: '14sp'
+                            width: '45dp'
+                            halign: 'right'
+                            text_size: self.size
+                            valign: 'middle'
+
+                        Button:
+                            text: '1ct'
+                            size_hint_x: None
+                            width: '48dp'
+                            font_size: '13sp'
                             bold: True
                             background_normal: ''
-                            background_color: (0.024, 0.714, 0.831, 0.7) if root.comp_mode == 'cumulative' else (0.659, 0.333, 0.965, 0.7)
+                            background_color: (0.024, 0.714, 0.831, 0.8) if root.delta_c_step == 1 else (0.1, 0.12, 0.16, 1)
                             color: theme.text_main
-                            on_release: root.toggle_comp_mode()
+                            on_release: root.set_delta_c_step(1)
+
+                        Button:
+                            text: '2ct'
+                            size_hint_x: None
+                            width: '48dp'
+                            font_size: '13sp'
+                            bold: True
+                            background_normal: ''
+                            background_color: (0.024, 0.714, 0.831, 0.8) if root.delta_c_step == 2 else (0.1, 0.12, 0.16, 1)
+                            color: theme.text_main
+                            on_release: root.set_delta_c_step(2)
+
+                        Button:
+                            text: '3ct'
+                            size_hint_x: None
+                            width: '48dp'
+                            font_size: '13sp'
+                            bold: True
+                            background_normal: ''
+                            background_color: (0.024, 0.714, 0.831, 0.8) if root.delta_c_step == 3 else (0.1, 0.12, 0.16, 1)
+                            color: theme.text_main
+                            on_release: root.set_delta_c_step(3)
+
+                        Widget:
 
                         Label:
-                            text: 'CHIA PHẦN TRÊN DAO ĐỂ CHỈNH SỬA:'
+                            text: 'SEGMENTS:'
                             font_size: '14sp'
                             color: theme.text_mid
                             size_hint_x: None
-                            width: '320dp'
+                            width: '100dp'
                             halign: 'right'
                             text_size: self.size
                             valign: 'middle'
@@ -189,6 +221,8 @@
                     DeltaCBarChart:
                         id: delta_c_chart
                         offsets: root.delta_c_offsets
+                        array_size: root.delta_c_array_size
+                        max_offset: 20
                         size_hint_y: 1
 
                     # More grinding (add) — per-section arrows (flipped down)

@@ -130,9 +130,9 @@ _DISPLAY_PRESETS: dict[str, dict] = {
         "width": 1920,
         "height": 1080,
         "fullscreen_mode": "0",
-        "borderless": "1",
-        "maximized": "0",
-        "resizable": "0",
+        "borderless": "0",
+        "maximized": "1",
+        "resizable": "1",
     },
 }
 
@@ -268,8 +268,13 @@ Config.set('graphics', 'fullscreen', _PRESET["fullscreen_mode"])
 Config.set('graphics', 'maximized', _PRESET["maximized"])
 Config.set('graphics', 'borderless', _PRESET["borderless"])
 Config.set('graphics', 'resizable', _PRESET["resizable"])
-Config.set('graphics', 'width', str(_PRESET["width"]))
-Config.set('graphics', 'height', str(_PRESET["height"]))
+# Only set explicit width/height for non-maximized presets (Pi touchscreens).
+# For maximized presets (desktop/laptop), the window manager determines the
+# size — setting explicit dimensions causes Kivy to use those instead of
+# the actual maximized area, clipping content on screens that don't match.
+if _PRESET["maximized"] != "1":
+    Config.set('graphics', 'width', str(_PRESET["width"]))
+    Config.set('graphics', 'height', str(_PRESET["height"]))
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')  # ensure mouse input
 
 from kivy.app import App
@@ -278,6 +283,12 @@ from kivy.clock import Clock
 from kivy.factory import Factory
 from kivy.properties import StringProperty
 from kivy.core.window import Window
+
+# Config.set('graphics', 'maximized', '1') is unreliable — Kivy may ignore
+# it depending on the SDL2 backend and platform.  Calling Window.maximize()
+# after the Window object exists guarantees the window fills the screen.
+if _PRESET["maximized"] == "1":
+    Window.maximize()
 
 # Register Noto Sans as the default font (Vietnamese + full Latin support)
 from kivy.core.text import LabelBase

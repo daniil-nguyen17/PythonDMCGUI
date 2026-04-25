@@ -228,11 +228,17 @@ class DeltaCBarChart(_BaseBarChart):
         Index of the currently selected bar.  -1 means nothing selected.
     max_offset : NumericProperty(500)
         Absolute offset value that maps to half the widget height (clamps bars).
+    array_size : NumericProperty(100)
+        Actual deltaC array size read from the controller (dynamic).
     """
 
     STEP: int = DELTA_C_STEP
+    array_size = NumericProperty(100)
     _LABEL_HEIGHT: int = 18   # px reserved at bottom for segment labels
     _TOP_LABEL_HEIGHT: int = 16  # px reserved at top for index range labels
+
+    def on_array_size(self, *args) -> None:
+        self._draw()
 
     def _draw(self) -> None:
         self.canvas.clear()
@@ -240,6 +246,8 @@ class DeltaCBarChart(_BaseBarChart):
         n = len(offsets)
         if n == 0:
             return
+
+        arr_size = max(1, int(self.array_size))
 
         label_h = self._LABEL_HEIGHT
         top_label_h = self._TOP_LABEL_HEIGHT
@@ -251,12 +259,12 @@ class DeltaCBarChart(_BaseBarChart):
         mid_y = chart_bottom + chart_h / 2.0
         half_h = chart_h / 2.0
 
-        # Pre-compute index ranges per bar
-        chunk = DELTA_C_ARRAY_SIZE // n if n > 0 else DELTA_C_ARRAY_SIZE
+        # Pre-compute index ranges per bar (dynamic array size)
+        chunk = arr_size // n if n > 0 else arr_size
         ranges: list[tuple[int, int]] = []
         for i in range(n):
             seg_first = i * chunk
-            seg_last = (seg_first + chunk - 1) if i < n - 1 else (DELTA_C_ARRAY_SIZE - 1)
+            seg_last = (seg_first + chunk - 1) if i < n - 1 else (arr_size - 1)
             ranges.append((seg_first, seg_last))
 
         with self.canvas:
@@ -337,9 +345,9 @@ class DeltaCBarChart(_BaseBarChart):
                 seg_first, seg_last = ranges[sel]
                 seg_center = (seg_first + seg_last) // 2
 
-                win_start, win_end = stone_window_for_index(seg_center)
+                win_start, win_end = stone_window_for_index(seg_center, arr_size)
 
-                px_per_idx = self.width / DELTA_C_ARRAY_SIZE
+                px_per_idx = self.width / arr_size
                 overlay_x = self.x + win_start * px_per_idx
                 overlay_w = (win_end - win_start + 1) * px_per_idx
 

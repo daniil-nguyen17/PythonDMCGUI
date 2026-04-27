@@ -134,7 +134,10 @@ class SetupScreen(Screen):
             def on_ui() -> None:
                 self.state.set_connected(ok)
                 if ok:
-                    self.state.connected_address = addr
+                    # Store the bare IP (stripped of gclib flags like -d)
+                    # so downstream consumers (DR listener, MG reader) get
+                    # a clean address for socket operations.
+                    self.state.connected_address = self.controller._strip_flags(addr)
                     self._alert("Connection established")
                     if self._on_connect_cb:
                         self._on_connect_cb()

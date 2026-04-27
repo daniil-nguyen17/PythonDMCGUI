@@ -110,6 +110,19 @@ class GalilController:
             log.error("list_addresses error: %s", e)
             return {}
 
+    @staticmethod
+    def _strip_flags(address: str) -> str:
+        """Extract the bare IP/hostname from an address that may include gclib flags.
+
+        GAddresses() returns strings like '100.100.100.2 -d' where '-d' is the
+        --direct flag.  We append our own PRIMARY_FLAGS, so any existing flags
+        must be stripped to avoid duplicates or conflicts.
+        """
+        parts = address.strip().split()
+        # Keep only the first token (IP or hostname); drop anything starting with '-'
+        bare = parts[0] if parts else address.strip()
+        return bare
+
     # Establishes connection to controller
     def connect(self, address: str) -> bool:
         if self._driver is None:
@@ -121,10 +134,11 @@ class GalilController:
             except Exception as e:  # pragma: no cover
                 log.error("Failed to create gclib driver: %s", e)
                 return False
+        bare_addr = self._strip_flags(address)
         try:
-            self._driver.GOpen(f"{address} {PRIMARY_FLAGS}")
+            self._driver.GOpen(f"{bare_addr} {PRIMARY_FLAGS}")
             self._connected = True
-            self._address = address  # Store bare address (without flags) for reset_handle / MG handle
+            self._address = bare_addr  # Store bare address (without flags) for reset_handle / MG handle
             # CW2,1: third-party device mode + continue on buffer full.
             #   n0=2: normal ASCII on unsolicited messages (no MSB mangling).
             #   n1=1: controller continues executing the DMC program even if

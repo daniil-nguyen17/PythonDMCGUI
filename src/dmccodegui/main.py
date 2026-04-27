@@ -521,7 +521,7 @@ class DMCApp(App):
                     def on_ui():
                         self.state.set_connected(ok)
                         if ok:
-                            self.state.connected_address = addr
+                            self.state.connected_address = self.controller._strip_flags(addr)
                             self.state.log(f"Connected to: {addr}")
                             self._start_dr()
                             self._start_mg_reader()

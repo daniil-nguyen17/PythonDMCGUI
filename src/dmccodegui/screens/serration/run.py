@@ -12,11 +12,8 @@ Threading model (same as FlatGrindRunScreen):
   - All UI updates via Clock.schedule_once() (Kivy main thread)
   - MachineState.subscribe() delivers state changes from the centralized poller
   - _on_state_change() is the single path for updating Kivy properties from state
-"""
 
 KV file: ui/serration/run.kv
-
-TODO: verify bComp array name against real Serration DMC program (customer to confirm)
 """
 from __future__ import annotations
 
@@ -48,15 +45,15 @@ logger = logging.getLogger(__name__)
 
 class SerrationRunScreen(BaseRunScreen):
     """
-    SerrationRunScreen — operator screen for Serration grinding machines.
+    SerrationRunScreen  operator screen for Serration grinding machines.
 
     Layout: left column (bComp panel + plot stub), right column (controller log +
     stone compensation + grind progress), bottom action bar.
 
     Differences from FlatGrindRunScreen:
-      - 3 axes only (A, B, C) — no D-axis properties or widgets
-      - No matplotlib — plot area is a placeholder stub
-      - No DeltaC bar chart — replaced by bComp scrollable list
+      - 3 axes only (A, B, C)  no D-axis properties or widgets
+      - No matplotlib  plot area is a placeholder stub
+      - No DeltaC bar chart  replaced by bComp scrollable list
       - BCompPanel reads/writes per-serration B-axis compensation values
 
     Inherits controller/state ObjectProperties and subscribe/unsubscribe lifecycle
@@ -190,7 +187,7 @@ class SerrationRunScreen(BaseRunScreen):
         """Single read of positions + state to populate UI on page load.
 
         Includes a short delay to let the controller finish processing
-        hmiExSt (setup exit) before reading state — avoids reading stale
+        hmiExSt (setup exit) before reading state  avoids reading stale
         dmc_state=SETUP when returning from a setup screen.
         """
         if not self.controller or not self.controller.is_connected():
@@ -247,7 +244,7 @@ class SerrationRunScreen(BaseRunScreen):
 
         Reads 3 axes only (no D display). Uses a busy guard to prevent job pileup.
         Uses read_all_state() for a single batched MG command. The D axis value
-        from the batch result is intentionally ignored — Serration has no D display.
+        from the batch result is intentionally ignored Serration has no D display.
         """
         if self._pos_busy:
             return
@@ -334,18 +331,18 @@ class SerrationRunScreen(BaseRunScreen):
     # -----------------------------------------------------------------------
 
     def _on_state_change(self, state) -> None:
-        """BaseRunScreen lifecycle hook — delegates to _apply_state."""
+        """BaseRunScreen lifecycle hook  delegates to _apply_state."""
         self._apply_state(state)
 
     def _apply_state(self, s) -> None:
-        """Main thread: apply DR state updates — positions, grind detection, disconnect.
+        """Main thread: apply DR state updates positions, grind detection, disconnect.
 
         Called on every DataRecordListener packet (~10 Hz). Acts as the
         primary source of truth for positions and state. The TCP poll in
         _tick_pos() is kept as a secondary/fallback source; when both fire,
         Kivy properties deduplicate identical values (no-op assignment).
 
-        Serration is 3-axis (A, B, C) — D-axis data from DR is ignored.
+        Serration is 3-axis (A, B, C)  D-axis data from DR is ignored.
         """
         import time as _time
 
@@ -688,8 +685,8 @@ class SerrationRunScreen(BaseRunScreen):
     def on_shutdown(self) -> None:
         """Shutdown: enter setup → home → wait for homing complete → BV.
 
-        Sequence:
-          1. hmiSetp=0 — enter setup mode (DMC goes to #SULOOP)
+            Sequence:
+             1. hmiSetp=0 — enter setup mode (DMC goes to #SULOOP)
           2. hmiHome=0 — trigger homing (DMC runs #HOME from #SULOOP)
           3. Poll hmiState until it returns to 3 (SETUP) — homing done
           4. BV — save all variables to NV memory
@@ -735,12 +732,12 @@ class SerrationRunScreen(BaseRunScreen):
 
                 # Step 4: Save all variables to NV
                 # BV can take several seconds after homing — wait then retry once
-                _t.sleep(1.0)
+                _t.sleep(5.0)
                 try:
                     ctrl.cmd("BV")
                 except Exception:
                     logger.warning("[Shutdown] BV first attempt timed out — retrying")
-                    _t.sleep(2.0)
+                    _t.sleep(3.0)
                     ctrl.cmd("BV")
                 logger.info("[Shutdown] BV done — all variables saved")
 

@@ -738,7 +738,7 @@ class FlatGrindRunScreen(BaseRunScreen):
                 # Step 3: Wait for homing to complete (poll hmiState)
                 # hmiState goes 4 (HOMING) during home, returns to 3 (SETUP) when done
                 for _ in range(120):  # max 60 seconds (120 × 0.5s)
-                    _t.sleep(0.5)
+                    _t.sleep(4)
                     try:
                         raw = ctrl.cmd(f"MG {HMI_STATE_VAR}").strip()
                         state = int(float(raw))
@@ -752,12 +752,12 @@ class FlatGrindRunScreen(BaseRunScreen):
 
                 # Step 4: Save all variables to NV
                 # BV can take several seconds — wait then retry once
-                _t.sleep(1.5)
+                _t.sleep(5.0)
                 try:
                     ctrl.cmd("BV")
                 except Exception:
                     logger.warning("BV first attempt timed out — retrying")
-                    _t.sleep(2.0)
+                    _t.sleep(3.0)
                     ctrl.cmd("BV")
                 logger.info("BV done — all variables saved")
 

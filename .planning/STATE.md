@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Packaging & Deployment
-status: unknown
-stopped_at: Completed 29-01-PLAN.md
-last_updated: "2026-04-22T04:16:46.647Z"
-last_activity: 2026-04-22 — Phase 28 Plan 02 complete (135 print() calls migrated to structured logging across 9 source files)
+status: complete
+stopped_at: Completed 29-02-PLAN.md
+last_updated: "2026-04-27T00:00:00.000Z"
+last_activity: 2026-04-27 — Phase 29 Plan 02 complete (Windows and Pi hardware validation passed, 5 deployment bugs fixed inline)
 progress:
   total_phases: 22
   completed_phases: 5
@@ -20,19 +20,19 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** An operator walks up, taps their PIN, runs parts while watching a live A/B position plot, and goes home — zero friction, zero confusion, zero access to things they shouldn't touch.
-**Current focus:** v4.0 — Phase 28 Plan 02 complete; Phase 28 Plan 03 next (zero print() in production, all 9 files migrated)
+**Current focus:** v4.0 — COMPLETE. Phase 29 Plan 02 done. Windows installer and Pi 500 deployment validated on real Galil hardware.
 
 ## Current Position
 
 ```
 Milestone : v4.0 Packaging & Deployment
-Phase     : 28 of 29 (Logging Infrastructure) — In Progress
-Plan      : 2 of 3 complete
-Status    : 28-02 done (135 print() calls migrated across 9 files, zero production prints remain)
+Phase     : 29 of 29 (Integration Testing and Field Validation) — COMPLETE
+Plan      : 2 of 2 complete
+Status    : 29-02 done — Windows installer and Pi 500 deployment validated on real Galil hardware
 Progress  : [██████████] 100%
 ```
 
-Last activity: 2026-04-22 — Phase 28 Plan 02 complete (135 print() calls migrated to structured logging across 9 source files)
+Last activity: 2026-04-27 — Phase 29 Plan 02 complete (Windows and Pi hardware validation passed, 5 deployment bugs fixed inline)
 
 ## v4.0 Phase Map
 
@@ -43,7 +43,7 @@ Last activity: 2026-04-22 — Phase 28 Plan 02 complete (135 print() calls migra
 | 26 | Pi OS Preparation and Install Script | PI-01 through PI-05, PI-07 | **Complete** |
 | 27 | Screen Resolution Detection | APP-04 | **Complete** |
 | 28 | Logging Infrastructure | APP-01, APP-02, APP-03 | **In Progress** (1/3 plans) |
-| 29 | Integration Testing and Field Validation | FIX-02, PI-06 | Not started |
+| 29 | Integration Testing and Field Validation | FIX-02, PI-06 | **Complete** |
 
 ## Accumulated Context
 
@@ -87,6 +87,11 @@ Decisions affecting current work (v4.0):
 - [Phase 29-integration-testing-and-field-validation]: base._enter_setup_if_needed captures cached_state BEFORE the optimistic pre-set to correctly distinguish already-in-setup vs entering-setup cases
 - [Phase 29-integration-testing-and-field-validation]: e_stop sends HX (halt execution) before reset_handle — correct controller sequencing
 - [Phase 29-integration-testing-and-field-validation]: deltaC cumulative mode uses original windowed triangular ramp algorithm (stone contact window ~30 indices) — net-zero per segment, additive for adjacent uniform segments
+- [Phase 29-02-hardware-validation]: gclib -MG 0 and --subscribe MG flags are Windows-only — Linux gclib does not support them; controlled via sys.platform == 'win32' check
+- [Phase 29-02-hardware-validation]: Galil apt repo uses SHA1 GPG key rejected by Bookworm 2026+ — workaround is [trusted=yes] in sources.list + offline .deb vendor bundle in deploy/pi/vendor/
+- [Phase 29-02-hardware-validation]: Pi eth0 static IP (100.100.100.10/24) configured via nmcli NetworkManager profile in install.sh — /etc/network/interfaces and /etc/dhcpcd.conf are ignored on Bookworm
+- [Phase 29-02-hardware-validation]: Desktop shortcut Exec line must include PYTHONPATH=/opt/binh-an-hmi/src — ModuleNotFoundError without it
+- [Phase 29-02-hardware-validation]: Galil apt source changed from arch=amd64,armhf to arch=arm64 for Pi 500 (aarch64)
 
 ### Critical Pitfalls (from research)
 
@@ -112,7 +117,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T04:16:46.643Z
-Stopped at: Completed 29-01-PLAN.md
+Last session: 2026-04-27T00:00:00.000Z
+Stopped at: Completed 29-02-PLAN.md
 Resume file: None
-Next action: /gsd:plan-phase 26
+Next action: v4.0 milestone complete — all phases done

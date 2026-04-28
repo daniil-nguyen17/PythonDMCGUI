@@ -3,7 +3,7 @@ Version=1.0
 Type=Application
 Name=Binh An HMI
 Comment=Binh An grinding controller HMI
-Exec=/opt/binh-an-hmi/venv/bin/python -m dmccodegui
+Exec=env PYTHONPATH=/opt/binh-an-hmi/src /opt/binh-an-hmi/venv/bin/python3 -m dmccodegui
 Icon=/opt/binh-an-hmi/binh-an-hmi.png
 Terminal=false
 Categories=Utility;

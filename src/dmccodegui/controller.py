@@ -62,8 +62,13 @@ MAX_EDGES_DEFAULT = 250
 # Flags appended to every GOpen address string for the primary command handle.
 # --direct: bypass gclib connection broker for a direct low-latency channel.
 # --timeout 1000: allow 1 second before raising a communication error.
-# -MG 0: do NOT subscribe to MG (message) output on this handle (MgReader uses its own handle).
-PRIMARY_FLAGS: str = "--direct --timeout 1000 -MG 0"
+# -MG 0: do NOT subscribe to MG (message) output on this handle (Linux gclib
+#   does not support this flag — only append on Windows).
+import sys as _sys
+PRIMARY_FLAGS: str = (
+    "--direct --timeout 1000 -MG 0" if _sys.platform == "win32"
+    else "--direct --timeout 1000"
+)
 
 FLOAT_CHARS = set("0123456789+-.eE")
 

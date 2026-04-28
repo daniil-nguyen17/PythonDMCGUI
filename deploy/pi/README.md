@@ -8,9 +8,15 @@ and whether identical hardware is being replicated.
 
 ## Prerequisites (all methods)
 
-- Raspberry Pi 4 (or later) running **64-bit Pi OS Bookworm** (desktop)
+- Raspberry Pi 4, Pi 5, or Pi 500 running **64-bit Pi OS Bookworm** (desktop)
+- **Must be 64-bit** — 32-bit Pi OS is not supported (gclib and build toolchain require aarch64)
 - At least 4 GB free space on the SD card
-- Controller connected via Ethernet before first launch
+- Controller connected via Ethernet (the installer configures a static IP automatically)
+
+### Offline installation (recommended)
+
+For fastest deployment without internet on the Pi, pre-load the `deploy/pi/vendor/`
+directory with gclib .deb files. See `deploy/pi/vendor/README.md` for instructions.
 
 ---
 
@@ -22,11 +28,7 @@ and whether identical hardware is being replicated.
 
 **Option A1 — USB stick:**
 1. Copy the entire project folder to a USB stick on your PC.
-2. Insert the USB stick into the Pi and mount it (auto-mounts to `/media/pi/<label>`).
-3. Copy to the Pi's home directory:
-   ```bash
-   cp -r /media/pi/<label>/PythonDMCGUI ~/PythonDMCGUI
-   ```
+2. Insert the USB stick into the Pi (auto-mounts to `/media/<user>/<label>`).
 
 **Option A2 — SCP over network:**
 ```bash
@@ -35,35 +37,48 @@ scp -r PythonDMCGUI pi@<pi-ip-address>:~/PythonDMCGUI
 
 ### Step 2 — Run the install script
 
-SSH into the Pi (or open a terminal on the Pi desktop) and run:
+Open a terminal on the Pi and run:
+
+```bash
+cd /media/<user>/<label>/PythonDMCGUI
+sudo bash deploy/pi/install.sh
+```
+
+Or if you copied to the home directory:
 
 ```bash
 cd ~/PythonDMCGUI
 sudo bash deploy/pi/install.sh
 ```
 
-The script runs unattended and handles:
+The script runs unattended and handles everything:
 - Forcing X11 display server (Kivy has no Wayland support)
 - Installing system packages via apt (Python 3, libsdl2, libmtdev, etc.)
-- Installing Galil gclib from the bundled .deb package
-- Creating a Python virtual environment at `~/.binh-an-hmi/venv`
+- Installing Galil gclib (from vendor .debs if available, or via apt repo)
+- Configuring static IP (100.100.100.10/24) on eth0 for controller network
+- Copying application files to `/opt/binh-an-hmi/`
+- Creating a Python virtual environment
 - Installing Python dependencies from `requirements-pi.txt`
-- Deploying application files to `~/.binh-an-hmi/app/` (rsync, excludes .md, tests, .xlsx, .dmc)
-- Creating a desktop shortcut (`~/Desktop/BinhAnHMI.desktop`)
+- Creating a desktop shortcut
 - Disabling screen blanking (so the HMI display stays on)
 - Enabling SSH for future remote access
+- Rebooting automatically when done
 
 The script logs everything to `/var/log/binh-an-hmi-install.log`.
 
+**Note:** You can run the script directly from the USB stick — you do NOT need
+to copy the project to the Pi's SD card first. The installer copies what it needs
+to `/opt/binh-an-hmi/`.
+
 ### Step 3 — Verify
 
-1. Double-click the **BinhAnHMI** icon on the Pi desktop.
+After the Pi reboots:
+1. Double-click the **Binh An HMI** icon on the Pi desktop.
 2. The app opens to the PIN login screen.
-3. Log in with the operator PIN and confirm the controller address is reachable.
+3. Enter `100.100.100.2` as the controller address and connect.
 
 **Note:** `install.sh` is idempotent — safe to re-run after applying fixes
-without starting the process over. It will update application files and
-reinstall Python packages if needed.
+without starting the process over.
 
 ---
 
@@ -114,9 +129,6 @@ sudo dd if=binh-an-hmi.img of=/dev/mmcblk0 bs=4M status=progress
 3. Raspberry Pi Imager handles filesystem expansion automatically.
 4. Confirm the HMI desktop shortcut is present and launches correctly.
 
-**Note:** SD card image automation tooling is planned for a future release
-(FUTURE-02). The manual `dd` / Imager workflow is the supported approach today.
-
 ---
 
 ## Method C: git clone (requires internet on the Pi)
@@ -141,7 +153,30 @@ sudo bash deploy/pi/install.sh
 ```
 
 Same outcome as Method A — the desktop shortcut appears and the app
-launches to the PIN login screen.
+launches to the PIN login screen after reboot.
+
+---
+
+## Network Configuration
+
+The installer automatically configures a static IP on the Pi's Ethernet port:
+
+| Setting | Value |
+|---------|-------|
+| Pi IP | 100.100.100.10 |
+| Subnet | /24 (255.255.255.0) |
+| Controller IP | 100.100.100.2 |
+| Interface | eth0 |
+
+This is created as a NetworkManager connection profile (`galil-controller`)
+that persists across reboots. The Pi's WiFi connection is not affected.
+
+**To change the static IP** (if deploying multiple Pis on the same network):
+
+```bash
+sudo nmcli connection modify galil-controller ipv4.addresses 100.100.100.11/24
+sudo nmcli connection up galil-controller
+```
 
 ---
 
@@ -151,6 +186,29 @@ launches to the PIN login screen.
 `kivy_matplotlib_widget` may compile from source on aarch64 because a
 pre-built wheel is not always available on PiWheels. This is normal.
 Do not interrupt. Monitor progress in `/var/log/binh-an-hmi-install.log`.
+
+**Desktop shortcut shows text instead of launching:**
+Right-click the shortcut and select "Allow Launching" or "Trust this executable".
+Or from terminal: `chmod +x ~/Desktop/binh-an-hmi.desktop`
+
+**Controller shows "unknown options: M, G":**
+This is fixed in the current version. If you see this on an older install,
+the gclib flags need updating — re-run the install script to get the latest code.
+
+**Controller won't connect (timeout):**
+Verify the static IP is configured:
+```bash
+ip addr show eth0 | grep inet
+```
+Should show `100.100.100.10/24`. If missing:
+```bash
+sudo nmcli connection up galil-controller
+```
+
+Test connectivity:
+```bash
+ping 100.100.100.2 -c 3
+```
 
 **Wrong screen preset (7inch vs 10inch):**
 If the display preset is detected incorrectly, override it manually:

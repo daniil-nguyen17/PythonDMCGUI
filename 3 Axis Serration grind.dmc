@@ -336,14 +336,14 @@ REM ============================================================
 SB 3;
 startPtB = startPtB + (cpmB * 0.025);       ' more grinding 0.025mm
 MG "DA MOI THEM 0.025mm"
-WT 200; BV
+WT 200
 EN
 
 #LESSGRI
 SB 3
 startPtB = startPtB - (cpmB * 0.025)
 MG "DA MOI BOT 0.025mm"
-WT 200; BV
+WT 200
 EN
 
 REM ============================================================

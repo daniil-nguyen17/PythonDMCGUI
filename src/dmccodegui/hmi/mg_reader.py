@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import logging
 import re
+import sys as _sys
 import threading
 from typing import Any, Callable
 
@@ -196,7 +197,8 @@ class MgReader:
         handle = None
         try:
             handle = gclib.py()
-            connection_string = f"{address} --direct --subscribe MG --timeout 500"
+            _mg_flag = " --subscribe MG" if _sys.platform == "win32" else ""
+            connection_string = f"{address} --direct{_mg_flag} --timeout 500"
             handle.GOpen(connection_string)
             handle.GTimeout(500)
             logger.info("connected: %s", connection_string)

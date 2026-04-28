@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 import threading
 import time
 from collections import deque
@@ -1364,7 +1365,8 @@ class FlatGrindRunScreen(BaseRunScreen):
         handle = None
         try:
             handle = gclib.py()
-            handle.GOpen(f"{address} --subscribe MG")
+            _mg_flag = " --subscribe MG" if sys.platform == "win32" else ""
+            handle.GOpen(f"{address}{_mg_flag}")
             handle.GTimeout(500)  # 500ms so loop checks stop_event regularly
             logger.info("MG reader connected: %s --subscribe MG", address)
         except Exception as e:

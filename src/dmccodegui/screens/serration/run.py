@@ -12,6 +12,7 @@ Threading model (same as FlatGrindRunScreen):
   - All UI updates via Clock.schedule_once() (Kivy main thread)
   - MachineState.subscribe() delivers state changes from the centralized poller
   - _on_state_change() is the single path for updating Kivy properties from state
+"""
 
 KV file: ui/serration/run.kv
 
@@ -20,6 +21,7 @@ TODO: verify bComp array name against real Serration DMC program (customer to co
 from __future__ import annotations
 
 import logging
+import sys
 import threading
 
 from kivy.clock import Clock
@@ -933,7 +935,8 @@ class SerrationRunScreen(BaseRunScreen):
         handle = None
         try:
             handle = gclib.py()
-            handle.GOpen(f"{address} --subscribe MG")
+            _mg_flag = " --subscribe MG" if sys.platform == "win32" else ""
+            handle.GOpen(f"{address}{_mg_flag}")
             handle.GTimeout(500)
             logger.info("MG reader connected: %s --subscribe MG", address)
         except Exception as e:

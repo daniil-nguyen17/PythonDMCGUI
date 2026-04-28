@@ -69,7 +69,8 @@
       "Bash(python -c ' *)",
       "Bash(python -c \"from screeninfo import get_monitors; m = get_monitors\\(\\)[0]; print\\(f'{m.width}x{m.height}'\\)\")",
       "Bash(python -c \"import ast; ast.parse\\(open\\('src/dmccodegui/screens/convex/run.py'\\).read\\(\\)\\); print\\('Python syntax OK'\\)\")",
-      "Bash(python -c \"from src.dmccodegui.screens.flat_grind.run import FlatGrindRunScreen; print\\('Flat grind import OK'\\)\")"
+      "Bash(python -c \"from src.dmccodegui.screens.flat_grind.run import FlatGrindRunScreen; print\\('Flat grind import OK'\\)\")",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

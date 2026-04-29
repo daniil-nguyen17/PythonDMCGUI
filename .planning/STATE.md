@@ -1,38 +1,38 @@
 ---
 gsd_state_version: 1.0
-milestone: v4.0
-milestone_name: Packaging & Deployment
-status: complete
-stopped_at: Completed 29-02-PLAN.md
-last_updated: "2026-04-27T00:00:00.000Z"
-last_activity: 2026-04-27 — Phase 29 Plan 02 complete (Windows and Pi hardware validation passed, 5 deployment bugs fixed inline)
+milestone: v4.1
+milestone_name: Security, Polish & Code Health
+status: active
+stopped_at: Milestone started
+last_updated: "2026-04-28T00:00:00.000Z"
+last_activity: 2026-04-28 — Milestone v4.1 started
 progress:
-  total_phases: 22
-  completed_phases: 5
-  total_plans: 12
-  completed_plans: 12
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-21)
+See: .planning/PROJECT.md (updated 2026-04-28)
 
 **Core value:** An operator walks up, taps their PIN, runs parts while watching a live A/B position plot, and goes home — zero friction, zero confusion, zero access to things they shouldn't touch.
-**Current focus:** v4.0 — COMPLETE. Phase 29 Plan 02 done. Windows installer and Pi 500 deployment validated on real Galil hardware.
+**Current focus:** v4.1 — Security, Polish & Code Health. Defining requirements.
 
 ## Current Position
 
 ```
-Milestone : v4.0 Packaging & Deployment
-Phase     : 29 of 29 (Integration Testing and Field Validation) — COMPLETE
-Plan      : 2 of 2 complete
-Status    : 29-02 done — Windows installer and Pi 500 deployment validated on real Galil hardware
-Progress  : [██████████] 100%
+Milestone : v4.1 Security, Polish & Code Health
+Phase     : Not started (defining requirements)
+Plan      : —
+Status    : Defining requirements
+Progress  : [░░░░░░░░░░] 0%
 ```
 
-Last activity: 2026-04-27 — Phase 29 Plan 02 complete (Windows and Pi hardware validation passed, 5 deployment bugs fixed inline)
+Last activity: 2026-04-28 — Milestone v4.1 started
 
 ## v4.0 Phase Map
 

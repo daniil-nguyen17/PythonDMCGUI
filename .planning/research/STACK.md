@@ -1,78 +1,220 @@
-# Technology Stack: Packaging & Deployment
+# Technology Stack: Security, Code Protection & Codebase Audit
 
-**Project:** DMC Grinding GUI — v4.0 Packaging & Deployment Milestone
-**Researched:** 2026-04-21
-**Scope:** Windows .exe installer, Raspberry Pi venv/systemd/kiosk, screen resolution adaptation
-
----
-
-## Recommended Stack
-
-### Windows Packaging
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| PyInstaller | 6.19.0 | Bundle Python + all deps into distributable | Only packager with first-class Kivy hooks (SDL2/GLEW Tree injection); cx_Freeze lacks them; Briefcase doesn't support Kivy well |
-| Inno Setup | 6.7.1 | Wrap PyInstaller onedir output into a .exe installer | Declarative Pascal scripting, built-in uninstaller tracking, VS Code uses it, lighter learning curve than NSIS, 200 KB overhead irrelevant at bundle scale |
-| kivy-deps.sdl2 | (Kivy-matched) | SDL2 DLLs bundled via spec file Tree injection | Required by spec — `sdl2.dep_bins` Tree; without it the SDL2 window provider fails silently on target machines that have no system Kivy install |
-| kivy-deps.glew | (Kivy-matched) | GLEW DLLs bundled via spec file Tree injection | Same reason — `glew.dep_bins` must be in COLLECT; omitting it causes blank window on Windows machines with only integrated graphics |
-| screeninfo | 0.8.1 | Pre-startup physical display size detection (runtime dep) | Pure Python, cross-platform (Windows/X11), no display server required at detection time; must be installed on dev machine and listed in requirements |
-
-### Raspberry Pi Deployment
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| Python venv | 3.11 (Bookworm default) | Isolated runtime on Pi | PiWheels provides Kivy 2.3 pre-compiled ARM wheels for Python 3.11 / Bookworm; avoids 2-hour source builds |
-| pip + PiWheels | current | Install all Python deps on Pi | PiWheels is the official wheel index for Raspberry Pi OS; Kivy's own docs cite it as the install path |
-| systemd system service | (OS-provided) | Autostart on boot, restart on crash | Modern standard on Bookworm; rc.local is deprecated; LXDE autostart files no longer exist (Wayfire/Wayland replaced LXDE) |
-| install.sh script | (custom) | One-command setup on fresh Pi | Encapsulates venv creation, apt deps, gclib .deb install, systemd unit enable — reproducible, no manual steps |
-| Raspberry Pi Imager | 1.8+ | Flash base OS to SD card | Official tool; customises hostname/SSH/wifi at flash time |
-| dd (Linux) / Win32DiskImager (Windows) | OS-provided | Clone a configured SD to image file for the "deploy from image" workflow | Flash once on a reference unit, clone image for all remaining units |
-
-### Screen Resolution Adaptation
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| screeninfo | 0.8.1 | Query physical display dimensions before Kivy starts | Must run before any Kivy import; screeninfo works without a display server (unlike Tkinter) and without PIL (unlike pyautogui) |
-| kivy.config.Config.set | Kivy built-in | Set `graphics.width/height/fullscreen` before Window import | The only supported mechanism; Config is frozen on first Window import, so detection and Config.set must happen in the same pre-Kivy block at the top of main.py |
-| KIVY_DPI env var | Kivy built-in | Allow install.sh to pin DPI per display profile | Deploy script sets `KIVY_DPI=160` for 7" displays in the systemd unit; overrides Kivy's autodetect which is unreliable on Pi HDMI-forced framebuffers |
+**Project:** DMC Grinding GUI — v4.1 Security, Polish & Code Health
+**Researched:** 2026-04-28
+**Scope:** NEW capabilities only — per-machine licensing, code protection, codebase audit tooling.
+**Existing validated stack:** NOT re-researched (Python 3.10+, Kivy 2.2+, gclib, matplotlib, PyInstaller 6.19, Inno Setup 6.7, install.sh + systemd).
 
 ---
 
-## gclib Bundling Strategy
+## Recommended Stack: New Additions Only
 
-### Windows
+### Licensing — Cryptographic Signing
 
-gclib on Windows is a conventional C DLL pair (`gclib.dll`, `gclibo.dll`) installed by the Galil installer to `C:\Program Files (x86)\Galil\gclib\`. The Python wrapper calls `ctypes.cdll.LoadLibrary` with a hardcoded path to that directory.
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| `cryptography` (PyCA) | >=42.0 | Ed25519 key generation, license file signing, signature verification at startup | Ships pre-compiled wheels for both x86-64 (Windows) and aarch64 (Pi/ARM). Maintained by the same PyCA team that maintains PyNaCl. Ed25519 support is in the stable API (not "hazmat" hazardous-material tier — it is explicitly recommended in the docs). Single package covers signing, serialization, and any future crypto primitives. No libsodium native library dependency separate from the wheel. |
 
-**Problem:** PyInstaller does not auto-discover DLLs loaded via absolute ctypes path strings — it only bundles DLLs next to the executable or on system PATH at analysis time. The Galil DLLs are not on PATH by default.
+**Why `cryptography` over PyNaCl:** Both are PyCA projects. `cryptography` is more appropriate here because (a) it ships a single wheel with no separate libsodium .so requirement, (b) its Ed25519 API (`Ed25519PrivateKey`, `Ed25519PublicKey`) maps directly to the keygen + verify pattern without wrapping NaCl's signing key abstraction, and (c) it is already a transitive dependency of many packages so it may already be present in the venv. PyNaCl would be redundant.
 
-**Strategy:**
-1. Copy `gclib.dll` and `gclibo.dll` from a Galil installation into `src/dmccodegui/vendor/galil/` and commit them to the repo. These are redistributable runtime files, not the installer itself.
-2. In the PyInstaller spec `datas`, add `('src/dmccodegui/vendor/galil/*.dll', '.')` so both DLLs land in the root of the onedir output folder (next to the executable).
-3. In `main.py`, in the pre-Kivy block, patch the gclib search path before importing gclib. The gclib Python wrapper exposes `GclibDllPath_` and `GcliboDllPath_` class attributes that can be overridden before the first `GOpen()` call:
-   ```python
-   if hasattr(sys, '_MEIPASS'):
-       import gclib
-       gclib.GclibDllPath_  = os.path.join(sys._MEIPASS, 'gclib.dll')
-       gclib.GcliboDllPath_ = os.path.join(sys._MEIPASS, 'gclibo.dll')
-   ```
-4. The Inno Setup script does NOT run the Galil system installer — the DLLs are already in the bundle. This removes the per-machine Galil software prerequisite entirely.
+**Why NOT stdlib:** Python's `hashlib` has no Ed25519. The `ssl` module wraps OpenSSL but not in a usable signing API. `cryptography` is the correct answer.
 
-**Confidence:** MEDIUM. The `GclibDllPath_` attribute override is documented in the Galil gclib class reference as the mechanism for non-default DLL locations. Verify the exact attribute names in the installed `gclib/__init__.py` before implementing, as minor version differences may change them.
+### Licensing — Hardware Fingerprinting
 
-### Raspberry Pi
+No third-party library is needed. Use platform-native sources with a custom ~50-line module:
 
-gclib on Linux installs as `libgclib.so` via Galil's `.deb` package. Galil explicitly provides ARM builds for Raspberry Pi OS (announced and documented on galil.com).
+| Platform | Primary source | Fallback |
+|----------|---------------|---------|
+| Raspberry Pi | `/proc/cpuinfo` Serial field (16-hex-digit, unique per board) | `/sys/firmware/devicetree/base/serial-number` |
+| Windows | `wmic csproduct get UUID` via `subprocess` | MAC address from `uuid.getnode()` |
 
-**Strategy:**
-1. Download the Galil gclib `.deb` for ARM and commit it to `deploy/pi/deps/galil-gclib-arm.deb` in the repo.
-2. `install.sh` runs `sudo dpkg -i deploy/pi/deps/galil-gclib-arm.deb` followed by `sudo ldconfig`. The `.deb` post-install script registers the `.so` with the system linker.
-3. The Python gclib wrapper (pip-installable) finds `libgclib.so` via `ctypes.find_library` through the normal system linker path — no path patching required on Linux.
-4. The `.so` is NOT placed inside the venv. It is a system library (root-owned). The venv's Python process resolves it through `LD_LIBRARY_PATH` or `/etc/ld.so.conf.d/` (populated by `ldconfig` after the `.deb` install).
-5. Install the Python gclib wrapper into the venv: `/opt/dmcgui/venv/bin/pip install gclib`
+**Implementation pattern:**
+```python
+import hashlib, platform, subprocess, uuid
 
-**Confidence:** MEDIUM-HIGH. Galil officially documents and supports Raspberry Pi OS deployment, provides ARM `.deb` packages, and published an announcement specifically about Pi support. The pip-installable gclib wrapper is the same one used in the existing dev environment.
+def hardware_fingerprint() -> str:
+    """Return a stable 32-char hex fingerprint for this machine."""
+    raw = _collect_raw_ids()
+    return hashlib.sha256(raw.encode()).hexdigest()[:32]
+
+def _collect_raw_ids() -> str:
+    if platform.system() == "Linux":
+        return _pi_serial()
+    elif platform.system() == "Windows":
+        return _windows_uuid()
+    raise RuntimeError(f"Unsupported platform: {platform.system()}")
+
+def _pi_serial() -> str:
+    try:
+        with open("/proc/cpuinfo") as f:
+            for line in f:
+                if line.startswith("Serial"):
+                    return line.split(":")[1].strip()
+    except OSError:
+        pass
+    try:
+        with open("/sys/firmware/devicetree/base/serial-number") as f:
+            return f.read().strip().rstrip("\x00")
+    except OSError:
+        pass
+    raise RuntimeError("Cannot read Pi serial number")
+
+def _windows_uuid() -> str:
+    result = subprocess.check_output(
+        ["wmic", "csproduct", "get", "UUID"], text=True
+    )
+    lines = [l.strip() for l in result.splitlines() if l.strip()]
+    # lines[0] is "UUID", lines[1] is the value
+    return lines[1] if len(lines) > 1 else str(uuid.getnode())
+```
+
+**Why not a fingerprinting library:** No maintained cross-platform Python library exists that handles both the Pi `/proc/cpuinfo` pattern and Windows WMIC UUID in one package. The custom module is ~50 lines, has zero dependencies, and is completely auditable. MAC address alone is too easily spoofed; Pi serial + Windows BIOS UUID are hardware-bound and stable across reboots/OS reinstalls.
+
+**Why dmidecode is NOT used on Pi:** `dmidecode` is x86-only and not installable on ARM Raspberry Pi OS. `/proc/cpuinfo` is the correct Pi-native source.
+
+### Licensing — License File Format
+
+Use a JSON envelope signed with Ed25519. No library needed beyond `cryptography` and `json`:
+
+```json
+{
+  "machine_id": "a3f9b2c1d4e5...",
+  "machine_type": "flat_grind",
+  "issued": "2026-04-28",
+  "expires": null,
+  "signature": "<base64url Ed25519 signature of canonical JSON payload>"
+}
+```
+
+The keygen CLI tool (a small `keygen.py` script, not a separate package) reads a private key file, generates the fingerprint for the target machine, signs the payload, and writes `license.json`. The HMI validates on startup: compute fingerprint → verify signature with embedded public key → check machine_type matches current type → reject if any check fails.
+
+**Embed the public key** as a constant string in the source (or compiled `.so` / PyArmor-obfuscated module). The private key never leaves the developer machine.
+
+---
+
+### Code Protection — Raspberry Pi (.so compilation)
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| Cython | >=3.0 | Transpile .py → .c → .so on the Pi; hides source from casual inspection | Cython 3.0 is the current stable major release (3.x series). Ships aarch64 wheels for Python 3.11/Bookworm on PyPI. The `build_ext --inplace` flow produces ARM-native `.so` files. No architecture-specific flags needed — GCC on Bookworm defaults to aarch64. |
+| `build-essential` + `python3-dev` | OS-provided | C compiler toolchain for Cython's generated C → .so step | Already required for some Kivy deps; likely already in install.sh's apt block. |
+
+**Build integration with install.sh:**
+
+```bash
+# In install.sh, after pip install:
+log "Compiling Python modules to .so..."
+cd "$INSTALL_DIR"
+"$VENV_DIR/bin/pip" install cython
+"$VENV_DIR/bin/python" setup_protect.py build_ext --inplace
+# Remove .py sources after successful compile
+find src/dmccodegui -name "*.py" \
+    ! -name "__init__.py" \
+    ! -name "main.py" \
+    -delete
+```
+
+**setup_protect.py** (committed to repo, not part of main setup.py):
+```python
+from setuptools import setup
+from Cython.Build import cythonize
+import glob
+
+# Cythonize everything except main.py and __init__.py files
+modules = glob.glob("src/dmccodegui/**/*.py", recursive=True)
+modules = [m for m in modules
+           if "__init__" not in m and "main.py" not in m]
+
+setup(ext_modules=cythonize(modules, compiler_directives={"language_level": "3"}))
+```
+
+**Do NOT Cythonize:**
+- `main.py` — PyInstaller/systemd entry point, must remain a .py
+- `__init__.py` files — package namespace, must remain importable as .py
+- `keygen.py` — runs on dev machine only, not deployed
+
+**Confidence note:** Cython 3.x on aarch64 Bookworm is confirmed. The `setup.py build_ext` pattern is the documented approach. Kivy `.kv` files and resource loading are unaffected — only `.py` logic modules are compiled.
+
+### Code Protection — Windows (bytecode obfuscation)
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| PyArmor | 9.x (latest: 9.2.5) | Obfuscate Python bytecode in the PyInstaller bundle | The only mature Windows Python obfuscation tool with documented PyInstaller integration. |
+
+**Critical constraint — PyArmor free tier is NOT sufficient:**
+
+PyArmor's trial version has a hard ~32 KB per-file bytecode limit. The DMC GUI's larger modules (run screens, machine_config, etc.) will exceed this. A paid Basic or Pro license is required. License cost is a one-time purchase; v8.x licenses upgrade to v9.x free.
+
+**PyInstaller 6 compatibility is a known pain point:**
+
+PyArmor's `--pack` command targets PyInstaller < 6.0 in its standard flow. With PyInstaller 6.x (which this project uses at 6.19.0), the integration requires the manual repack approach:
+
+```bash
+# 1. Obfuscate scripts first
+pyarmor gen src/dmccodegui/
+
+# 2. Build with PyInstaller using the obfuscated output
+pyinstaller dmcgui.spec --distpath dist_obfuscated
+
+# 3. PyArmor repack step (injects PyArmor runtime into the bundle)
+pyarmor repack -e dmcgui.spec dist_obfuscated/DMCGrindingGUI/DMCGrindingGUI.exe
+```
+
+The PyInstaller spec must add PyArmor's runtime as a hidden import and include its `.pyd` runtime module in `datas`. This adds complexity to the build pipeline.
+
+**Honest assessment:** PyArmor on Windows with PyInstaller 6 works but requires careful integration. If the protection goal is "make casual inspection hard" rather than "military-grade security," an alternative is acceptable — see Alternatives Considered below.
+
+**Do NOT use PyArmor on the Pi build.** Cython `.so` files ARE the protection on Pi. PyArmor is Windows-only in this stack.
+
+---
+
+### Codebase Audit Tooling
+
+These are **dev-machine-only tools** (not deployed, not in requirements-pi.txt). Add to `requirements-dev.txt` or install manually in the dev venv.
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| ruff | >=0.4 (current: ~0.14.x) | Lint + import cleanup (replaces flake8 + isort + autoflake) | Written in Rust; runs full-repo scan in under 1 second. Single config in `pyproject.toml`. Covers unused imports (F401), undefined names (F821), import sort, and pydocstyle rules (D-series) in one pass. Replaces autoflake for import cleanup. |
+| vulture | >=2.11 | Dead code detection (unused functions, classes, variables) | AST-based static analysis; assigns 60–100% confidence to dead code findings. Ruff does not replace vulture — ruff catches unused imports and variables in scope, vulture catches unreachable/unreferenced top-level definitions across modules. They are complementary. |
+
+**Why NOT autoflake separately:** Ruff's `--fix` mode handles unused import removal (F401 rule with `--unsafe-fixes` flag). autoflake is made redundant.
+
+**Why NOT pylint:** Ruff covers 90%+ of pylint's rules and is 100x faster. Pylint's remaining value (type inference, some refactoring suggestions) is not needed for this audit scope.
+
+**Why NOT interrogate for docstring coverage:** Ruff's D-series rules (pydocstyle) flag missing docstrings inline with the rest of the lint pass. A separate coverage tool adds overhead without benefit at this project's scale.
+
+**Suggested ruff config in `pyproject.toml`:**
+
+```toml
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "F",    # pyflakes: undefined names, unused imports, unused vars
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "I",    # isort: import ordering
+    "D",    # pydocstyle: docstring rules
+    "UP",   # pyupgrade: modernise Python syntax
+]
+ignore = [
+    "D100", "D101", "D102", "D103",  # missing docstrings — add progressively
+    "D203", "D213",  # conflicting docstring style rules (pick one set)
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+```
+
+**Suggested vulture invocation:**
+
+```bash
+vulture src/dmccodegui/ --min-confidence 80 --ignore-names "on_*,kv_*,ids"
+```
+
+The `--ignore-names` filter prevents false positives from Kivy's event handler naming convention (`on_press`, `on_release`) and KV `ids` attribute lookups, which are dynamically resolved and appear "unused" to static analysis.
 
 ---
 
@@ -80,243 +222,71 @@ gclib on Linux installs as `libgclib.so` via Galil's `.deb` package. Galil expli
 
 | Category | Recommended | Alternative | Why Not |
 |----------|-------------|-------------|---------|
-| Windows bundler | PyInstaller 6.19 | cx_Freeze | No Kivy SDL2/GLEW hooks; manual DLL hunting required; 10x smaller community (12.8k vs 1.5k GitHub stars); GUI app packaging is explicitly called out as more complex |
-| Windows bundler | PyInstaller 6.19 | Briefcase (BeeWare) | Mobile/web-first; Kivy support is experimental; not tested for industrial desktop; no community examples for this use case |
-| Windows bundler | PyInstaller 6.19 | Nuitka | Compiles to C — build times are 10–30x longer; licensing complexity; no IP protection needed for a closed internal tool; overkill |
-| Windows installer | Inno Setup 6.7 | NSIS | More powerful but harder to learn; Inno Setup handles uninstaller, registry, Start Menu, Desktop shortcuts with ~20 lines of declarative script vs NSIS plugin stack |
-| Windows installer | Inno Setup 6.7 | WiX / MSI | Enterprise XML toolchain; designed for corporate MSI deployment chains, not a single-site industrial tool |
-| PyInstaller mode | onedir | onefile | onefile re-extracts to %TEMP% on every launch, adding 5–30 seconds and triggering AV false positives on locked-down industrial machines. onedir with Inno Setup wrapping is correct: installers were designed for folder trees |
-| Pi Python | pip + venv | conda / miniconda | Conda ARM support on Pi is unreliable; heavier than needed; PiWheels makes pip the right choice |
-| Pi autostart | systemd service | LXDE autostart file | LXDE autostart no longer exists on Bookworm (replaced by Wayfire compositor); LXDE approach would fail on all current Pi OS installs |
-| Pi display backend | X11 + SDL2 | Wayland (direct) | SDL KMSDRM driver has documented display corruption bugs on RPi 5 with Bookworm/Wayland (SDL GitHub issue #8579). Force X11 session until Kivy/SDL2 officially validates Wayland on Pi |
-| Screen detection | screeninfo | `tkinter.Tk().winfo_screenwidth()` | Requires Tk display context; creates a visible window flash on some systems; adding tkinter as a dep for a Kivy app is wrong |
-| Screen detection | screeninfo | pyautogui.size() | Pulls in PIL and requires an X server connection at call time; too heavy for a detection-only use case |
+| Ed25519 signing | `cryptography` (PyCA) | PyNaCl | Both PyCA packages; `cryptography` has no separate libsodium .so dependency, cleaner API for key serialization to PEM/DER for storage, likely already a transitive dep |
+| Ed25519 signing | `cryptography` (PyCA) | `python-ed25519` | Unmaintained, the original author recommends PyNaCl instead; do not use |
+| Hardware fingerprinting | Custom ~50-line module | `DeviceFingerprinting` library | Unmaintained third-party library; the Pi + Windows sources are simple enough that a custom module is more maintainable and auditable |
+| Hardware fingerprinting | `/proc/cpuinfo` on Pi | `dmidecode` on Pi | dmidecode is x86-only, not available on ARM/Pi |
+| Windows protection | PyArmor 9 (paid) | Nuitka | Nuitka compiles to C executables (strong protection) but requires 10-30 minute builds and a paid license for commercial use; over-engineered for "casual inspection deterrence" goal |
+| Windows protection | PyArmor 9 (paid) | pyc bytecode only | `.pyc` files are trivially decompilable with `uncompyle6` or `decompile3`; provides no meaningful protection |
+| Pi protection | Cython .so | PyArmor on Pi | PyArmor on ARM requires the pyarmor-cli platform wheel for aarch64-linux; adds another paid-license dependency when Cython already handles Pi protection; redundant |
+| Dead code detection | vulture | bandit | bandit is a security scanner (SQL injection, hardcoded secrets), not dead code; wrong tool for this job |
+| Import cleanup | ruff (F401 + --fix) | autoflake | Ruff supersedes autoflake; no need for both |
+| Docstring audit | ruff D-series | interrogate | interrogate only reports coverage percentage; ruff's D-series gives file-level line numbers and is already in the lint pass |
 
 ---
 
 ## Installation
 
-### Windows Build Machine (developer)
+### Dev Machine (Windows — build + keygen)
 
 ```bash
-# Core packaging tools
-pip install pyinstaller==6.19.0
+# Cryptographic signing tools (also in runtime requirements.txt)
+pip install "cryptography>=42.0"
 
-# Kivy SDL2/GLEW packages needed for spec file DLL Trees
-pip install kivy-deps.sdl2 kivy-deps.glew
+# Code audit tools — dev only (not deployed)
+pip install ruff vulture
 
-# Screen detection (runtime dep — also add to requirements.txt)
-pip install screeninfo==0.8.1
-
-# Build the distributable (onedir mode)
-pyinstaller dmcgui.spec
-
-# Create the .exe installer
-"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+# PyArmor — requires paid license key activation after install
+pip install pyarmor
+pyarmor reg pyarmor-regfile-<your-license>.zip  # activate license
 ```
 
-### PyInstaller spec file (key additions for Kivy)
+### Runtime `requirements.txt` Addition
 
-```python
-# dmcgui.spec — key sections
-
-import kivy_deps.sdl2 as sdl2
-import kivy_deps.glew as glew
-
-a = Analysis(
-    ['src/dmccodegui/main.py'],
-    pathex=[],
-    binaries=[],
-    datas=[
-        # All KV files
-        ('src/dmccodegui/ui/**/*.kv',        'dmccodegui/ui'),
-        # Vendor DLLs for gclib
-        ('src/dmccodegui/vendor/galil/*.dll', '.'),
-        # kivy_matplotlib_widget KV assets
-        ('path/to/kivy_matplotlib_widget/**/*.kv', 'kivy_matplotlib_widget'),
-        # Profile CSVs (if shipped with installer)
-        ('profiles/',                          'profiles'),
-    ],
-    hiddenimports=['kivy.core.window.window_sdl2', 'kivy.core.renderer.renderer_sdl2'],
-    hookspath=[],
-    excludes=['tkinter', '_tkinter', 'matplotlib.backends.backend_tkagg'],
-    ...
-)
-
-exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='DMCGrindingGUI', ...)
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    # SDL2 and GLEW DLL trees — required for Kivy window provider
-    *[Tree(p) for p in sdl2.dep_bins],
-    *[Tree(p) for p in glew.dep_bins],
-    strip=False,
-    upx=False,
-    name='DMCGrindingGUI',
-)
+```
+cryptography>=42.0
 ```
 
-### Raspberry Pi Target Machine
+This is the only new runtime dependency. Everything else is dev-time or build-time.
+
+### `requirements-pi.txt` Addition
+
+```
+cryptography>=42.0
+cython>=3.0   # build-time only; can be removed post-compile but harmless to leave
+```
+
+### Pi `install.sh` Addition
 
 ```bash
-# install.sh (committed to deploy/pi/)
-# Run as: sudo ./install.sh
+# Ensure build toolchain is present (may already be installed)
+apt-get install -y build-essential python3-dev
 
-# 1. System dependencies for Kivy + SDL2
-apt-get install -y libgl1-mesa-glx libgles2-mesa libegl1-mesa libmtdev1 \
-                   libsdl2-2.0-0 libsdl2-image-2.0-0 libsdl2-mixer-2.0-0
+# Install cryptography + cython into venv
+"$VENV_DIR/bin/pip" install "cryptography>=42.0" "cython>=3.0"
 
-# 2. Install gclib system library
-dpkg -i /opt/dmcgui/deploy/pi/deps/galil-gclib-arm.deb
-ldconfig
+# Compile .py modules to .so
+log "Compiling Python source to native extensions..."
+cd "$INSTALL_DIR"
+"$VENV_DIR/bin/python" setup_protect.py build_ext --inplace
 
-# 3. Create Python venv
-python3.11 -m venv /opt/dmcgui/venv
-
-# 4. Install Python dependencies (PiWheels speeds up Kivy dramatically)
-/opt/dmcgui/venv/bin/pip install --extra-index-url https://www.piwheels.org/simple \
-    kivy==2.3.1 matplotlib kivy_matplotlib_widget gclib screeninfo
-
-# 5. Install systemd service
-cp /opt/dmcgui/deploy/pi/dmcgui.service /etc/systemd/system/
-systemctl daemon-reload
-systemctl enable dmcgui
-systemctl start dmcgui
+# Optionally strip .py sources (leave __init__.py and main.py)
+find "$INSTALL_DIR/src" -name "*.py" \
+    ! -name "__init__.py" \
+    ! -name "main.py" \
+    -delete
+log "Source stripping complete."
 ```
-
-### Pi systemd service unit
-
-```ini
-# /etc/systemd/system/dmcgui.service
-
-[Unit]
-Description=DMC Grinding GUI
-After=graphical.target
-Wants=graphical.target
-
-[Service]
-User=pi
-Environment=DISPLAY=:0
-Environment=XAUTHORITY=/home/pi/.Xauthority
-Environment=KIVY_WINDOW=sdl2
-Environment=KIVY_GL_BACKEND=sdl2
-Environment=SDL_VIDEODRIVER=x11
-Environment=DMC_KIOSK=1
-ExecStart=/opt/dmcgui/venv/bin/python /opt/dmcgui/src/dmccodegui/main.py
-Restart=on-failure
-RestartSec=5
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=graphical.target
-```
-
-**Note on X11 vs Wayland:** Bookworm defaults to Wayfire (Wayland) but ships a compatible X11 session. Force X11 login via `raspi-config` → Advanced Options → Wayland → X11 on the target machine. The SDL KMSDRM driver has a documented garbage-display bug on RPi 5 with Wayland; `SDL_VIDEODRIVER=x11` in the unit file is a belt-and-suspenders guard.
-
----
-
-## Screen Resolution Adaptation
-
-### Strategy
-
-Kivy freezes its display configuration on first `Window` import. Resolution detection and `Config.set()` calls must happen in a pre-Kivy block at the very top of `main.py`, before any other Kivy import. This is consistent with the existing project pattern (`Config.set before all Kivy imports` — already established in `main.py` per PROJECT.md key decisions).
-
-```python
-# TOP OF main.py — before ANY kivy imports
-
-import os
-import sys
-
-def _configure_display():
-    """Detect screen size and set Kivy window config before Window import."""
-    try:
-        from screeninfo import get_monitors
-        monitors = get_monitors()
-        primary = monitors[0] if monitors else None
-    except Exception:
-        primary = None
-
-    # Manual override from settings.json takes priority over auto-detect
-    # (checked here before settings module imports Kivy)
-    try:
-        import json
-        with open('settings.json') as f:
-            override = json.load(f).get('display_resolution')
-        if override:
-            w, h = override['width'], override['height']
-            primary = type('M', (), {'width': w, 'height': h})()
-    except Exception:
-        pass
-
-    from kivy.config import Config  # safe — doesn't import Window
-
-    if primary:
-        Config.set('graphics', 'width',  str(primary.width))
-        Config.set('graphics', 'height', str(primary.height))
-
-    # Kiosk fullscreen on Pi
-    if os.environ.get('DMC_KIOSK') == '1':
-        Config.set('graphics', 'fullscreen', 'auto')
-
-    # Keyboard dock mode for small touchscreens
-    if primary and primary.width <= 800:
-        Config.set('kivy', 'keyboard_mode', 'systemanddock')
-
-_configure_display()
-
-# NOW safe to import kivy
-from kivy.app import App
-# ... rest of imports
-```
-
-### Display Profiles
-
-| Profile | Resolution | Use case |
-|---------|-----------|----------|
-| 7 inch | 800×480 | Pi official touchscreen (small) |
-| 10 inch | 1024×600 or 1280×800 | Pi touchscreen (medium) |
-| 15 inch | 1920×1080 | Windows workstation or large Pi display |
-
-The existing `dp`/`sp` layout (44dp touch targets already in use) scales correctly once window geometry is set. No widget-level changes are needed for resolution adaptation — only the pre-Kivy window size config.
-
----
-
-## Key Kivy Packaging Gotchas
-
-### KV Files Are Not Auto-Discovered
-
-PyInstaller does not find `.kv` files through static analysis. Every `.kv` file must be in the `datas` list of the spec. Missing KV files produce a **blank screen with no error** — the worst kind of failure.
-
-Use a glob in the spec: `('src/dmccodegui/ui/**/*.kv', 'dmccodegui/ui')`
-
-### `_MEIPASS` Resource Path
-
-The project already has this pattern (noted in PROJECT.md). Ensure `resource_add_path(sys._MEIPASS)` is called early in `main.py` when `hasattr(sys, '_MEIPASS')`, so Kivy's resource finder locates bundled KV files, fonts, and images.
-
-### SDL2 DLL Load Order Bug (onefile only)
-
-PyInstaller issue #3795: SDL2 DLLs extracted to `%TEMP%` can be found after system SDL2 if any system SDL2 exists, causing version conflicts. This is the primary reason to use **onedir, not onefile** for this project.
-
-### Matplotlib Backend
-
-Exclude Tkinter backends to avoid bundling Tkinter unnecessarily. Add to the Analysis `excludes` list:
-```python
-excludes=['tkinter', '_tkinter', 'matplotlib.backends.backend_tkagg', 'matplotlib.backends.backend_tk']
-```
-
-The app already uses the Kivy matplotlib widget which renders via Agg — no Tk backend is needed.
-
-### kivy_matplotlib_widget KV Assets
-
-This library ships its own `.kv` files. They are not in the main `src/` tree. Locate the installed package path and add a glob datas entry pointing to it, or the plot widget renders as an empty box.
-
-### Fonts
-
-If the app registers custom fonts via `LabelBase.register()` (already done for Roboto per project pattern), the font files must be in datas. Missing fonts cause silent fallback to a system font that may not exist on the target machine, resulting in invisible text.
 
 ---
 
@@ -324,39 +294,77 @@ If the app registers custom fonts via `LabelBase.register()` (already done for R
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| PyInstaller as bundler | HIGH | Official Kivy 2.3.1 docs, PyPI (version 6.19.0 confirmed current as of 2026-03) |
-| Inno Setup as installer | HIGH | Version 6.7.1 confirmed on official downloads page; VS Code uses it |
-| PyInstaller SDL2/GLEW Tree injection | HIGH | Documented in Kivy official packaging guide; consistent across Kivy 2.x |
-| gclib DLL bundling — Windows | MEDIUM | ctypes path override via `GclibDllPath_` is documented; exact attribute names need verification against installed gclib version |
-| gclib .deb on Pi | MEDIUM-HIGH | Galil officially documents Pi support and provides ARM packages; pip wrapper confirmed functional on Pi by Galil announcement |
-| Pi systemd + X11 | MEDIUM-HIGH | Bookworm-specific pattern confirmed in Pi forums (February 2025 threads); Wayland avoidance confirmed by SDL GitHub issue |
-| Wayland avoidance on Pi 5 | HIGH | SDL KMSDRM display corruption is an open confirmed bug on SDL GitHub (issue #8579), not speculation |
-| PiWheels for Kivy on Bookworm | HIGH | Official Kivy docs explicitly cite PiWheels for Python 3.11 / Bookworm |
-| screeninfo resolution detection | MEDIUM | Works on Windows and X11; behavior on Pi with HDMI-forced resolution (common for official Pi touchscreen at 800×480) needs validation on real hardware |
-| onedir recommendation | HIGH | Multiple sources (PyInstaller docs, community) and the SDL2 DLL load order bug confirm onedir is correct for Kivy on Windows |
+| `cryptography` for Ed25519 | HIGH | PyCA project, official docs confirmed Ed25519 in stable API, ARM + x86 wheels on PyPI |
+| Pi hardware fingerprint via `/proc/cpuinfo` | HIGH | Raspberry Pi Foundation documented; widely used for Pi licensing; Bookworm confirmed |
+| Windows UUID via `wmic` | MEDIUM | wmic is deprecated in Windows 11 22H2+ in favor of PowerShell `Get-WmiObject`; may need fallback to `Get-CimInstance Win32_ComputerSystemProduct` via PowerShell |
+| Cython 3.x on aarch64/Bookworm | HIGH | Pre-built wheels confirmed for cp311/aarch64; build_ext pattern is official Cython docs |
+| PyArmor 9 + PyInstaller 6 | MEDIUM | Works but requires manual repack flow; trial version 32 KB limit will block large modules; paid license required; integration complexity is real |
+| ruff for lint + import cleanup | HIGH | Actively maintained by Astral; 0.14.x confirmed current in 2025; replaces multiple tools |
+| vulture for dead code | HIGH | Actively maintained; confirmed Kivy false-positive mitigation via --ignore-names |
+
+---
+
+## Key Integration Risk: Windows UUID Deprecation
+
+`wmic` commands are deprecated as of Windows 11 22H2 (October 2023) and may be removed in a future Windows build. The fallback is a PowerShell one-liner:
+
+```python
+def _windows_uuid() -> str:
+    # Try wmic first (Windows 10 / early Windows 11)
+    try:
+        result = subprocess.check_output(
+            ["wmic", "csproduct", "get", "UUID"], text=True, timeout=5
+        )
+        lines = [l.strip() for l in result.splitlines() if l.strip()]
+        if len(lines) > 1 and lines[1] != "UUID":
+            return lines[1]
+    except (subprocess.SubprocessError, FileNotFoundError):
+        pass
+    # Fallback: PowerShell Get-CimInstance (Windows 11 22H2+)
+    result = subprocess.check_output(
+        ["powershell", "-Command",
+         "(Get-CimInstance Win32_ComputerSystemProduct).UUID"],
+        text=True, timeout=5
+    )
+    return result.strip()
+```
+
+This handles both current Windows 11 versions and future-proofs against wmic removal. **Flag this for validation on target Windows machines before shipping.**
+
+---
+
+## What NOT to Add
+
+- **A licensing SaaS or online activation server:** This is an in-house industrial tool. Network-dependent licensing is a single point of failure on a machine floor. License files are offline JSON — done.
+- **Nuitka:** Overkill. 30-minute builds and a paid license for "make casual inspection harder" is wrong tradeoff.
+- **Full `.pyx` rewrite of the Kivy UI layer:** Cython compiles plain `.py` files directly; no `.pyx` rewrite required. Only logic modules are compiled; KV files stay as-is.
+- **A separate docstring coverage CI gate:** Run ruff + vulture manually during the audit phase. Adding CI gates for a one-time audit is process overhead that doesn't serve the project.
+- **`bandit` security scanning:** No user-facing web exposure, no SQL, no network service. Bandit's rules don't apply to this use case.
+- **License server or floating license model:** One license file per physical machine, generated by keygen.py, copied to the SD card / Windows install folder. No server required.
 
 ---
 
 ## Sources
 
-- Kivy Windows packaging guide (2.3.1): https://kivy.org/doc/stable/guide/packaging-windows.html
-- Kivy RPi installation guide (2.3.1): https://kivy.org/doc/stable/installation/installation-rpi.html
-- Kivy environment variables: https://kivy.org/doc/stable/guide/environment.html
-- Kivy Metrics / KIVY_DPI docs (2.3.1): https://kivy.org/doc/stable/api-kivy.metrics.html
-- PyInstaller 6.19.0 install docs: https://pyinstaller.org/en/stable/installation.html
-- PyInstaller changelog (version confirmed current): https://pyinstaller.org/en/stable/CHANGES.html
-- PyInstaller DLL load order issue #3795: https://github.com/pyinstaller/pyinstaller/issues/3795
-- Inno Setup downloads (6.7.1 confirmed): https://jrsoftware.org/isdl.php
-- Galil gclib Raspberry Pi OS install docs: https://www.galil.com/sw/pub/all/doc/global/install/linux/rpios/
-- Galil gclib DLL path documentation: https://www.galil.com/sw/pub/all/doc/gclib/html/classgclib.html
-- SDL KMSDRM RPi 5 display bug (confirms Wayland avoidance): https://github.com/libsdl-org/SDL/issues/8579
-- Raspberry Pi autostart / systemd Bookworm: https://raspberry.tips/en/raspberrypi-einsteiger/raspberry-pi-autostart-setup
-- Pi Bookworm venv autostart forum (February 2025): https://forums.raspberrypi.com/viewtopic.php?t=384121
-- screeninfo PyPI: https://pypi.org/project/screeninfo/
-- PyInstaller vs cx_Freeze comparison: https://ahmedsyntax.com/cx-freeze-vs-pyinstaller/
-- Kivy School PyInstaller instructions: https://kivyschool.com/pyinstaller-instructions/
+- cryptography Ed25519 API (stable): https://cryptography.io/en/latest/hazmat/primitives/asymmetric/ed25519/
+- PyNaCl signing docs (comparison reference): https://pynacl.readthedocs.io/en/latest/signing/
+- Raspberry Pi serial number via /proc/cpuinfo: https://www.raspberrypi-spy.co.uk/2012/09/getting-your-raspberry-pi-serial-number-using-python/
+- Pi serial number forum (Raspberry Pi 4 confirmed): https://forums.raspberrypi.com/viewtopic.php?t=337570
+- dmidecode ARM limitation: https://forums.raspberrypi.com/viewtopic.php?t=10741
+- Cython 3.x installation + ARM support: https://cython.readthedocs.io/en/latest/src/quickstart/install.html
+- Cython build_ext pattern: https://cython.readthedocs.io/en/latest/src/quickstart/build.html
+- Cython Pi performance article (confirms .so generation on Pi): https://medium.com/data-science/boosting-python-scripts-with-cython-applied-on-raspberry-pi-5ea191292e68
+- PyArmor 9.2.5 docs: https://pyarmor.readthedocs.io/en/latest/
+- PyArmor license types (confirms 32KB trial limit and paid requirement): https://pyarmor.readthedocs.io/en/latest/licenses.html
+- PyArmor repack for PyInstaller 6: https://pyarmor.readthedocs.io/en/latest/topic/repack.html
+- PyArmor 9 release (Oct 2024): https://www.tegakari.net/en/2024/10/pyarmor_v9/
+- Ruff linter docs: https://docs.astral.sh/ruff/linter/
+- Ruff 0.14.x (current 2025): https://github.com/astral-sh/ruff
+- vulture dead code detection: https://github.com/jendrikseipp/vulture
+- Cython code protection analysis (Cisco): https://blogs.cisco.com/developer/securingpythoncodewithcython01
 
 ---
 
-*Stack research for: DMC Grinding GUI — v4.0 Packaging & Deployment*
-*Researched: 2026-04-21*
+*Stack research for: DMC Grinding GUI — v4.1 Security, Polish & Code Health*
+*Researched: 2026-04-28*
+*Scope: New additions only — licensing, code protection, audit tooling*

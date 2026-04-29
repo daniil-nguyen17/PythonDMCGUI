@@ -53,19 +53,17 @@ An operator walks up, taps their PIN, runs parts while watching a live A/B posit
 - Undo/redo for parameter edits (controller is source of truth; "Read from Controller" is the real undo)
 - Animated screen transitions (adds latency on industrial tool)
 
-## Current Milestone: v4.0 Packaging & Deployment
+## Current Milestone: v4.1 Security, Polish & Code Health
 
-**Goal:** Package the working HMI into installable bundles for Windows 11 and Raspberry Pi so the app can be tested on real hardware with a real Galil controller — zero pre-installed software required on target machines.
+**Goal:** Harden the deployed HMI with per-machine licensing and code protection, clean up the codebase (dead code, consistency, documentation), fix field-testing bugs, polish the UI, and complete per-machine parameter page definitions.
 
 **Target features:**
-- Windows .exe installer (bundles Python, gclib, all dependencies) with Start Menu + Desktop shortcuts
-- Optional Windows auto-start on login (configurable)
-- Raspberry Pi deployment with 3 delivery methods: USB/SCP folder, SD card image, git clone + install script
-- Pi virtual environment with all dependencies (gclib, matplotlib, Kivy, etc.)
-- Pi kiosk mode: fullscreen on boot via systemd, no desktop access for operators
-- Auto-detect screen resolution with option for user to pick (supports 7", 10", 15" displays)
-- Exclude non-runtime files (.md, .planning/, tests/, Excel, DMC) from package
-- DMC/Excel files available separately for first-time controller setup
+- Full codebase audit: dead code removal, deprecated items, comment/docstring cleanup, naming consistency, import cleanup
+- Bug fixes from field testing: ANGLE GPU driver workaround, MG reader gclib flag fix, install.sh hardening
+- UI polish: touch target refinements, layout tweaks, visual consistency
+- Per-machine parameter pages: correct parameter definitions for Flat Grind, Serration, and Convex
+- Per-machine hardware-bound licensing: Ed25519 signed license files, keygen CLI tool, startup validation
+- Code protection: Cython compilation for Pi (.py → .so), PyArmor for Windows bytecode encryption
 
 ## Context
 

@@ -261,6 +261,11 @@ _PRESET = _DISPLAY_PRESETS[_ACTIVE_PRESET_NAME]
 os.environ["KIVY_DPI_AWARE"] = "1"
 os.environ["KIVY_METRICS_DENSITY"] = _PRESET["density"]
 os.environ["KIVY_MOUSE"] = "mouse,multitouch_on_demand"
+# Use ANGLE (DirectX) backend on Windows to avoid AMD OpenGL driver crashes
+# (atio6axx.dll faults under sustained matplotlib plot redraws).
+# Linux (Pi) uses native EGL/GLES2 — no change needed.
+if sys.platform == "win32":
+    os.environ.setdefault("KIVY_GL_BACKEND", "angle_sdl2")
 from typing import cast
 from kivy.config import Config
 

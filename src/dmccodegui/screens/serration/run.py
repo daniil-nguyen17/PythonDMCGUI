@@ -932,8 +932,7 @@ class SerrationRunScreen(BaseRunScreen):
         handle = None
         try:
             handle = gclib.py()
-            _mg_flag = " --subscribe MG" if sys.platform == "win32" else ""
-            handle.GOpen(f"{address}{_mg_flag}")
+            handle.GOpen(f"{address} --direct --subscribe MG")
             handle.GTimeout(500)
             logger.info("MG reader connected: %s --subscribe MG", address)
         except Exception as e:

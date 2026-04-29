@@ -208,6 +208,7 @@ rsync -a --delete "$SCRIPT_DIR/../../" "$INSTALL_DIR/" \
     --exclude='tests/' \
     --exclude='__pycache__' \
     --exclude='.claude/' \
+    --exclude='venv/' \
     --exclude='*.md' \
     --exclude='*.xlsx' \
     --exclude='*.dmc' \

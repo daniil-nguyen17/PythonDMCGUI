@@ -197,8 +197,7 @@ class MgReader:
         handle = None
         try:
             handle = gclib.py()
-            _mg_flag = " --subscribe MG" if _sys.platform == "win32" else ""
-            connection_string = f"{address} --direct{_mg_flag} --timeout 500"
+            connection_string = f"{address} --direct --subscribe MG --timeout 500"
             handle.GOpen(connection_string)
             handle.GTimeout(500)
             logger.info("connected: %s", connection_string)

@@ -6,7 +6,8 @@
 - ⏸ **v1.1 Deployment** — Phase 8: Pi Kiosk (pending hardware validation)
 - ✅ **v2.0 Flat Grind Integration** — Phases 9-17 (shipped 2026-04-07)
 - ✅ **v3.0 Multi-Machine** — Phases 18-23 (shipped 2026-04-13)
-- 🚧 **v4.0 Packaging & Deployment** — Phases 24-29 (in progress)
+- ✅ **v4.0 Packaging & Deployment** — Phases 24-29 (shipped 2026-04-28)
+- 🚧 **v4.1 Security, Polish & Code Health** — Phases 30-35 (in progress)
 
 ## Phases
 
@@ -65,16 +66,30 @@ Full details: `.planning/milestones/v3.0-ROADMAP.md`
 
 </details>
 
-### v4.0 Packaging & Deployment (Phases 24-29)
+<details>
+<summary>✅ v4.0 Packaging & Deployment (Phases 24-29) — SHIPPED 2026-04-28</summary>
 
-**Milestone Goal:** Package the working HMI into installable bundles for Windows 11 and Raspberry Pi — zero pre-installed software required on target machines.
-
-- [ ] **Phase 24: Windows PyInstaller Bundle** — PyInstaller spec, gclib DLL vendoring, frozen path fixes (WIN-01, WIN-02, WIN-05, WIN-07)
+- [x] **Phase 24: Windows PyInstaller Bundle** — PyInstaller spec, gclib DLL vendoring, frozen path fixes (WIN-01, WIN-02, WIN-05, WIN-07) (completed 2026-04-21)
 - [x] **Phase 25: Windows Inno Setup Installer** — .exe installer, Start Menu/Desktop shortcuts, Add/Remove Programs, optional auto-start (WIN-03, WIN-04, WIN-06) (completed 2026-04-22)
 - [x] **Phase 26: Pi OS Preparation and Install Script** — X11 switch, Galil .deb, venv, desktop app install (PI-01, PI-04, PI-05) (completed 2026-04-22)
 - [x] **Phase 27: Screen Resolution Detection** — Auto-detect at startup, display profile presets, manual override in settings.json (APP-04) (completed 2026-04-22)
 - [x] **Phase 28: Logging Infrastructure** — Rotating log file, uncaught exception hook, dev artifact exclusion (APP-01, APP-02, APP-03) (completed 2026-04-22)
 - [x] **Phase 29: Integration Testing and Field Validation** — Clean-VM Windows gate, Pi hardware gate, real controller validation (FIX-02, PI-06) (completed 2026-04-28)
+
+Full details: `.planning/milestones/v4.0-ROADMAP.md`
+
+</details>
+
+### v4.1 Security, Polish & Code Health (Phases 30-35)
+
+**Milestone Goal:** Harden the deployed HMI with per-machine licensing and code protection, clean up the codebase (dead code, consistency, documentation), fix field-testing bugs, polish the UI, and complete per-machine parameter page definitions.
+
+- [ ] **Phase 30: Codebase Audit** — Dead code removal, import cleanup, docstrings, naming consistency (AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04)
+- [ ] **Phase 31: Bug Fixes and UI Polish** — ANGLE GPU workaround, MG reader flags, install.sh hardening, touch target audit, layout consistency (FIX-03, FIX-04, FIX-05, UI-01, UI-02)
+- [ ] **Phase 32: Per-Machine Parameters** — Complete Convex param defs, parameter read failure logging (PARAM-01, PARAM-02)
+- [ ] **Phase 33: Licensing Core** — Hardware fingerprint module, Ed25519 validator, keygen CLI, startup enforcement (LIC-01, LIC-02, LIC-03, LIC-04)
+- [ ] **Phase 34: Pi Cython Protection** — Compile business-logic modules to .so, remove source .py files, controller.py excluded (PROT-01, PROT-03)
+- [ ] **Phase 35: Windows PyArmor Protection** — Obfuscate bytecode before PyInstaller bundling, controller.py excluded (PROT-02, PROT-03)
 
 ---
 
@@ -315,10 +330,10 @@ Plans:
   2. Connecting to a Galil controller from the frozen app succeeds — the controller connection log shows the same response as the dev environment, confirming the gclib DLL loaded from the bundle
   3. Logging in, creating a user, and restarting the app shows the user still exists — users.json persisted to %APPDATA%/BinhAnHMI/, not wiped from _MEIPASS on restart
   4. Right-clicking BinhAnHMI.exe and viewing Properties shows the correct version number in the Details tab
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
-- [ ] 24-01-PLAN.md — Frozen-mode code: __version__, _get_data_dir(), GCLIB_ROOT patch, window title, diagnostics exclusion, tests
-- [ ] 24-02-PLAN.md — Deploy infrastructure: vendor DLLs, PyInstaller spec, version file, icon, build script, bundle build + human verify
+- [x] 24-01-PLAN.md — Frozen-mode code: __version__, _get_data_dir(), GCLIB_ROOT patch, window title, diagnostics exclusion, tests
+- [x] 24-02-PLAN.md — Deploy infrastructure: vendor DLLs, PyInstaller spec, version file, icon, build script, bundle build + human verify
 
 ### Phase 25: Windows Inno Setup Installer
 **Goal**: A single .exe installer delivers the app to Windows 11 with Start Menu and Desktop shortcuts, an Add/Remove Programs entry with working uninstaller, optional auto-start on login, and a firewall rule for DR UDP — no manual steps required after running the installer
@@ -330,8 +345,8 @@ Plans:
   3. Checking the optional "Launch at Windows startup" box during install causes the app to launch automatically on the next login — unchecking it removes the Run key
 **Plans:** 2/2 plans complete
 Plans:
-- [ ] 25-01-PLAN.md — Test scaffold, Inno Setup .iss script, build script ISCC integration
-- [ ] 25-02-PLAN.md — Build installer and human verification (shortcuts, Add/Remove, auto-start, firewall, uninstall)
+- [x] 25-01-PLAN.md — Test scaffold, Inno Setup .iss script, build script ISCC integration
+- [x] 25-02-PLAN.md — Build installer and human verification (shortcuts, Add/Remove, auto-start, firewall, uninstall)
 
 ### Phase 26: Pi OS Preparation and Install Script
 **Goal**: A single install.sh script sets up the Binh An HMI as a normal desktop application on a fresh Raspberry Pi 4/5 running 64-bit Pi OS Bookworm — X11 forcing, apt dependencies (including aarch64 Kivy build toolchain), Galil gclib, venv, pip install, desktop shortcut, screen blanking disable, and SSH enable. Kiosk lockdown deferred to a future phase.
@@ -343,8 +358,8 @@ Plans:
   3. _get_data_dir() on Linux returns ~/.binh-an-hmi/ and creates the directory on first launch
 **Plans:** 2/2 plans complete
 Plans:
-- [ ] 26-01-PLAN.md — _get_data_dir() Linux branch, deploy/pi/ skeleton files (requirements-pi.txt, .desktop, icon)
-- [ ] 26-02-PLAN.md — install.sh script and content-inspection test suite
+- [x] 26-01-PLAN.md — _get_data_dir() Linux branch, deploy/pi/ skeleton files (requirements-pi.txt, .desktop, icon)
+- [x] 26-02-PLAN.md — install.sh script and content-inspection test suite
 
 ### Phase 27: Screen Resolution Detection
 **Goal**: The app reads the display geometry before any Kivy Window import and applies the correct layout preset — operators on 7", 10", and 15" displays all get a usable interface, and a settings.json override allows a technician to force a preset without editing code
@@ -356,7 +371,7 @@ Plans:
   3. Launching on a 1920x1080 Windows monitor applies the 15inch/desktop preset with no manual configuration
 **Plans:** 1/1 plans complete
 Plans:
-- [ ] 27-01-PLAN.md — TDD: resolution detection, preset dict, settings.json override, fullscreen fix
+- [x] 27-01-PLAN.md — TDD: resolution detection, preset dict, settings.json override, fullscreen fix
 
 ### Phase 28: Logging Infrastructure
 **Goal**: Every app run produces a rotating log file in the platform-correct location, uncaught exceptions are captured with full traceback before the app exits, and installed packages contain only runtime files
@@ -368,9 +383,9 @@ Plans:
   3. The installed Windows bundle and Pi deployment directory contain no .md files, no .planning/ directory, no test files, no .xlsx files, and no .dmc files
 **Plans:** 3/3 plans complete
 Plans:
-- [ ] 28-01-PLAN.md — TDD: setup_logging() + sys.excepthook + main.py print migration
-- [ ] 28-02-PLAN.md — Migrate remaining 135 print() calls across 9 source files to logger
-- [ ] 28-03-PLAN.md — Artifact exclusion: install.sh rsync + content-inspection tests
+- [x] 28-01-PLAN.md — TDD: setup_logging() + sys.excepthook + main.py print migration
+- [x] 28-02-PLAN.md — Migrate remaining 135 print() calls across 9 source files to logger
+- [x] 28-03-PLAN.md — Artifact exclusion: install.sh rsync + content-inspection tests
 
 ### Phase 29: Integration Testing and Field Validation
 **Goal**: Both platform packages pass a hardware gate — the Windows installer is validated on a real factory-floor machine and the Pi kiosk is validated with a live Galil controller connected — and three Pi deployment methods are confirmed working
@@ -383,8 +398,76 @@ Plans:
   4. The Pi kiosk with controller connected successfully runs a Flat Grind cycle — DR streaming produces live position data on the run screen
 **Plans:** 2/2 plans complete
 Plans:
-- [ ] 29-01-PLAN.md — Fix 3 pre-existing bugs (17 test failures) and create deployment READMEs
-- [ ] 29-02-PLAN.md — Windows clean-PC validation, Pi 3-method deployment validation, live Flat Grind controller test
+- [x] 29-01-PLAN.md — Fix 3 pre-existing bugs (17 test failures) and create deployment READMEs
+- [x] 29-02-PLAN.md — Windows clean-PC validation, Pi 3-method deployment validation, live Flat Grind controller test
+
+---
+
+### Phase 30: Codebase Audit
+**Goal**: The codebase is free of dead code, stale imports, and inconsistent naming — ruff and vulture pass clean with a Kivy allowlist, all public classes and functions have accurate docstrings, and naming conventions are uniform across all modules
+**Depends on**: Phase 29 (v4.0 complete)
+**Requirements**: AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04
+**Success Criteria** (what must be TRUE):
+  1. Running `ruff check .` and `vulture . --min-confidence 80` (with Kivy _REGISTRY allowlist) reports zero violations — no dead functions, no unused imports remain
+  2. Every public class and function in the codebase has a docstring that accurately describes its current behavior — no stale "TODO: document" placeholders or descriptions of removed functionality
+  3. All modules use a single, consistent logger name pattern — no files mixing `log` and `logger` variables, no stale variable names from prior refactors
+  4. Import ordering is standardized across all modules — stdlib, third-party, and local imports are grouped and sorted in a consistent order verifiable by `ruff check --select I`
+**Plans**: TBD
+
+### Phase 31: Bug Fixes and UI Polish
+**Goal**: Field-identified bugs are resolved and the UI is visually consistent and touch-safe across all machine types and display sizes
+**Depends on**: Phase 30 (audit complete — fixes applied to clean code)
+**Requirements**: FIX-03, FIX-04, FIX-05, UI-01, UI-02
+**Success Criteria** (what must be TRUE):
+  1. The Windows app runs sustained plot redraws for 30+ minutes on an AMD GPU machine without a driver crash or frozen window — ANGLE DirectX backend active, confirmed by app log at startup
+  2. The MG reader on both Windows and Pi shows controller log messages in the operation log during a grind cycle — the `--direct --subscribe MG` flags produce output on both platforms
+  3. Re-running install.sh on a Pi that already has a venv does not destroy the existing venv — rsync excludes the venv/ directory and the pip install step uses the existing environment
+  4. Every interactive element on all screens measures at least 44dp on both a 15" desktop display and a 7" Pi touchscreen — verified against the display preset definitions
+  5. Alignment, spacing, and card sizing are visually uniform when switching between Run, Setup, Parameters, and Profiles screens — no elements jump position or change size between screens
+**Plans**: TBD
+
+### Phase 32: Per-Machine Parameters
+**Goal**: All three machine types have complete, correct parameter definitions in machine_config.py and parameter read failures surface as warnings in the log rather than silent exceptions
+**Depends on**: Phase 30 (audit complete — clean machine_config.py to edit)
+**Requirements**: PARAM-01, PARAM-02
+**Success Criteria** (what must be TRUE):
+  1. Opening the Parameters screen on a Convex machine shows all parameter cards populated with correct names, units, ranges, and DMC variable mappings — no placeholder "TODO" entries remain
+  2. Navigating to the Parameters screen while the controller is disconnected (or returns a bad value) produces a warning log entry for each failed read — no silent exception swallowing and no app crash
+  3. The Convex parameter definitions match the machine's actual DMC variable names — a developer can verify by comparing _CONVEX_PARAM_DEFS against the DMC source file
+**Plans**: TBD
+
+### Phase 33: Licensing Core
+**Goal**: Every deployed machine requires a valid hardware-bound license file at startup — the license is verified before Kivy loads, unlicensed machines exit cleanly with a user-facing message, and a developer CLI tool generates license files from hardware fingerprints
+**Depends on**: Phase 30 (audit complete — clean codebase before adding new module)
+**Requirements**: LIC-01, LIC-02, LIC-03, LIC-04
+**Success Criteria** (what must be TRUE):
+  1. On a licensed Pi, the app starts normally — on a Pi with no license file or a wrong-machine license, the app prints "Contact Binh An to activate this machine" and exits with code 1, with no Kivy window appearing and no Python traceback visible to the operator
+  2. On a licensed Windows machine, the app starts normally — swapping the license file from another machine's fingerprint causes the same clean exit with the contact message
+  3. The keygen CLI tool accepts a hardware fingerprint string and outputs a signed license JSON file — a developer can generate, inspect, and deploy the file without touching app source code
+  4. The hardware fingerprint is stable across reboots on both Pi (CPU serial from /proc/cpuinfo) and Windows (BIOS UUID) — the same fingerprint hash is produced on every run of the same machine
+**Plans**: TBD
+
+### Phase 34: Pi Cython Protection
+**Goal**: Business-logic Python modules on Pi deployments are compiled to native .so files and the source .py files are removed — an operator or competitor opening the install directory sees only compiled bytecode, with controller.py deliberately kept as plain Python
+**Depends on**: Phase 30 (clean code before compiling), Phase 33 (validator.py is a Cython target — must exist and be stable)
+**Requirements**: PROT-01, PROT-03
+**Success Criteria** (what must be TRUE):
+  1. After running the Pi build script, the deployed app directory contains .so files for all target modules (machine_config, hmi/dmc_vars, hmi/data_record, licensing/validator, auth/auth_manager) — the corresponding .py source files are absent
+  2. The app starts and runs a full grind cycle with the compiled .so modules — no ImportError, no AttributeError from Cython compilation artifacts
+  3. controller.py is present as plain .py in the deployed directory — it is not compiled to .so and not listed in the Cython build targets
+  4. Re-running install.sh on an already-compiled Pi deployment does not break the app — the build script handles existing .so files cleanly
+**Plans**: TBD
+
+### Phase 35: Windows PyArmor Protection
+**Goal**: The Windows PyInstaller bundle obfuscates business-logic bytecode via PyArmor before packaging — an operator extracting the bundle sees obfuscated .pyc files, and controller.py is excluded from obfuscation to preserve the gclib ctypes boundary
+**Depends on**: Phase 30 (clean code), Phase 33 (licensing module stable), Phase 34 (Cython pattern established — PyArmor follows same exclusion rules)
+**Requirements**: PROT-02, PROT-03
+**Success Criteria** (what must be TRUE):
+  1. The Windows build script runs PyArmor obfuscation before PyInstaller — the obfuscated tree is the input to PyInstaller, not the raw source
+  2. The resulting .exe bundle launches on a clean Windows 11 machine and reaches the PIN login screen — no obfuscation-induced ImportError or runtime failure
+  3. Inspecting the extracted bundle directory shows obfuscated .pyc content for business-logic modules — source-readable Python is not present
+  4. controller.py in the bundle is not obfuscated — it remains readable Python to preserve the gclib ctypes boundary and avoid silent communication failures
+**Plans**: TBD
 
 ---
 
@@ -420,7 +503,13 @@ Plans:
 | 26. Pi OS Preparation and Install Script | v4.0 | 2/2 | Complete | 2026-04-22 |
 | 27. Screen Resolution Detection | v4.0 | 1/1 | Complete | 2026-04-22 |
 | 28. Logging Infrastructure | v4.0 | 3/3 | Complete | 2026-04-22 |
-| 29. Integration Testing and Field Validation | 2/2 | Complete   | 2026-04-28 | - |
+| 29. Integration Testing and Field Validation | v4.0 | 2/2 | Complete | 2026-04-28 |
+| 30. Codebase Audit | v4.1 | 0/TBD | Not started | - |
+| 31. Bug Fixes and UI Polish | v4.1 | 0/TBD | Not started | - |
+| 32. Per-Machine Parameters | v4.1 | 0/TBD | Not started | - |
+| 33. Licensing Core | v4.1 | 0/TBD | Not started | - |
+| 34. Pi Cython Protection | v4.1 | 0/TBD | Not started | - |
+| 35. Windows PyArmor Protection | v4.1 | 0/TBD | Not started | - |
 
 ---
 
@@ -428,3 +517,4 @@ Plans:
 *v2.0 phases added: 2026-04-06*
 *v3.0 phases added: 2026-04-11*
 *v4.0 phases added: 2026-04-21*
+*v4.1 phases added: 2026-04-28*

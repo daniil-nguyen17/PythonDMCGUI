@@ -99,30 +99,30 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUDIT-01 | Pending | Pending |
-| AUDIT-02 | Pending | Pending |
-| AUDIT-03 | Pending | Pending |
-| AUDIT-04 | Pending | Pending |
-| FIX-03 | Pending | Pending |
-| FIX-04 | Pending | Pending |
-| FIX-05 | Pending | Pending |
-| UI-01 | Pending | Pending |
-| UI-02 | Pending | Pending |
-| PARAM-01 | Pending | Pending |
-| PARAM-02 | Pending | Pending |
-| LIC-01 | Pending | Pending |
-| LIC-02 | Pending | Pending |
-| LIC-03 | Pending | Pending |
-| LIC-04 | Pending | Pending |
-| PROT-01 | Pending | Pending |
-| PROT-02 | Pending | Pending |
-| PROT-03 | Pending | Pending |
+| AUDIT-01 | Phase 30 | Pending |
+| AUDIT-02 | Phase 30 | Pending |
+| AUDIT-03 | Phase 30 | Pending |
+| AUDIT-04 | Phase 30 | Pending |
+| FIX-03 | Phase 31 | Pending |
+| FIX-04 | Phase 31 | Pending |
+| FIX-05 | Phase 31 | Pending |
+| UI-01 | Phase 31 | Pending |
+| UI-02 | Phase 31 | Pending |
+| PARAM-01 | Phase 32 | Pending |
+| PARAM-02 | Phase 32 | Pending |
+| LIC-01 | Phase 33 | Pending |
+| LIC-02 | Phase 33 | Pending |
+| LIC-03 | Phase 33 | Pending |
+| LIC-04 | Phase 33 | Pending |
+| PROT-01 | Phase 34 | Pending |
+| PROT-02 | Phase 35 | Pending |
+| PROT-03 | Phase 34 + Phase 35 | Pending |
 
 **Coverage:**
 - v4.1 requirements: 18 total
-- Mapped to phases: 0
-- Unmapped: 18 ⚠️
+- Mapped to phases: 18
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-21*
-*Last updated: 2026-04-28 after v4.1 milestone start*
+*Last updated: 2026-04-28 after v4.1 roadmap creation*

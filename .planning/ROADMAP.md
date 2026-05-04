@@ -84,7 +84,7 @@ Full details: `.planning/milestones/v4.0-ROADMAP.md`
 
 **Milestone Goal:** Harden the deployed HMI with per-machine licensing and code protection, clean up the codebase (dead code, consistency, documentation), fix field-testing bugs, polish the UI, and complete per-machine parameter page definitions.
 
-- [ ] **Phase 30: Codebase Audit** — Dead code removal, import cleanup, docstrings, naming consistency (AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04)
+- [x] **Phase 30: Codebase Audit** — Dead code removal, import cleanup, docstrings, naming consistency (AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04) (completed 2026-05-04)
 - [ ] **Phase 31: Bug Fixes and UI Polish** — ANGLE GPU workaround, MG reader flags, install.sh hardening, touch target audit, layout consistency (FIX-03, FIX-04, FIX-05, UI-01, UI-02)
 - [ ] **Phase 32: Per-Machine Parameters** — Complete Convex param defs, parameter read failure logging (PARAM-01, PARAM-02)
 - [ ] **Phase 33: Licensing Core** — Hardware fingerprint module, Ed25519 validator, keygen CLI, startup enforcement (LIC-01, LIC-02, LIC-03, LIC-04)
@@ -524,7 +524,7 @@ Plans:
 | 27. Screen Resolution Detection | v4.0 | 1/1 | Complete | 2026-04-22 |
 | 28. Logging Infrastructure | v4.0 | 3/3 | Complete | 2026-04-22 |
 | 29. Integration Testing and Field Validation | v4.0 | 2/2 | Complete | 2026-04-28 |
-| 30. Codebase Audit | 2/3 | In Progress|  | - |
+| 30. Codebase Audit | 3/3 | Complete   | 2026-05-04 | - |
 | 31. Bug Fixes and UI Polish | v4.1 | 0/TBD | Not started | - |
 | 32. Per-Machine Parameters | v4.1 | 0/TBD | Not started | - |
 | 33. Licensing Core | v4.1 | 0/TBD | Not started | - |

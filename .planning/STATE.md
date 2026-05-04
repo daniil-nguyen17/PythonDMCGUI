@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Security, Polish & Code Health
 status: unknown
-stopped_at: Completed 30-02-PLAN.md
-last_updated: "2026-05-04T04:44:40.639Z"
-last_activity: 2026-05-04 — Phase 30 Plans 01-02 complete (lint tooling + naming consistency)
+stopped_at: Completed 30-03-PLAN.md
+last_updated: "2026-05-04T04:56:46Z"
+last_activity: 2026-05-04 — Phase 30 Plans 01-03 complete (lint tooling + naming consistency + docstring coverage)
 progress:
   total_phases: 28
   completed_phases: 6
   total_plans: 15
-  completed_plans: 14
+  completed_plans: 15
 ---
 
 # Project State
@@ -27,18 +27,18 @@ See: .planning/PROJECT.md (updated 2026-04-28)
 ```
 Milestone : v4.1 Security, Polish & Code Health
 Phase     : 30 of 35 (Codebase Audit)
-Plan      : 02 of 03 complete
-Status    : In progress
-Progress  : [██░░░░░░░░] 20%
+Plan      : 03 of 03 complete
+Status    : Phase complete
+Progress  : [████░░░░░░] 25%
 ```
 
-Last activity: 2026-05-04 — Phase 30 Plans 01-02 complete (lint tooling + naming consistency)
+Last activity: 2026-05-04 — Phase 30 Plans 01-03 complete (lint tooling + naming consistency + docstring coverage)
 
 ## v4.1 Phase Map
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 30 | Codebase Audit | AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04 | Not started |
+| 30 | Codebase Audit | AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04 | Complete (3/3 plans) |
 | 31 | Bug Fixes and UI Polish | FIX-03, FIX-04, FIX-05, UI-01, UI-02 | Not started |
 | 32 | Per-Machine Parameters | PARAM-01, PARAM-02 | Not started |
 | 33 | Licensing Core | LIC-01, LIC-02, LIC-03, LIC-04 | Not started |
@@ -68,6 +68,9 @@ Decisions affecting v4.1 work:
 - [Phase 30]: Kivy deferred imports use targeted noqa E402 rather than blanket file-level ignore
 - [Phase 30 Plan 02]: Exception class aliases retained (ControllerNotReady = ControllerNotReadyError) for backward-compat; internal code uses Error-suffixed primary name
 - [Phase 30 Plan 02]: N-rules applied across all 5 affected files, not just controller.py — ruff revealed violations in main.py, base.py, convex/run.py, flat_grind/run.py
+- [Phase 30 Plan 03]: Use ast.iter_child_nodes (not ast.walk) to avoid flagging inner closures as requiring docstrings
+- [Phase 30 Plan 03]: Kivy on_* callbacks treated as public — require docstrings regardless of _ prefix convention
+- [Phase 30 Plan 03]: Non-obvious private threshold set at >15 body lines (not >10) to avoid over-flagging trivial helpers
 
 ### Open Questions (from research)
 
@@ -87,7 +90,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-04T05:30:00.000Z
-Stopped at: Completed 30-02-PLAN.md
+Last session: 2026-05-04T04:56:46Z
+Stopped at: Completed 30-03-PLAN.md
 Resume file: None
-Next action: Execute 30-03-PLAN.md — remaining audit tasks
+Next action: Phase 30 complete — begin Phase 31 (Bug Fixes and UI Polish)

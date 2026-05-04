@@ -39,14 +39,14 @@ def _load_main(monkeypatch):
 
 class TestClassifyResolution:
     def test_classify_7inch(self, monkeypatch):
-        """800x480: short=480 <= 480 → '7inch'."""
+        """800x480: always returns '15inch' (7-inch preset removed in Phase 31)."""
         m = _load_main(monkeypatch)
-        assert m._classify_resolution(800, 480) == "7inch"
+        assert m._classify_resolution(800, 480) == "15inch"
 
     def test_classify_10inch(self, monkeypatch):
-        """1024x600: short=600, 480 < 600 <= 600 → '10inch'."""
+        """1024x600: always returns '15inch' (10-inch preset removed in Phase 31)."""
         m = _load_main(monkeypatch)
-        assert m._classify_resolution(1024, 600) == "10inch"
+        assert m._classify_resolution(1024, 600) == "15inch"
 
     def test_classify_15inch(self, monkeypatch):
         """1920x1080: short=1080 > 600 → '15inch'."""
@@ -86,12 +86,12 @@ class TestDetectPreset:
         assert result == "15inch", f"Expected '15inch' fallback, got {result!r}"
 
     def test_override_valid(self, monkeypatch, tmp_path):
-        """settings.json with display_size='7inch' returns '7inch' without calling screeninfo."""
+        """settings.json with display_size='15inch' returns '15inch' without calling screeninfo."""
         m = _load_main(monkeypatch)
 
         settings_path = str(tmp_path / "settings.json")
         with open(settings_path, "w", encoding="utf-8") as fh:
-            json.dump({"display_size": "7inch"}, fh)
+            json.dump({"display_size": "15inch"}, fh)
 
         # screeninfo must NOT be called — if it is, the mock will raise
         fake_screeninfo = MagicMock()
@@ -101,7 +101,7 @@ class TestDetectPreset:
         monkeypatch.setitem(sys.modules, "screeninfo", fake_screeninfo)
 
         result = m._detect_preset(settings_path)
-        assert result == "7inch", f"Expected '7inch' from override, got {result!r}"
+        assert result == "15inch", f"Expected '15inch' from override, got {result!r}"
         fake_screeninfo.get_monitors.assert_not_called()
 
     def test_override_invalid(self, monkeypatch, tmp_path):
@@ -162,7 +162,7 @@ class TestDetectPreset:
 
         settings_path = str(tmp_path / "settings.json")
         with open(settings_path, "w", encoding="utf-8") as fh:
-            json.dump({"display_size": "10inch"}, fh)
+            json.dump({"display_size": "15inch"}, fh)
 
         # Capture log records emitted during _detect_preset()
         with MagicMock() as _unused:
@@ -184,10 +184,10 @@ class TestDetectPreset:
         finally:
             root.removeHandler(capture_handler)
 
-        assert result == "10inch"
+        assert result == "15inch"
         combined = "\n".join(records)
-        assert "10inch" in combined, (
-            f"Expected '10inch' in log output, got: {combined!r}"
+        assert "15inch" in combined, (
+            f"Expected '15inch' in log output, got: {combined!r}"
         )
 
 
@@ -202,6 +202,10 @@ class TestDisplayPresets:
 
         assert hasattr(m, "_DISPLAY_PRESETS"), "_DISPLAY_PRESETS must exist in main module"
         presets = m._DISPLAY_PRESETS
+
+        assert list(presets.keys()) == ["15inch"], (
+            f"Expected only '15inch' preset, got {list(presets.keys())}"
+        )
 
         for name, preset in presets.items():
             assert "density" in preset, f"Preset '{name}' missing 'density' key"

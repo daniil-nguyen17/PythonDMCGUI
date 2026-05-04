@@ -98,8 +98,8 @@
                             width: 1.4
                     size_hint_y: 1
                     orientation: 'vertical'
-                    padding: '6dp'
-                    spacing: '3dp'
+                    padding: '8dp'
+                    spacing: '4dp'
 
                     # Header: title + controls centered below
                     BoxLayout:
@@ -120,7 +120,7 @@
                         size_hint_y: None
                         height: '32dp'
                         spacing: '8dp'
-                        padding: ['20dp', '0dp']
+                        padding: ['24dp', '0dp']
 
                         # Step size buttons (1ct / 2ct / 3ct)
                         Label:
@@ -181,7 +181,7 @@
                         Button:
                             text: '-'
                             size_hint_x: None
-                            width: '30dp'
+                            width: '44dp'
                             font_size: '20sp'
                             background_normal: ''
                             background_color: 0.1, 0.12, 0.16, 1
@@ -202,7 +202,7 @@
                         Button:
                             text: '+'
                             size_hint_x: None
-                            width: '30dp'
+                            width: '44dp'
                             font_size: '20sp'
                             background_normal: ''
                             background_color: 0.1, 0.12, 0.16, 1
@@ -214,8 +214,8 @@
                     BoxLayout:
                         id: adjust_down_row
                         size_hint_y: None
-                        height: '40dp'
-                        spacing: '2dp'
+                        height: '44dp'
+                        spacing: '4dp'
 
                     # Bar chart
                     DeltaCBarChart:
@@ -229,13 +229,13 @@
                     BoxLayout:
                         id: adjust_up_row
                         size_hint_y: None
-                        height: '40dp'
-                        spacing: '2dp'
+                        height: '44dp'
+                        spacing: '4dp'
 
                     # Controls row
                     BoxLayout:
                         size_hint_y: None
-                        height: '38dp'
+                        height: '44dp'
                         spacing: '8dp'
 
                         Label:
@@ -273,7 +273,7 @@
                     size_hint_y: None
                     height: '165dp'
                     padding: ['8dp', '4dp']
-                    spacing: '3dp'
+                    spacing: '4dp'
                     canvas.before:
                         Color:
                             rgba: theme.bg_panel
@@ -423,7 +423,7 @@
             BoxLayout:
                 size_hint_x: 0.5
                 orientation: 'vertical'
-                spacing: '6dp'
+                spacing: '8dp'
 
                 # ---------------------------------------------------------------
                 # CONTROLLER LOG
@@ -432,7 +432,7 @@
                     orientation: 'vertical'
                     size_hint_y: 0.55
                     padding: ['8dp', '4dp']
-                    spacing: '2dp'
+                    spacing: '4dp'
                     canvas.before:
                         Color:
                             rgba: theme.bg_dark
@@ -478,7 +478,7 @@
                 BoxLayout:
                     orientation: 'vertical'
                     size_hint_y: 0.45
-                    padding: ['10dp', '6dp']
+                    padding: ['12dp', '8dp']
                     spacing: '4dp'
                     canvas.before:
                         Color:

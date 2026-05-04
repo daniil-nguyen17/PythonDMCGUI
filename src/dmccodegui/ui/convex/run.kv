@@ -93,10 +93,10 @@
                             rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
                             width: 1.2
                     size_hint_y: None
-                    height: '185dp'
+                    height: '220dp'
                     orientation: 'vertical'
-                    padding: '6dp'
-                    spacing: '3dp'
+                    padding: '8dp'
+                    spacing: '4dp'
 
                     # Header row: title
                     BoxLayout:
@@ -176,7 +176,7 @@
                         Button:
                             text: '-'
                             size_hint_x: None
-                            width: '24dp'
+                            width: '44dp'
                             font_size: '14sp'
                             background_normal: ''
                             background_color: 0.1, 0.12, 0.16, 1
@@ -197,7 +197,7 @@
                         Button:
                             text: '+'
                             size_hint_x: None
-                            width: '24dp'
+                            width: '44dp'
                             font_size: '14sp'
                             background_normal: ''
                             background_color: 0.1, 0.12, 0.16, 1
@@ -212,7 +212,7 @@
                         background_color: 0.15, 0.08, 0.02, 1
                         color: 0.984, 0.573, 0.235, 1
                         size_hint_y: None
-                        height: '28dp'
+                        height: '44dp'
                         on_release: root.on_adjust_down()
 
                     # Bar chart
@@ -233,13 +233,13 @@
                         background_color: 0.02, 0.12, 0.06, 1
                         color: 0.133, 0.773, 0.369, 1
                         size_hint_y: None
-                        height: '28dp'
+                        height: '44dp'
                         on_release: root.on_adjust_up()
 
                     # Controls row
                     BoxLayout:
                         size_hint_y: None
-                        height: '30dp'
+                        height: '44dp'
                         spacing: '8dp'
 
                         Label:
@@ -295,7 +295,7 @@
                     size_hint_y: None
                     height: '105dp'
                     padding: ['8dp', '4dp']
-                    spacing: '3dp'
+                    spacing: '4dp'
                     canvas.before:
                         Color:
                             rgba: theme.bg_panel
@@ -442,7 +442,7 @@
             BoxLayout:
                 size_hint_x: 0.5
                 orientation: 'vertical'
-                spacing: '6dp'
+                spacing: '8dp'
 
                 # ---------------------------------------------------------------
                 # CONTROLLER LOG (fills available space)
@@ -450,7 +450,7 @@
                 BoxLayout:
                     orientation: 'vertical'
                     padding: ['8dp', '4dp']
-                    spacing: '2dp'
+                    spacing: '4dp'
                     canvas.before:
                         Color:
                             rgba: theme.bg_dark
@@ -498,7 +498,7 @@
                     size_hint_y: None
                     height: '130dp'
                     padding: ['8dp', '4dp']
-                    spacing: '3dp'
+                    spacing: '4dp'
                     canvas.before:
                         Color:
                             rgba: theme.bg_panel
@@ -638,7 +638,7 @@
                     orientation: 'vertical'
                     size_hint_y: None
                     height: '140dp'
-                    padding: ['10dp', '6dp']
+                    padding: ['12dp', '8dp']
                     spacing: '4dp'
                     canvas.before:
                         Color:
@@ -686,7 +686,7 @@
                         font_size: '14sp'
                         bold: True
                         size_hint_y: None
-                        height: '40dp'
+                        height: '44dp'
                         background_normal: ''
                         background_color: 0.15, 0.08, 0.02, 1
                         color: 0.984, 0.573, 0.235, 1
@@ -699,7 +699,7 @@
                         font_size: '14sp'
                         bold: True
                         size_hint_y: None
-                        height: '40dp'
+                        height: '44dp'
                         background_normal: ''
                         background_color: 0.02, 0.12, 0.06, 1
                         color: 0.133, 0.773, 0.369, 1

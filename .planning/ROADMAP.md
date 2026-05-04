@@ -412,7 +412,11 @@ Plans:
   2. Every public class and function in the codebase has a docstring that accurately describes its current behavior â€” no stale "TODO: document" placeholders or descriptions of removed functionality
   3. All modules use a single, consistent logger name pattern â€” no files mixing `log` and `logger` variables, no stale variable names from prior refactors
   4. Import ordering is standardized across all modules â€” stdlib, third-party, and local imports are grouped and sorted in a consistent order verifiable by `ruff check --select I`
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 30-01-PLAN.md â€” Ruff/vulture tooling setup + import auto-fix across all 44 source files
+- [ ] 30-02-PLAN.md â€” Dead code resolution + naming consistency (controller.py logger rename)
+- [ ] 30-03-PLAN.md â€” Google-style docstrings on all public classes and functions
 
 ### Phase 31: Bug Fixes and UI Polish
 **Goal**: Field-identified bugs are resolved and the UI is visually consistent and touch-safe across all machine types and display sizes
@@ -424,7 +428,11 @@ Plans:
   3. Re-running install.sh on a Pi that already has a venv does not destroy the existing venv â€” rsync excludes the venv/ directory and the pip install step uses the existing environment
   4. Every interactive element on all screens measures at least 44dp on both a 15" desktop display and a 7" Pi touchscreen â€” verified against the display preset definitions
   5. Alignment, spacing, and card sizing are visually uniform when switching between Run, Setup, Parameters, and Profiles screens â€” no elements jump position or change size between screens
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 30-01-PLAN.md — Ruff/vulture tooling setup + import auto-fix across all 44 source files
+- [ ] 30-02-PLAN.md — Dead code resolution + naming consistency (controller.py logger rename)
+- [ ] 30-03-PLAN.md — Google-style docstrings on all public classes and functions
 
 ### Phase 32: Per-Machine Parameters
 **Goal**: All three machine types have complete, correct parameter definitions in machine_config.py and parameter read failures surface as warnings in the log rather than silent exceptions
@@ -434,7 +442,11 @@ Plans:
   1. Opening the Parameters screen on a Convex machine shows all parameter cards populated with correct names, units, ranges, and DMC variable mappings â€” no placeholder "TODO" entries remain
   2. Navigating to the Parameters screen while the controller is disconnected (or returns a bad value) produces a warning log entry for each failed read â€” no silent exception swallowing and no app crash
   3. The Convex parameter definitions match the machine's actual DMC variable names â€” a developer can verify by comparing _CONVEX_PARAM_DEFS against the DMC source file
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 30-01-PLAN.md — Ruff/vulture tooling setup + import auto-fix across all 44 source files
+- [ ] 30-02-PLAN.md — Dead code resolution + naming consistency (controller.py logger rename)
+- [ ] 30-03-PLAN.md — Google-style docstrings on all public classes and functions
 
 ### Phase 33: Licensing Core
 **Goal**: Every deployed machine requires a valid hardware-bound license file at startup â€” the license is verified before Kivy loads, unlicensed machines exit cleanly with a user-facing message, and a developer CLI tool generates license files from hardware fingerprints
@@ -445,7 +457,11 @@ Plans:
   2. On a licensed Windows machine, the app starts normally â€” swapping the license file from another machine's fingerprint causes the same clean exit with the contact message
   3. The keygen CLI tool accepts a hardware fingerprint string and outputs a signed license JSON file â€” a developer can generate, inspect, and deploy the file without touching app source code
   4. The hardware fingerprint is stable across reboots on both Pi (CPU serial from /proc/cpuinfo) and Windows (BIOS UUID) â€” the same fingerprint hash is produced on every run of the same machine
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 30-01-PLAN.md — Ruff/vulture tooling setup + import auto-fix across all 44 source files
+- [ ] 30-02-PLAN.md — Dead code resolution + naming consistency (controller.py logger rename)
+- [ ] 30-03-PLAN.md — Google-style docstrings on all public classes and functions
 
 ### Phase 34: Pi Cython Protection
 **Goal**: Business-logic Python modules on Pi deployments are compiled to native .so files and the source .py files are removed â€” an operator or competitor opening the install directory sees only compiled bytecode, with controller.py deliberately kept as plain Python
@@ -456,7 +472,11 @@ Plans:
   2. The app starts and runs a full grind cycle with the compiled .so modules â€” no ImportError, no AttributeError from Cython compilation artifacts
   3. controller.py is present as plain .py in the deployed directory â€” it is not compiled to .so and not listed in the Cython build targets
   4. Re-running install.sh on an already-compiled Pi deployment does not break the app â€” the build script handles existing .so files cleanly
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 30-01-PLAN.md — Ruff/vulture tooling setup + import auto-fix across all 44 source files
+- [ ] 30-02-PLAN.md — Dead code resolution + naming consistency (controller.py logger rename)
+- [ ] 30-03-PLAN.md — Google-style docstrings on all public classes and functions
 
 ### Phase 35: Windows PyArmor Protection
 **Goal**: The Windows PyInstaller bundle obfuscates business-logic bytecode via PyArmor before packaging â€” an operator extracting the bundle sees obfuscated .pyc files, and controller.py is excluded from obfuscation to preserve the gclib ctypes boundary
@@ -467,7 +487,11 @@ Plans:
   2. The resulting .exe bundle launches on a clean Windows 11 machine and reaches the PIN login screen â€” no obfuscation-induced ImportError or runtime failure
   3. Inspecting the extracted bundle directory shows obfuscated .pyc content for business-logic modules â€” source-readable Python is not present
   4. controller.py in the bundle is not obfuscated â€” it remains readable Python to preserve the gclib ctypes boundary and avoid silent communication failures
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 30-01-PLAN.md — Ruff/vulture tooling setup + import auto-fix across all 44 source files
+- [ ] 30-02-PLAN.md — Dead code resolution + naming consistency (controller.py logger rename)
+- [ ] 30-03-PLAN.md — Google-style docstrings on all public classes and functions
 
 ---
 
@@ -504,7 +528,7 @@ Plans:
 | 27. Screen Resolution Detection | v4.0 | 1/1 | Complete | 2026-04-22 |
 | 28. Logging Infrastructure | v4.0 | 3/3 | Complete | 2026-04-22 |
 | 29. Integration Testing and Field Validation | v4.0 | 2/2 | Complete | 2026-04-28 |
-| 30. Codebase Audit | v4.1 | 0/TBD | Not started | - |
+| 30. Codebase Audit | v4.1 | 0/3 | Planned | - |
 | 31. Bug Fixes and UI Polish | v4.1 | 0/TBD | Not started | - |
 | 32. Per-Machine Parameters | v4.1 | 0/TBD | Not started | - |
 | 33. Licensing Core | v4.1 | 0/TBD | Not started | - |

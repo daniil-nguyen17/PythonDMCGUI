@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import threading
 import time
-from dataclasses import dataclass
-from queue import Queue, Empty
+from queue import Empty, Queue
 from typing import Any, Callable, Optional
-
 
 JobFn = Callable[..., Any]
 

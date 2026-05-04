@@ -3,12 +3,12 @@ from __future__ import annotations
 
 from typing import Callable, List, Optional
 
+from kivy.properties import StringProperty
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.togglebutton import ToggleButton
-from kivy.properties import StringProperty
 
+from dmccodegui.hmi.dmc_vars import STATE_GRINDING, STATE_HOMING
 from dmccodegui.theme_manager import theme
-from dmccodegui.hmi.dmc_vars import STATE_SETUP, STATE_GRINDING, STATE_HOMING
 
 
 class TabBar(BoxLayout):

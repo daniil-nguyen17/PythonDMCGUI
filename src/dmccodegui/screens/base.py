@@ -125,8 +125,12 @@ class SetupScreenMixin:
         prior screen (usually STATE_IDLE).
         """
         from ..hmi.dmc_vars import (  # noqa: PLC0415
-            STATE_GRINDING, STATE_HOMING, STATE_SETUP,
-            HMI_STATE_VAR, HMI_SETP, HMI_TRIGGER_FIRE,
+            HMI_SETP,
+            HMI_STATE_VAR,
+            HMI_TRIGGER_FIRE,
+            STATE_GRINDING,
+            STATE_HOMING,
+            STATE_SETUP,
         )
 
         # Stop poller unconditionally — idempotent, noop if already stopped
@@ -620,7 +624,7 @@ class BaseAxesSetupScreen(Screen, SetupScreenMixin):
                         except Exception:
                             pass
                     Clock.schedule_once(
-                        lambda *_, l=label: self._log_motion_complete(l, "already at target")
+                        lambda *_, lbl=label: self._log_motion_complete(lbl, "already at target")
                     )
                     return
 
@@ -646,7 +650,7 @@ class BaseAxesSetupScreen(Screen, SetupScreenMixin):
                 else:
                     # Fell through without breaking — we hit the timeout
                     Clock.schedule_once(
-                        lambda *_, l=label: self._log_motion_complete(l, "TIMEOUT")
+                        lambda *_, lbl=label: self._log_motion_complete(lbl, "TIMEOUT")
                     )
                     return
 
@@ -658,12 +662,12 @@ class BaseAxesSetupScreen(Screen, SetupScreenMixin):
                     except Exception:
                         pass
                 Clock.schedule_once(
-                    lambda *_, l=label: self._log_motion_complete(l, "done")
+                    lambda *_, lbl=label: self._log_motion_complete(lbl, "done")
                 )
             except Exception as exc:
                 logger.error("[%s] _poll_motion_until_idle failed: %s", cls_name, exc)
                 Clock.schedule_once(
-                    lambda *_, l=label, e=exc: self._log_motion_complete(l, f"ERROR: {e}")
+                    lambda *_, lbl=label, e=exc: self._log_motion_complete(lbl, f"ERROR: {e}")
                 )
             finally:
                 self._motion_poll_active = False
@@ -929,13 +933,14 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
             more card rows than fit on screen.
         """
         from collections import OrderedDict  # noqa: PLC0415
-        from kivy.graphics import Color, RoundedRectangle, Rectangle, Ellipse  # noqa: PLC0415
+
+        from kivy.graphics import Color, Ellipse, Rectangle, RoundedRectangle  # noqa: PLC0415
+        from kivy.metrics import dp  # noqa: PLC0415
         from kivy.uix.boxlayout import BoxLayout  # noqa: PLC0415
         from kivy.uix.label import Label  # noqa: PLC0415
         from kivy.uix.scrollview import ScrollView  # noqa: PLC0415
         from kivy.uix.textinput import TextInput  # noqa: PLC0415
         from kivy.uix.widget import Widget  # noqa: PLC0415
-        from kivy.metrics import dp  # noqa: PLC0415
 
         # Fixed card height — all cards share this regardless of param count.
         # dp(480) = ~36 header + ~440 param area ≈ 10 param rows at 44 dp each
@@ -1279,8 +1284,12 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
     def apply_to_controller(self) -> None:
         """Send all dirty parameters to controller, read back, then burn NV."""
         import time  # noqa: PLC0415
+
         from dmccodegui.hmi.dmc_vars import (  # noqa: PLC0415
-            HMI_CALC, HMI_TRIGGER_FIRE, STATE_GRINDING, STATE_HOMING,
+            HMI_CALC,
+            HMI_TRIGGER_FIRE,
+            STATE_GRINDING,
+            STATE_HOMING,
         )
 
         if not self._dirty:
@@ -1325,7 +1334,7 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
                 except Exception:
                     pass
 
-            import time as _t; _t.sleep(1.5)
+            time.sleep(1.5)
             try:
                 ctrl.cmd("BV")
             except Exception:
@@ -1411,8 +1420,10 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
         Then fires hmiCalc to run #VARCALC and burns to non-volatile memory.
         """
         import time  # noqa: PLC0415
+
         from dmccodegui.hmi.dmc_vars import (  # noqa: PLC0415
-            HMI_CALC, HMI_TRIGGER_FIRE,
+            HMI_CALC,
+            HMI_TRIGGER_FIRE,
         )
 
         if self.controller is None or not self.controller.is_connected():
@@ -1466,7 +1477,7 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
                     pass
 
             # Burn to NV
-            import time as _t; _t.sleep(1.5)
+            time.sleep(1.5)
             try:
                 ctrl.cmd("BV")
             except Exception:
@@ -1508,8 +1519,10 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
         Also writes any pending dirty field values before triggering.
         """
         import time  # noqa: PLC0415
+
         from dmccodegui.hmi.dmc_vars import (  # noqa: PLC0415
-            HMI_CALC, HMI_TRIGGER_FIRE,
+            HMI_CALC,
+            HMI_TRIGGER_FIRE,
         )
 
         if self.controller is None or not self.controller.is_connected():

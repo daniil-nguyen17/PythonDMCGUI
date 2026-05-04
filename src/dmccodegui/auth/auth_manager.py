@@ -5,7 +5,6 @@ import json
 import os
 from typing import Dict, List, Optional
 
-
 DEFAULT_USERS: Dict[str, Dict[str, str]] = {
     "Admin": {"pin": "0000", "role": "admin"},
     "Operator": {"pin": "1234", "role": "operator"},

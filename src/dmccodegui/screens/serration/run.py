@@ -29,16 +29,20 @@ from kivy.properties import (
 )
 
 from ...hmi.dmc_vars import (
-    STATE_GRINDING, STATE_HOMING,
-    HMI_GRND, HMI_MORE, HMI_LESS, HMI_TRIGGER_FIRE,
+    BCOMP_ARRAY,
+    BCOMP_NUM_SERR,
+    HMI_GRND,
+    HMI_LESS,
+    HMI_MORE,
+    HMI_TRIGGER_FIRE,
     STARTPT_B,
-    BCOMP_ARRAY, BCOMP_NUM_SERR,
-    CT_SES_KNI, CT_STN_KNI,
+    STATE_GRINDING,
+    STATE_HOMING,
 )
 from ...hmi.poll import read_all_state
 from ...utils import jobs
 from ..base import BaseRunScreen
-from .widgets import BCompPanel, CCompPanel, CCOMP_ARRAY_VAR
+from .widgets import CCOMP_ARRAY_VAR, BCompPanel, CCompPanel
 
 logger = logging.getLogger(__name__)
 
@@ -239,7 +243,7 @@ class SerrationRunScreen(BaseRunScreen):
             self._pos_clock_event.cancel()
         self._pos_clock_event = Clock.schedule_interval(self._tick_pos, 1.0 / hz)
 
-    def _tick_pos(self, dt: float) -> None:
+    def _tick_pos(self, _dt: float) -> None:
         """5 Hz clock: read A, B, C positions + state from controller in background.
 
         Reads 3 axes only (no D display). Uses a busy guard to prevent job pileup.
@@ -297,7 +301,7 @@ class SerrationRunScreen(BaseRunScreen):
 
         jobs.submit(_do)
 
-    def _tick_elapsed(self, dt: float) -> None:
+    def _tick_elapsed(self, _dt: float) -> None:
         """1 Hz clock: update elapsed time display."""
         import time
         if self._cycle_start_time is None:
@@ -319,7 +323,7 @@ class SerrationRunScreen(BaseRunScreen):
             self.cycle_eta = "00:00"
             self._cycle_start_time = None
 
-    def _tick_disconnect_banner(self, dt: float) -> None:
+    def _tick_disconnect_banner(self, _dt: float) -> None:
         """1 Hz callback: update disconnect elapsed time banner."""
         import time
         if self._disconnect_t0 is not None:
@@ -697,8 +701,11 @@ class SerrationRunScreen(BaseRunScreen):
             return
 
         from dmccodegui.hmi.dmc_vars import (
-            HMI_SETP, HMI_HOME, HMI_TRIGGER_FIRE, HMI_STATE_VAR,
-            STATE_HOMING, STATE_SETUP,
+            HMI_HOME,
+            HMI_SETP,
+            HMI_STATE_VAR,
+            HMI_TRIGGER_FIRE,
+            STATE_SETUP,
         )
 
         self.motion_active = True  # Disable buttons during shutdown

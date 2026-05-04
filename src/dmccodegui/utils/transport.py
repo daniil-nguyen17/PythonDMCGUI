@@ -2,25 +2,23 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-logger = logging.getLogger(__name__)
-
-# Define CommError here to avoid circular imports
-class CommError(Exception):
-    pass
-
-
-# Import protocol from parent module
-from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..controller import GalilDriverProtocol
 else:
-    # Runtime fallback
+    # Runtime fallback — GalilDriverProtocol may not be importable without gclib
     try:
         from ..controller import GalilDriverProtocol
     except ImportError:
         GalilDriverProtocol = None  # type: ignore
+
+logger = logging.getLogger(__name__)
+
+
+# Define CommError here to avoid circular imports
+class CommError(Exception):
+    pass
 
 
 class GalilTransport:

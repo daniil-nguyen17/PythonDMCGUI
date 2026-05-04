@@ -485,11 +485,11 @@ try:
 
         def on_export_press(self) -> None:
             """Show the export name popup."""
-            from kivy.uix.popup import Popup
             from kivy.uix.boxlayout import BoxLayout
-            from kivy.uix.textinput import TextInput
             from kivy.uix.button import Button
             from kivy.uix.label import Label
+            from kivy.uix.popup import Popup
+            from kivy.uix.textinput import TextInput
 
             content = BoxLayout(orientation="vertical", padding="12dp", spacing="10dp")
             lbl = Label(
@@ -558,10 +558,10 @@ try:
 
         def _confirm_overwrite(self, path: Path, profile_name: str) -> None:
             """Show overwrite confirmation popup."""
-            from kivy.uix.popup import Popup
             from kivy.uix.boxlayout import BoxLayout
             from kivy.uix.button import Button
             from kivy.uix.label import Label
+            from kivy.uix.popup import Popup
 
             content = BoxLayout(orientation="vertical", padding="12dp", spacing="10dp")
             lbl = Label(
@@ -787,7 +787,8 @@ try:
                         array_results.append(f"{array_name}: xac nhan that bai")
 
                 # --- Step 4: Burn NV memory ---
-                import time as _t; _t.sleep(1.5)
+                import time  # noqa: PLC0415
+                time.sleep(1.5)
                 burn_ok = False
                 try:
                     ctrl.cmd("BV")
@@ -826,8 +827,8 @@ try:
 
         def _show_error_popup(self, message: str) -> None:
             """Display an error message in a simple popup."""
-            from kivy.uix.popup import Popup
             from kivy.uix.label import Label
+            from kivy.uix.popup import Popup
 
             lbl = Label(
                 text=message,

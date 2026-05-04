@@ -16,7 +16,7 @@ try:
     from kivy.uix.modalview import ModalView
     from kivy.uix.popup import Popup
     from kivy.uix.screenmanager import Screen
-    from kivy.uix.textinput import TextInput
+
     from dmccodegui.theme_manager import theme
 
     # Role badge colours (RGBA tuples)
@@ -460,7 +460,7 @@ try:
             content.add_widget(btn_row)
 
             popup = Popup(
-                title=f"Confirm Delete",
+                title="Confirm Delete",
                 content=content,
                 size_hint=(0.45, 0.35),
                 auto_dismiss=False,

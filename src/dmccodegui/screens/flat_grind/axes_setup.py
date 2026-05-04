@@ -56,23 +56,26 @@ from __future__ import annotations
 
 import logging
 
+from kivy.clock import Clock
 from kivy.properties import (
-    StringProperty,
-    NumericProperty,
     BooleanProperty,
     DictProperty,
+    NumericProperty,
+    StringProperty,
 )
-from kivy.clock import Clock
 
-from ...app_state import MachineState
-from ...controller import GalilController
-from ...utils import jobs
-from ...hmi.dmc_vars import (
-    HMI_TRIGGER_FIRE,
-    HMI_GO_REST, HMI_GO_START, HMI_HOME, HMI_NEWS,
-    STATE_GRINDING, STATE_HOMING,
-)
 import dmccodegui.machine_config as mc
+
+from ...hmi.dmc_vars import (
+    HMI_GO_REST,
+    HMI_GO_START,
+    HMI_HOME,
+    HMI_NEWS,
+    HMI_TRIGGER_FIRE,
+    STATE_GRINDING,
+    STATE_HOMING,
+)
+from ...utils import jobs
 from ..base import BaseAxesSetupScreen
 
 logger = logging.getLogger(__name__)
@@ -390,7 +393,8 @@ class FlatGrindAxesSetupScreen(BaseAxesSetupScreen):
                 parts = [f"restPt{axis}={vals[axis]}" for axis in axis_list]
                 write_cmd = ";".join(parts)
                 ctrl.cmd(write_cmd)
-                import time as _t; _t.sleep(5)
+                import time  # noqa: PLC0415
+                time.sleep(5)
                 ctrl.cmd("BV")
 
                 # Read back from controller to confirm values were stored
@@ -462,7 +466,8 @@ class FlatGrindAxesSetupScreen(BaseAxesSetupScreen):
                 parts = [f"startPt{axis}={vals[axis]}" for axis in axis_list]
                 write_cmd = ";".join(parts)
                 ctrl.cmd(write_cmd)
-                import time as _t; _t.sleep(5)
+                import time  # noqa: PLC0415
+                time.sleep(5)
                 ctrl.cmd("BV")
 
                 readback: dict[str, str] = {}
@@ -569,10 +574,10 @@ class FlatGrindAxesSetupScreen(BaseAxesSetupScreen):
         """
         if self.state and not self.state.setup_unlocked:
             return  # operator role — silently ignore
-        from kivy.uix.popup import Popup
-        from kivy.uix.button import Button
         from kivy.uix.boxlayout import BoxLayout
+        from kivy.uix.button import Button
         from kivy.uix.label import Label
+        from kivy.uix.popup import Popup
 
         content = BoxLayout(orientation='vertical', spacing=8, padding=8)
         content.add_widget(Label(

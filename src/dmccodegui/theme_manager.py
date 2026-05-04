@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from kivy.event import EventDispatcher
-from kivy.properties import StringProperty, ListProperty
+from kivy.properties import ListProperty, StringProperty
 
 
 class ThemeManager(EventDispatcher):

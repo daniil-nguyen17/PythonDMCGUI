@@ -168,14 +168,14 @@ class MgReader:
 
         if kind == "state":
             for fn in list(self._state_handlers):
-                Clock.schedule_once(lambda dt, _fn=fn, _v=value: _fn(_v))
+                Clock.schedule_once(lambda _dt, _fn=fn, _v=value: _fn(_v))
         elif kind == "position":
             for fn in list(self._position_handlers):
-                Clock.schedule_once(lambda dt, _fn=fn, _v=value: _fn(_v))
+                Clock.schedule_once(lambda _dt, _fn=fn, _v=value: _fn(_v))
         else:
             # Freeform log text only — state and position are filtered out
             for fn in list(self._log_handlers):
-                Clock.schedule_once(lambda dt, _fn=fn, _v=line: _fn(_v))
+                Clock.schedule_once(lambda _dt, _fn=fn, _v=line: _fn(_v))
 
     # ------------------------------------------------------------------
     # Background loop

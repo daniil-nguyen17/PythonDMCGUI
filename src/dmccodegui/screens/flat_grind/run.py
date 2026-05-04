@@ -7,11 +7,9 @@ import threading
 import time
 from collections import deque
 
-logger = logging.getLogger(__name__)
-
+import kivy_matplotlib_widget  # noqa: F401 — registers MatplotFigure in Kivy Factory
+import matplotlib.pyplot  # noqa: F401 — required by kivy_matplotlib_widget internals
 from kivy.clock import Clock
-from kivy.core.text import Label as CoreLabel
-from kivy.graphics import Color, Line, Rectangle
 from kivy.properties import (
     BooleanProperty,
     ListProperty,
@@ -20,36 +18,30 @@ from kivy.properties import (
 )
 from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator
-import matplotlib.pyplot  # noqa: F401 — required by kivy_matplotlib_widget internals
-import kivy_matplotlib_widget  # noqa: F401 — registers MatplotFigure in Kivy Factory
+
+import dmccodegui.machine_config as mc
 
 from ...app_state import MachineState
-from ...controller import GalilController
 from ...hmi.dmc_vars import (
-    STATE_GRINDING, STATE_HOMING,
-    HMI_GRND, HMI_MORE, HMI_LESS, HMI_TRIGGER_FIRE,
+    HMI_GRND,
+    HMI_LESS,
+    HMI_MORE,
+    HMI_TRIGGER_FIRE,
     STARTPT_C,
-    POS_BUF_IDX, POS_BUF_A, POS_BUF_B, POS_BUF_SIZE,
+    STATE_GRINDING,
+    STATE_HOMING,
 )
 from ...hmi.poll import read_all_state
 from ...utils import jobs
-import dmccodegui.machine_config as mc
 from ..base import BaseRunScreen
 from .widgets import (
-    DeltaCBarChart,
-    ImageButton,
-    _BaseBarChart,
-    ARROW_UP_IMG,
     ARROW_DOWN_IMG,
+    ARROW_UP_IMG,
     DELTA_C_WRITABLE_START,
-    DELTA_C_WRITABLE_END,
-    STONE_SURFACE_MM,
-    STONE_OVERHANG_MM,
-    STEP_MM,
-    STONE_WINDOW_INDICES,
-    stone_window_for_index,
+    ImageButton,
 )
 
+logger = logging.getLogger(__name__)
 
 # Controller variable names for cycle status (configurable for different controller programs)
 CYCLE_VAR_TOOTH = "tooth"
@@ -397,7 +389,7 @@ class FlatGrindRunScreen(BaseRunScreen):
                     self._tick_disconnect_banner, 1.0
                 )
 
-    def _tick_disconnect_banner(self, dt: float) -> None:
+    def _tick_disconnect_banner(self, _dt: float) -> None:
         """1 Hz callback: update disconnect elapsed time banner."""
         import time as _time
         if self._disconnect_t0 is not None:
@@ -561,7 +553,7 @@ class FlatGrindRunScreen(BaseRunScreen):
             self._pos_clock_event.cancel()
         self._pos_clock_event = Clock.schedule_interval(self._tick_pos, 1.0 / hz)
 
-    def _tick_elapsed(self, dt: float) -> None:
+    def _tick_elapsed(self, _dt: float) -> None:
         """1 Hz clock: update elapsed time display only. ETA/progress driven by _tick_pos."""
         if self._cycle_start_time is None:
             return
@@ -579,7 +571,7 @@ class FlatGrindRunScreen(BaseRunScreen):
             self.cycle_eta = "00:00"
             self._cycle_start_time = None
 
-    def _tick_pos(self, dt: float) -> None:
+    def _tick_pos(self, _dt: float) -> None:
         """5 Hz clock: read positions + state from controller in background.
 
         Uses a busy guard to prevent job pileup — if the previous read is still
@@ -668,7 +660,7 @@ class FlatGrindRunScreen(BaseRunScreen):
         ax.grid(False)
         self._fig.subplots_adjust(left=0.12, right=0.97, top=0.97, bottom=0.18)
 
-    def _tick_plot(self, dt: float) -> None:
+    def _tick_plot(self, _dt: float) -> None:
         """5 Hz Kivy clock: redraw the live A/B trace in mm. Main thread only."""
         if self._plot_line is None:
             return
@@ -716,8 +708,11 @@ class FlatGrindRunScreen(BaseRunScreen):
             return
 
         from dmccodegui.hmi.dmc_vars import (
-            HMI_SETP, HMI_HOME, HMI_TRIGGER_FIRE, HMI_STATE_VAR,
-            STATE_HOMING, STATE_SETUP,
+            HMI_HOME,
+            HMI_SETP,
+            HMI_STATE_VAR,
+            HMI_TRIGGER_FIRE,
+            STATE_SETUP,
         )
 
         self.motion_active = True  # Disable buttons during shutdown
@@ -933,7 +928,7 @@ class FlatGrindRunScreen(BaseRunScreen):
         Images are flipped 180° so subtract arrows point up and add arrows
         point down, matching the bar direction they affect.
         """
-        from kivy.graphics import PushMatrix, PopMatrix, Rotate
+        from kivy.graphics import PopMatrix, PushMatrix, Rotate
 
         up_row = self.ids.get("adjust_up_row")
         down_row = self.ids.get("adjust_down_row")
@@ -989,7 +984,7 @@ class FlatGrindRunScreen(BaseRunScreen):
         self.delta_c_offsets = offsets
         self.selected_section_value = str(int(self.delta_c_offsets[index]))
 
-    def _on_chart_selection_changed(self, chart_widget, selected_index: int) -> None:
+    def _on_chart_selection_changed(self, _chart_widget, selected_index: int) -> None:
         """Observer bound to delta_c_chart.selected_index via on_kv_post.
 
         Updates selected_section_value so the 'Selected: X cts' label refreshes

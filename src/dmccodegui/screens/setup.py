@@ -1,7 +1,4 @@
-from __future__ import annotations
-
-"""
-setup.py — SetupScreen
+"""setup.py — SetupScreen
 
 This is the first screen the operator sees. It handles:
   - Discovering available Galil controller network addresses (via controller.list_addresses())
@@ -20,10 +17,11 @@ THREADING MODEL:
   background thread via jobs.submit(). UI mutations are always posted back to the
   Kivy main thread via Clock.schedule_once().
 """
+from __future__ import annotations
 
+from kivy.clock import Clock
 from kivy.properties import ObjectProperty, StringProperty
 from kivy.uix.screenmanager import Screen
-from kivy.clock import Clock
 
 from ..app_state import MachineState
 from ..controller import GalilController

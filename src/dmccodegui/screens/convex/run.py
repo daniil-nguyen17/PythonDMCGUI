@@ -12,11 +12,9 @@ import logging
 import time
 from collections import deque
 
-logger = logging.getLogger(__name__)
-
+import kivy_matplotlib_widget  # noqa: F401 — registers MatplotFigure in Kivy Factory
+import matplotlib.pyplot  # noqa: F401 — required by kivy_matplotlib_widget internals
 from kivy.clock import Clock
-from kivy.core.text import Label as CoreLabel
-from kivy.graphics import Color, Line, Rectangle
 from kivy.properties import (
     BooleanProperty,
     ListProperty,
@@ -25,32 +23,26 @@ from kivy.properties import (
 )
 from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator
-import matplotlib.pyplot  # noqa: F401 — required by kivy_matplotlib_widget internals
-import kivy_matplotlib_widget  # noqa: F401 — registers MatplotFigure in Kivy Factory
+
+import dmccodegui.machine_config as mc
+from dmccodegui.screens.flat_grind.widgets import (
+    DELTA_C_WRITABLE_START,
+)
 
 from ...app_state import MachineState
-from ...controller import GalilController
 from ...hmi.dmc_vars import (
-    STATE_GRINDING, STATE_HOMING,
-    HMI_GRND, HMI_MORE, HMI_LESS, HMI_TRIGGER_FIRE,
+    HMI_GRND,
+    HMI_LESS,
+    HMI_MORE,
+    HMI_TRIGGER_FIRE,
     STARTPT_C,
+    STATE_GRINDING,
+    STATE_HOMING,
 )
 from ...utils import jobs
-import dmccodegui.machine_config as mc
 from ..base import BaseRunScreen
-from dmccodegui.screens.flat_grind.widgets import (
-    DeltaCBarChart,
-    _BaseBarChart,
-    DELTA_C_WRITABLE_START,
-    DELTA_C_WRITABLE_END,
-    STONE_SURFACE_MM,
-    STONE_OVERHANG_MM,
-    STEP_MM,
-    STONE_WINDOW_INDICES,
-    stone_window_for_index,
-)
-from .widgets import ConvexAdjustPanel
 
+logger = logging.getLogger(__name__)
 
 # Controller variable names for cycle status (configurable for different controller programs)
 CYCLE_VAR_TOOTH = "tooth"
@@ -396,7 +388,7 @@ class ConvexRunScreen(BaseRunScreen):
             self._stop_elapsed()
             self._read_start_pt_c()  # TCP one-shot confirmation after wear
 
-    def _tick_disconnect_banner(self, dt: float) -> None:
+    def _tick_disconnect_banner(self, _dt: float) -> None:
         """1 Hz callback: update disconnect elapsed time banner."""
         import time as _time
         if self._disconnect_t0 is not None:
@@ -410,7 +402,7 @@ class ConvexRunScreen(BaseRunScreen):
         self.pos_c = "---"
         self.pos_d = "---"
 
-    def _tick_elapsed(self, dt: float) -> None:
+    def _tick_elapsed(self, _dt: float) -> None:
         """1 Hz clock: update elapsed time display only."""
         if self._cycle_start_time is None:
             return
@@ -451,7 +443,7 @@ class ConvexRunScreen(BaseRunScreen):
         ax.grid(False)
         self._fig.tight_layout(pad=0.5)
 
-    def _tick_plot(self, dt: float) -> None:
+    def _tick_plot(self, _dt: float) -> None:
         """5 Hz Kivy clock: redraw the live A/B trace in mm. Main thread only."""
         if self._plot_line is None:
             return
@@ -631,7 +623,7 @@ class ConvexRunScreen(BaseRunScreen):
         old = list(self.delta_c_offsets)
         self.delta_c_offsets = (old + [0.0] * clamped)[:clamped]
 
-    def _on_chart_selection_changed(self, chart_widget, selected_index: int) -> None:
+    def _on_chart_selection_changed(self, _chart_widget, selected_index: int) -> None:
         """Observer bound to delta_c_chart.selected_index via on_kv_post.
 
         Updates selected_section_value so the 'Selected: X cts' label refreshes

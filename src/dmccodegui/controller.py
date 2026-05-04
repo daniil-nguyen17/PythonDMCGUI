@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import logging
+import sys as _sys
 import time
 from typing import Any, Dict, List, Optional, Sequence
-from .utils.transport import GalilTransport, CommError
 
+from .utils.transport import CommError
 
 # Optional transport layer (may reference driver protocol defined below)
 
@@ -64,7 +65,6 @@ MAX_EDGES_DEFAULT = 250
 # --timeout 1000: allow 1 second before raising a communication error.
 # -MG 0: do NOT subscribe to MG (message) output on this handle (Linux gclib
 #   does not support this flag — only append on Windows).
-import sys as _sys
 PRIMARY_FLAGS: str = (
     "--direct --timeout 1000 -MG 0" if _sys.platform == "win32"
     else "--direct --timeout 1000"
@@ -74,7 +74,7 @@ FLOAT_CHARS = set("0123456789+-.eE")
 
 
 class GalilController:
-    
+
     def __init__(self, driver: Optional[GalilDriverProtocol] = None) -> None:
         self._driver = driver
         self._connected = False
@@ -167,7 +167,7 @@ class GalilController:
             log.error("connect error: %s", e)
             self._connected = False
             return False
-    
+
     #disconnects from controller
     def disconnect(self) -> None:
         if self._driver is None:
@@ -184,7 +184,7 @@ class GalilController:
                     self._logger("Disconnected")
                 except Exception:
                     pass
-   
+
     def reset_handle(self, address: Optional[str] = None) -> bool:
         """Close and reopen the gclib handle without going through a full disconnect/reconnect.
 
@@ -225,7 +225,7 @@ class GalilController:
         """Read controller status including position and speed information."""
         if not self._driver or not self._connected:
             raise RuntimeError("No controller connected")
-        
+
         try:
             # Read position for all axes (reduced debug output)
             pos = {}
@@ -235,14 +235,14 @@ class GalilController:
                     pos[axis] = float(resp.strip())
                 except Exception:
                     pos[axis] = 0.0
-            
+
             # Read speed (using _TSA as an example - adjust based on your controller setup)
             try:
                 speed_resp = self.cmd("MG _TSA")
                 speed = float(speed_resp.strip())
             except Exception:
                 speed = 0.0
-                
+
             return {
                 "pos": pos,
                 "speeds": speed
@@ -321,7 +321,7 @@ class GalilController:
             self._connected = False
             return False
 
-       
+
     #used to get the array from controller to the GUI
     def upload_array(self, name: str, first: int, last: int) -> List[float]:
         # """Read controller array [first..last] as floats.
@@ -342,7 +342,8 @@ class GalilController:
         if hasattr(self._driver, "GArrayUpload"):
             try:
                 text = getattr(self._driver, "GArrayUpload")(name, first, last, 1)
-                tokens = [tok.strip() for tok in str(text).replace("\r", " ").replace("\n", " ").split(",") if tok.strip()]
+                normalized = str(text).replace("\r", " ").replace("\n", " ")
+                tokens = [tok.strip() for tok in normalized.split(",") if tok.strip()]
                 return [float(tok) for tok in tokens][: (last - first + 1)]
             except Exception:
                 # Fall through to MG-based approach
@@ -394,7 +395,7 @@ class GalilController:
         result = out[: (last - first + 1)]
         log.debug("upload_array: returning %d values from %s", len(result), name)
         return result
-    
+
     #used to get the array from GUI to controller
     def download_array(self, name: str, first: int, values: Sequence[float]) -> int:
         # """
@@ -452,8 +453,8 @@ class GalilController:
         if line:
             self.cmd(line)
             written += line.count("=")
-        return written    
-    
+        return written
+
     def wait_for_ready(self, *, timeout_s: float = 5.0, poll_s: float = 0.1) -> None:
         """Wait until controller is responsive.
 
@@ -490,13 +491,13 @@ class GalilController:
         t = s.strip()
         if not t:
             raise ParseError(f"Empty string: '{s}'")
-        
+
         # Try direct float conversion first
         try:
             return float(t)
         except ValueError:
             pass
-        
+
         # Fall back to parsing comma/space separated values and take first
         try:
             # Split on common delimiters and take first numeric value
@@ -664,7 +665,7 @@ class GalilController:
         if n <= 0:
             return []
         return self.upload_array(name, 0, n - 1)  # your working method
-    
+
     def download_array_full(self, name: str, values: Sequence[float]) -> int:
         #"""Write `values` into name[0..len(values)-1] without passing indices."""
         if not self._driver or not self._connected:
@@ -715,10 +716,11 @@ if __name__ == "__main__":  # Minimal integration demo
             finally:
                 c.disconnect()
 
-    def write_array(self, name: str, updates: dict[int, float]) -> None:
+    def write_array(self, name: str, updates: dict[int, float]) -> int:
         # Chunk to approximately 300 chars per command line
         items = sorted((idx, val) for idx, val in updates.items())
         line = ""
+        written = 0
         for idx, val in items:
             cmd = f"{name}[{idx}]={val}"
             # keep command lines comfortably short for the DMC parser
@@ -731,4 +733,4 @@ if __name__ == "__main__":  # Minimal integration demo
         if line:
             self.cmd(line)
             written += line.count("=")
-        return written 
+        return written

@@ -33,16 +33,14 @@ import os as _os
 from typing import Callable, Optional
 
 from kivy.animation import Animation
-from kivy.clock import Clock
-from kivy.graphics import Color, Ellipse, Rectangle, Line as GLine
+from kivy.graphics import Color, Ellipse, Rectangle
+from kivy.graphics import Line as GLine
 from kivy.metrics import dp
 from kivy.properties import NumericProperty
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.button import Button
 from kivy.uix.image import Image
 from kivy.uix.label import Label
-from kivy.uix.scrollview import ScrollView
 from kivy.uix.widget import Widget
 
 # ---------------------------------------------------------------------------

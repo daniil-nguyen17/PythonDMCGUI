@@ -56,9 +56,7 @@ from .dmc_vars import (
     DR_RATE_GRIND,
     DR_RATE_NORMAL,
     DR_UDP_PORT,
-    STATE_GRINDING,
 )
-from ..utils import jobs
 
 if TYPE_CHECKING:
     from ..app_state import MachineState
@@ -417,7 +415,7 @@ class DataRecordListener:
 
         # Post to main thread
         Clock.schedule_once(
-            lambda dt: self._apply_to_state(
+            lambda _dt: self._apply_to_state(
                 a, b, c, d, dmc_state, ses_kni, stn_kni,
                 start_pt_c, program_running
             )
@@ -471,7 +469,7 @@ class DataRecordListener:
                        DR_DISCONNECT_TIMEOUT)
 
         # Notify main thread of disconnect
-        def _set_disconnected(dt):
+        def _set_disconnected(_dt):
             state = self._state
             if state.connected:
                 state.connected = False

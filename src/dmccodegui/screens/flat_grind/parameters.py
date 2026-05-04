@@ -12,9 +12,6 @@ from __future__ import annotations
 from kivy.clock import Clock
 from kivy.properties import BooleanProperty, NumericProperty
 
-import dmccodegui.machine_config as mc
-from ..base import BaseParametersScreen
-
 # ---------------------------------------------------------------------------
 # Backward-compatible PARAM_DEFS re-export
 # ---------------------------------------------------------------------------
@@ -24,6 +21,8 @@ from ..base import BaseParametersScreen
 # (the base machine type) from machine_config._FLAT_PARAM_DEFS.
 # At runtime, FlatGrindParametersScreen uses mc.get_param_defs() to get the active type's defs.
 from dmccodegui.machine_config import _FLAT_PARAM_DEFS as PARAM_DEFS  # noqa: F401
+
+from ..base import BaseParametersScreen
 
 # ---------------------------------------------------------------------------
 # Validation constants kept as module-level names for backward compatibility

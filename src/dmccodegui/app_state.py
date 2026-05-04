@@ -5,7 +5,6 @@ from typing import Any, Callable, Dict, List
 
 from .hmi.dmc_vars import STATE_GRINDING
 
-
 ChangeListener = Callable[["MachineState"], None]
 
 

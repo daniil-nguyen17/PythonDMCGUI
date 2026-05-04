@@ -10,6 +10,7 @@ references dmccodegui.screens.serration.* which fails if the parent
 package attribute is not yet set.
 """
 import os
+
 from kivy.lang import Builder
 
 _PKG_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -29,9 +30,9 @@ def load_kv() -> None:
     _kv_loaded = True
 
 
-from .run import SerrationRunScreen  # noqa: E402
 from .axes_setup import SerrationAxesSetupScreen  # noqa: E402
 from .parameters import SerrationParametersScreen  # noqa: E402
+from .run import SerrationRunScreen  # noqa: E402
 
 __all__ = [
     "SerrationRunScreen",

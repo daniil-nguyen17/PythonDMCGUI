@@ -146,9 +146,12 @@ _SERRATION_PARAM_DEFS.extend([
         "max": 500.0,
     },
     # Read-only CPM display (3-axis only)
-    {"label": "Counts/mm A", "var": "cpmA", "unit": "cts/mm", "group": "Info", "min": 0, "max": 9999999, "readonly": True},
-    {"label": "Counts/mm B", "var": "cpmB", "unit": "cts/mm", "group": "Info", "min": 0, "max": 9999999, "readonly": True},
-    {"label": "Counts/mm C", "var": "cpmC", "unit": "cts/mm", "group": "Info", "min": 0, "max": 9999999, "readonly": True},
+    {"label": "Counts/mm A", "var": "cpmA", "unit": "cts/mm", "group": "Info",
+     "min": 0, "max": 9999999, "readonly": True},
+    {"label": "Counts/mm B", "var": "cpmB", "unit": "cts/mm", "group": "Info",
+     "min": 0, "max": 9999999, "readonly": True},
+    {"label": "Counts/mm C", "var": "cpmC", "unit": "cts/mm", "group": "Info",
+     "min": 0, "max": 9999999, "readonly": True},
 ])
 
 # ---------------------------------------------------------------------------

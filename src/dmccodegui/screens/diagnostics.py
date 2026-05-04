@@ -1,8 +1,8 @@
 """DiagnosticsScreen — placeholder for diagnostics screen."""
 from __future__ import annotations
 
-from kivy.uix.screenmanager import Screen
 from kivy.properties import ObjectProperty
+from kivy.uix.screenmanager import Screen
 
 
 class DiagnosticsScreen(Screen):

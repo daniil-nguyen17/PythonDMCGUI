@@ -1,13 +1,11 @@
 """PINOverlay — fullscreen ModalView PIN entry for login, user switch, and role unlock."""
 from __future__ import annotations
 
-from kivy.uix.modalview import ModalView
-from kivy.uix.button import Button
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.scrollview import ScrollView
-from kivy.properties import StringProperty, ObjectProperty
 from kivy.animation import Animation
 from kivy.clock import Clock
+from kivy.properties import ObjectProperty, StringProperty
+from kivy.uix.button import Button
+from kivy.uix.modalview import ModalView
 
 from dmccodegui.theme_manager import theme
 

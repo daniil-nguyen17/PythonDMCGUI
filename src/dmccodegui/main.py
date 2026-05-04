@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+
 if getattr(sys, 'frozen', False):
     import os as _os
     _meipass = getattr(sys, '_MEIPASS', '')
@@ -266,8 +267,9 @@ os.environ["KIVY_MOUSE"] = "mouse,multitouch_on_demand"
 # Linux (Pi) uses native EGL/GLES2 — no change needed.
 if sys.platform == "win32":
     os.environ.setdefault("KIVY_GL_BACKEND", "angle_sdl2")
-from typing import cast
-from kivy.config import Config
+from typing import cast  # noqa: E402
+
+from kivy.config import Config  # noqa: E402
 
 Config.set('graphics', 'fullscreen', _PRESET["fullscreen_mode"])
 Config.set('graphics', 'maximized', _PRESET["maximized"])
@@ -282,12 +284,12 @@ if _PRESET["maximized"] != "1":
     Config.set('graphics', 'height', str(_PRESET["height"]))
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')  # ensure mouse input
 
-from kivy.app import App
-from kivy.lang import Builder
-from kivy.clock import Clock
-from kivy.factory import Factory
-from kivy.properties import StringProperty
-from kivy.core.window import Window
+from kivy.app import App  # noqa: E402
+from kivy.clock import Clock  # noqa: E402
+from kivy.core.window import Window  # noqa: E402
+from kivy.factory import Factory  # noqa: E402
+from kivy.lang import Builder  # noqa: E402
+from kivy.properties import StringProperty  # noqa: E402
 
 # Config.set('graphics', 'maximized', '1') is unreliable — Kivy may ignore
 # it depending on the SDL2 backend and platform.  Calling Window.maximize()
@@ -296,7 +298,7 @@ if _PRESET["maximized"] == "1":
     Window.maximize()
 
 # Register Noto Sans as the default font (Vietnamese + full Latin support)
-from kivy.core.text import LabelBase
+from kivy.core.text import LabelBase  # noqa: E402
 
 _FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                          'assets', 'fonts', 'Noto_Sans', 'static')
@@ -316,31 +318,32 @@ logging.getLogger("kivy").setLevel(logging.WARNING)
 IDLE_TIMEOUT = 30 * 60  # 30 minutes in seconds
 
 try:
+    import dmccodegui.machine_config as mc
+    from dmccodegui import __version__
+
+    from . import screens as _screens  # noqa: F401 - ensure screen classes are registered with Factory
     from .app_state import MachineState
     from .auth.auth_manager import AuthManager
     from .controller import GalilController
-    from .utils import jobs
-    from . import screens as _screens  # noqa: F401 - ensure screen classes are registered with Factory
+    from .hmi.data_record import DataRecordListener, get_hmi_ip
+    from .hmi.dmc_vars import STATE_SETUP
+    from .hmi.mg_reader import MgReader
     from .screens.pin_overlay import PINOverlay
     from .theme_manager import theme as app_theme
-    from .hmi.data_record import DataRecordListener, get_hmi_ip
-    from .hmi.mg_reader import MgReader
-    from .hmi.dmc_vars import STATE_SETUP
-    import dmccodegui.machine_config as mc
-    from dmccodegui import __version__
+    from .utils import jobs
 except Exception:  # Allows running as a script: python src/dmccodegui/main.py
+    import dmccodegui.machine_config as mc
+    import dmccodegui.screens as _screens  # type: ignore  # noqa: F401
+    from dmccodegui import __version__
     from dmccodegui.app_state import MachineState
     from dmccodegui.auth.auth_manager import AuthManager
     from dmccodegui.controller import GalilController
-    from dmccodegui.utils import jobs
-    import dmccodegui.screens as _screens  # type: ignore  # noqa: F401
+    from dmccodegui.hmi.data_record import DataRecordListener, get_hmi_ip
+    from dmccodegui.hmi.dmc_vars import STATE_SETUP
+    from dmccodegui.hmi.mg_reader import MgReader
     from dmccodegui.screens.pin_overlay import PINOverlay
     from dmccodegui.theme_manager import theme as app_theme
-    from dmccodegui.hmi.data_record import DataRecordListener, get_hmi_ip
-    from dmccodegui.hmi.mg_reader import MgReader
-    from dmccodegui.hmi.dmc_vars import STATE_SETUP
-    import dmccodegui.machine_config as mc
-    from dmccodegui import __version__
+    from dmccodegui.utils import jobs
 
 
 KV_FILES = [
@@ -450,7 +453,7 @@ class DMCApp(App):
 
         # Wire TabBar -> ScreenManager
         tab_bar = root.ids.tab_bar
-        tab_bar.bind(current_tab=lambda inst, val: setattr(sm, 'current', val))
+        tab_bar.bind(current_tab=lambda _inst, val: setattr(sm, 'current', val))
 
         # Wire StatusBar banner to app.banner_text
         status_bar = root.ids.status_bar
@@ -653,10 +656,10 @@ class DMCApp(App):
             if role not in ("setup", "admin"):
                 return
 
-        from kivy.uix.modalview import ModalView
         from kivy.uix.boxlayout import BoxLayout
-        from kivy.uix.label import Label
         from kivy.uix.button import Button
+        from kivy.uix.label import Label
+        from kivy.uix.modalview import ModalView
 
         picker = ModalView(auto_dismiss=False, size_hint=(0.55, 0.6))
 
@@ -700,7 +703,7 @@ class DMCApp(App):
                 color=(1, 1, 1, 1),
             )
             # Capture mtype in default argument to avoid closure issue
-            btn.bind(on_release=lambda inst, t=mtype: _on_type_selected(t))
+            btn.bind(on_release=lambda _inst, t=mtype: _on_type_selected(t))
             layout.add_widget(btn)
 
         picker.add_widget(layout)
@@ -741,10 +744,10 @@ class DMCApp(App):
                         screen.state = self.state
             else:
                 # Machine type changed at runtime — requires restart
-                from kivy.uix.modalview import ModalView
                 from kivy.uix.boxlayout import BoxLayout
-                from kivy.uix.label import Label
                 from kivy.uix.button import Button
+                from kivy.uix.label import Label
+                from kivy.uix.modalview import ModalView
                 restart_modal = ModalView(auto_dismiss=False, size_hint=(0.45, 0.3))
                 restart_layout = BoxLayout(orientation="vertical", padding="20dp", spacing="12dp")
                 restart_layout.add_widget(Label(
@@ -813,10 +816,10 @@ class DMCApp(App):
 
     def _show_loader_error(self, message: str) -> None:
         """Show a blocking error popup then stop the app."""
-        from kivy.uix.modalview import ModalView
         from kivy.uix.boxlayout import BoxLayout
-        from kivy.uix.label import Label
         from kivy.uix.button import Button
+        from kivy.uix.label import Label
+        from kivy.uix.modalview import ModalView
 
         modal = ModalView(auto_dismiss=False, size_hint=(0.6, 0.4))
         layout = BoxLayout(orientation="vertical", padding="20dp", spacing="16dp")
@@ -938,10 +941,10 @@ class DMCApp(App):
             ctrl_type: Machine type string reported by the controller.
             config_type: Machine type string from local settings.json.
         """
-        from kivy.uix.modalview import ModalView
         from kivy.uix.boxlayout import BoxLayout
-        from kivy.uix.label import Label
         from kivy.uix.button import Button
+        from kivy.uix.label import Label
+        from kivy.uix.modalview import ModalView
 
         popup = ModalView(auto_dismiss=False, size_hint=(0.6, 0.7))
         layout = BoxLayout(orientation="vertical", padding="20dp", spacing="14dp")
@@ -1023,7 +1026,7 @@ class DMCApp(App):
                 background_color=(0.1, 0.25, 0.5, 1),
                 color=(1, 1, 1, 1),
             )
-            btn.bind(on_release=lambda inst, t=mtype: _on_type_selected(t))
+            btn.bind(on_release=lambda _inst, t=mtype: _on_type_selected(t))
             layout.add_widget(btn)
 
         # Keep Current dismiss button
@@ -1058,13 +1061,19 @@ class DMCApp(App):
             params: dict[str, float] = {}
             try:
                 from .hmi.dmc_vars import (
-                    HMI_STATE_VAR, CT_SES_KNI, CT_STN_KNI,
-                    RESTPT_VARS, STARTPT_VARS,
+                    CT_SES_KNI,
+                    CT_STN_KNI,
+                    HMI_STATE_VAR,
+                    RESTPT_VARS,
+                    STARTPT_VARS,
                 )
             except ImportError:
                 from dmccodegui.hmi.dmc_vars import (
-                    HMI_STATE_VAR, CT_SES_KNI, CT_STN_KNI,
-                    RESTPT_VARS, STARTPT_VARS,
+                    CT_SES_KNI,
+                    CT_STN_KNI,
+                    HMI_STATE_VAR,
+                    RESTPT_VARS,
+                    STARTPT_VARS,
                 )
             # Batch 1: state + knife counts
             try:
@@ -1140,7 +1149,7 @@ class DMCApp(App):
             self._idle_event.cancel()
         self._idle_event = Clock.schedule_once(self._on_idle_timeout, IDLE_TIMEOUT)
 
-    def _on_idle_timeout(self, dt) -> None:
+    def _on_idle_timeout(self, _dt) -> None:
         """Auto-lock: drop Setup role back to Operator view after 30 min idle."""
         if self.state.setup_unlocked:
             self.state.lock_setup()
@@ -1242,7 +1251,7 @@ class DMCApp(App):
 
     def toggle_theme(self) -> None:
         """Toggle between light and dark mode."""
-        new_mode = app_theme.toggle()
+        app_theme.toggle()
         # Force tab bar to rebuild with new theme colors
         try:
             tab_bar = self.root.ids.tab_bar
@@ -1301,10 +1310,10 @@ class DMCApp(App):
         #COMPED -> #HOME -> #MAIN -> waiting loop). This is NOT a subroutine
         trigger and does not violate the HMI one-shot variable pattern rule.
         """
-        from kivy.uix.modalview import ModalView
         from kivy.uix.boxlayout import BoxLayout
         from kivy.uix.button import Button
         from kivy.uix.label import Label
+        from kivy.uix.modalview import ModalView
 
         modal = ModalView(auto_dismiss=True, size_hint=(0.45, 0.35))
         layout = BoxLayout(orientation='vertical', padding='20dp', spacing='16dp')

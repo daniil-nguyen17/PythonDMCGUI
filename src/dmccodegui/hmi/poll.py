@@ -19,8 +19,8 @@ from typing import TYPE_CHECKING, Optional
 
 from kivy.clock import Clock
 
-from .dmc_vars import HMI_STATE_VAR, CT_SES_KNI, CT_STN_KNI, APOS, BPOS, CPOS, DPOS, BATCH_CMD
 from ..utils import jobs
+from .dmc_vars import BATCH_CMD
 
 if TYPE_CHECKING:
     from ..app_state import MachineState
@@ -107,7 +107,7 @@ class ControllerPoller:
     # Tick — called on main thread by Clock
     # ------------------------------------------------------------------
 
-    def _on_tick(self, dt: float) -> None:
+    def _on_tick(self, _dt: float) -> None:
         """Main-thread tick: submit background read to jobs worker."""
         jobs.submit(self._do_read)
 
@@ -164,7 +164,7 @@ class ControllerPoller:
 
         # Post state update to main thread
         Clock.schedule_once(
-            lambda dt: self._apply(dmc_state, a, b, c, d, ses_kni, stn_kni, program_running)
+            lambda _dt: self._apply(dmc_state, a, b, c, d, ses_kni, stn_kni, program_running)
         )
 
     # ------------------------------------------------------------------
@@ -205,7 +205,7 @@ class ControllerPoller:
 
         state.notify()
 
-    def _on_disconnect(self, dt: float = 0) -> None:
+    def _on_disconnect(self, _dt: float = 0) -> None:
         """Main thread: handle loss of connection.
 
         Guard against double-firing — if already disconnected, do nothing.

@@ -923,7 +923,7 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
         has a dirty-dot indicator that lights up on change.
 
         Layout rules:
-          - All cards are locked to the same fixed height (CARD_HEIGHT) and
+          - All cards are locked to the same fixed height (card_height) and
             width (size_hint_x=0.5) regardless of how many params they hold,
             so paired rows always look aesthetically balanced.
           - Each card's param rows live inside an inner ScrollView so cards
@@ -947,10 +947,10 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
         # visible before the inner ScrollView kicks in. Cards with fewer
         # params simply have empty space below the last row; cards with more
         # scroll internally.
-        CARD_HEIGHT = dp(480)
+        card_height = dp(480)
 
         # Group accent colors
-        GROUP_COLORS: dict[str, list[float]] = {
+        group_colors: dict[str, list[float]] = {
             "Geometry":    [0.980, 0.569, 0.043, 1],
             "Feedrates":   [0.024, 0.714, 0.831, 1],
             "Calibration": [0.659, 0.333, 0.965, 1],
@@ -959,7 +959,7 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
         }
 
         # Group icons (unicode shapes for visual distinction)
-        GROUP_ICONS: dict[str, str] = {
+        group_icons: dict[str, str] = {
             "Geometry":    "\u25c6",   # diamond
             "Feedrates":   "\u25b6",   # play/arrow
             "Calibration": "\u2699",   # gear
@@ -990,8 +990,8 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
         card_list: list = []
 
         for group_name, params in groups.items():
-            accent = GROUP_COLORS.get(group_name, [0.5, 0.5, 0.5, 1])
-            icon_char = GROUP_ICONS.get(group_name, "\u25cf")
+            accent = group_colors.get(group_name, [0.5, 0.5, 0.5, 1])
+            icon_char = group_icons.get(group_name, "\u25cf")
 
             # Card wrapper: stripe + card body — FIXED HEIGHT so all cards
             # are visually uniform in a pair row regardless of param count.
@@ -999,7 +999,7 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
                 orientation='horizontal',
                 size_hint_y=None,
                 size_hint_x=0.5,
-                height=CARD_HEIGHT,
+                height=card_height,
                 spacing=0,
             )
 
@@ -1015,7 +1015,7 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
             card_wrapper.add_widget(stripe)
 
             # Card body — fills the remaining horizontal space in the wrapper
-            # and stretches vertically to match CARD_HEIGHT (size_hint_y=1).
+            # and stretches vertically to match card_height (size_hint_y=1).
             card = BoxLayout(
                 orientation='vertical',
                 padding=[dp(12), dp(10), dp(12), dp(10)],
@@ -1197,14 +1197,14 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
             card_list.append(card_wrapper)
 
         # --- Arrange cards into 2-column rows ---
-        # Every card_wrapper is locked to CARD_HEIGHT, so the pair_row just
+        # Every card_wrapper is locked to card_height, so the pair_row just
         # pins to that same height. No more minimum_height gymnastics — the
         # row height is known up-front.
         for i in range(0, len(card_list), 2):
             pair_row = BoxLayout(
                 orientation='horizontal',
                 size_hint_y=None,
-                height=CARD_HEIGHT,
+                height=card_height,
                 spacing=dp(12),
             )
 
@@ -1238,18 +1238,18 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
 
     def _set_field_state(self, widget, state: str, var_name: str = '') -> None:
         """Update border color of TextInput and dirty dot based on validation state."""
-        BORDER_NORMAL = [0.118, 0.145, 0.188, 1]
-        BORDER_AMBER = [0.980, 0.749, 0.043, 0.9]
-        BORDER_RED = [0.900, 0.200, 0.200, 0.9]
-        DOT_AMBER = [0.980, 0.749, 0.043, 1]
-        DOT_RED = [0.900, 0.200, 0.200, 1]
+        border_normal = [0.118, 0.145, 0.188, 1]
+        border_amber = [0.980, 0.749, 0.043, 0.9]
+        border_red = [0.900, 0.200, 0.200, 0.9]
+        dot_amber = [0.980, 0.749, 0.043, 1]
+        dot_red = [0.900, 0.200, 0.200, 1]
         try:
             if state == 'error':
-                color = BORDER_RED
+                color = border_red
             elif state == 'modified':
-                color = BORDER_AMBER
+                color = border_amber
             else:
-                color = BORDER_NORMAL
+                color = border_normal
 
             if hasattr(widget, '_border_color_instruction'):
                 widget._border_color_instruction.rgba = color
@@ -1267,11 +1267,11 @@ class BaseParametersScreen(Screen, SetupScreenMixin):
                 if state == 'error':
                     dot.opacity = 1
                     if hasattr(dot, '_dot_color'):
-                        dot._dot_color.rgba = DOT_RED
+                        dot._dot_color.rgba = dot_red
                 elif state == 'modified':
                     dot.opacity = 1
                     if hasattr(dot, '_dot_color'):
-                        dot._dot_color.rgba = DOT_AMBER
+                        dot._dot_color.rgba = dot_amber
                 else:
                     dot.opacity = 0
         except Exception:

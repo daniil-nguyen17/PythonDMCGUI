@@ -207,7 +207,7 @@ def _detect_preset(settings_path: str) -> str:
     Returns:
         One of '7inch', '10inch', '15inch'.
     """
-    _VALID_PRESETS = set(_DISPLAY_PRESETS.keys())
+    _valid_presets = set(_DISPLAY_PRESETS.keys())
 
     # Priority 1: settings.json override
     if os.path.exists(settings_path):
@@ -218,7 +218,7 @@ def _detect_preset(settings_path: str) -> str:
             parsed = _json.loads(data)
             override = parsed.get("display_size", "")
             if override:
-                if override in _VALID_PRESETS:
+                if override in _valid_presets:
                     _log.info("Preset override from settings: %s", override)
                     return override
                 else:

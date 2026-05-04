@@ -815,7 +815,7 @@ class ConvexRunScreen(BaseRunScreen):
             return
         ctrl = self.controller
         # Default CPM values if controller read fails
-        _CPM_DEFAULTS = {"A": 1200.0, "B": 1200.0, "C": 800.0, "D": 360000.0}
+        _cpm_defaults = {"A": 1200.0, "B": 1200.0, "C": 800.0, "D": 360000.0}
 
         def _do():
             results: dict[str, str] = {}
@@ -825,7 +825,7 @@ class ConvexRunScreen(BaseRunScreen):
                     raw = ctrl.cmd(f"MG cpm{axis}").strip()
                     cpm = float(raw)
                 except Exception:
-                    cpm = _CPM_DEFAULTS.get(axis, 0.0)
+                    cpm = _cpm_defaults.get(axis, 0.0)
                 raw_cpms[axis] = cpm
                 if cpm > 0:
                     unit = "1 deg" if axis == "D" else "1mm"

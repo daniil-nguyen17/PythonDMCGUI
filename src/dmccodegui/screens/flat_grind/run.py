@@ -427,14 +427,14 @@ class FlatGrindRunScreen(BaseRunScreen):
             a, b, c, d, dmc_state, ses_kni, stn_kni, program_running = result
 
             # 2. CPM values
-            _CPM_DEFAULTS = {"A": 1200.0, "B": 1200.0, "C": 800.0, "D": 360000.0}
+            _cpm_defaults = {"A": 1200.0, "B": 1200.0, "C": 800.0, "D": 360000.0}
             cpm_results: dict[str, float] = {}
             for axis in ("A", "B", "C", "D"):
                 try:
                     raw = ctrl.cmd(f"MG cpm{axis}").strip()
                     cpm_results[axis] = float(raw)
                 except Exception:
-                    cpm_results[axis] = _CPM_DEFAULTS.get(axis, 1.0)
+                    cpm_results[axis] = _cpm_defaults.get(axis, 1.0)
 
             # 3. startPtC
             start_c_val = None
@@ -1156,7 +1156,7 @@ class FlatGrindRunScreen(BaseRunScreen):
             return
         ctrl = self.controller
         # Default CPM values if controller read fails
-        _CPM_DEFAULTS = {"A": 1200.0, "B": 1200.0, "C": 800.0, "D": 360000.0}
+        _cpm_defaults = {"A": 1200.0, "B": 1200.0, "C": 800.0, "D": 360000.0}
 
         def _do():
             results: dict[str, str] = {}
@@ -1166,7 +1166,7 @@ class FlatGrindRunScreen(BaseRunScreen):
                     raw = ctrl.cmd(f"MG cpm{axis}").strip()
                     cpm = float(raw)
                 except Exception:
-                    cpm = _CPM_DEFAULTS.get(axis, 0.0)
+                    cpm = _cpm_defaults.get(axis, 0.0)
                 raw_cpms[axis] = cpm
                 if cpm > 0:
                     unit = "1 deg" if axis == "D" else "1mm"

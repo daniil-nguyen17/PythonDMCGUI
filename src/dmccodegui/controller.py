@@ -10,7 +10,7 @@ from .utils.transport import CommError
 # Optional transport layer (may reference driver protocol defined below)
 
 #get logger for messages
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 # Try to import gclib at module level, but don't fail if it's not available
 try:
     import gclib  # type: ignore
@@ -21,12 +21,12 @@ except ImportError:
 # Create the global handle lazily/safely
 if GCLIB_AVAILABLE:
     try:
-        globalDMC = gclib.py()
+        global_dmc = gclib.py()
     except Exception as e:  # pragma: no cover
-        log.error("Failed to create gclib handle: %s", e)
-        globalDMC = None  # type: ignore
+        logger.error("Failed to create gclib handle: %s", e)
+        global_dmc = None  # type: ignore
 else:
-    globalDMC = None  # type: ignore
+    global_dmc = None  # type: ignore
 
 
 class GalilDriverProtocol:
@@ -45,12 +45,18 @@ class GalilDriverProtocol:
         ...
 
 
-class ControllerNotReady(Exception):
+class ControllerNotReadyError(Exception):
     pass
 
+# Backward-compat aliases — external code may catch these names
+ControllerNotReady = ControllerNotReadyError
 
-class IndexOutOfRange(Exception):
+
+class IndexOutOfRangeError(Exception):
     pass
+
+# Backward-compat alias
+IndexOutOfRange = IndexOutOfRangeError
 
 
 class ParseError(Exception):
@@ -96,12 +102,12 @@ class GalilController:
         drv = self._driver
         if drv is None:
             if not GCLIB_AVAILABLE:
-                log.error("GAddresses unavailable: gclib not installed")
+                logger.error("GAddresses unavailable: gclib not installed")
                 return {}
             try:
                 drv = gclib.py()
             except Exception as e:  # pragma: no cover
-                log.error("GAddresses unavailable: %s", e)
+                logger.error("GAddresses unavailable: %s", e)
                 return {}
         try:
             addrs = getattr(drv, "GAddresses", None)
@@ -112,7 +118,7 @@ class GalilController:
             items: Dict[str, str] = dict(result) if result else {}
             return items
         except Exception as e:
-            log.error("list_addresses error: %s", e)
+            logger.error("list_addresses error: %s", e)
             return {}
 
     @staticmethod
@@ -132,12 +138,12 @@ class GalilController:
     def connect(self, address: str) -> bool:
         if self._driver is None:
             if not GCLIB_AVAILABLE:
-                log.error("Failed to connect: gclib not installed")
+                logger.error("Failed to connect: gclib not installed")
                 return False
             try:
                 self._driver = gclib.py()
             except Exception as e:  # pragma: no cover
-                log.error("Failed to create gclib driver: %s", e)
+                logger.error("Failed to create gclib driver: %s", e)
                 return False
         bare_addr = self._strip_flags(address)
         try:
@@ -164,7 +170,7 @@ class GalilController:
                     pass
             return True
         except Exception as e:
-            log.error("connect error: %s", e)
+            logger.error("connect error: %s", e)
             self._connected = False
             return False
 
@@ -213,7 +219,7 @@ class GalilController:
                 pass
             return True
         except Exception as e:
-            log.error("reset_handle error: %s", e)
+            logger.error("reset_handle error: %s", e)
             self._connected = False
             return False
 
@@ -274,10 +280,10 @@ class GalilController:
                                  or command.startswith("MG aPos") or command.startswith("MG bPos")
                                  or command.startswith("MG cPos") or command.startswith("MG dPos"))
             if not is_status_command:
-                log.debug("Sending command: %s", command)
+                logger.debug("Sending command: %s", command)
             resp = self._driver.GCommand(command)
             if not is_status_command:
-                log.debug("Response: %s", resp.strip())
+                logger.debug("Response: %s", resp.strip())
                 if self._logger:
                     try:
                         self._logger(f"CMD {command} -> {resp.strip()}")
@@ -285,14 +291,14 @@ class GalilController:
                         pass
             return resp
         except Exception as e:
-            log.warning("Command failed: %s -> %s", command, e)
+            logger.warning("Command failed: %s -> %s", command, e)
             # Try to fetch error string
             try:
                 tc1 = self._driver.GCommand("TC1")
-                log.warning("TC1 error code: %s", tc1)
+                logger.warning("TC1 error code: %s", tc1)
             except Exception:
                 tc1 = str(e)
-                log.warning("Could not get TC1: %s", tc1)
+                logger.warning("Could not get TC1: %s", tc1)
             if self._logger:
                 try:
                     self._logger(f"Error: {tc1}")
@@ -328,13 +334,13 @@ class GalilController:
 
         # Prefers gclib GArrayUpload when available; falls back to chunked MG reads.
         # """
-        log.debug("upload_array called: name=%s, first=%d, last=%d", name, first, last)
+        logger.debug("upload_array called: name=%s, first=%d, last=%d", name, first, last)
 
         if first > last:
-            log.debug("upload_array: first > last, returning empty list")
+            logger.debug("upload_array: first > last, returning empty list")
             return []
         if not self._driver or not self._connected:
-            log.debug("upload_array: not connected: driver=%s, connected=%s",
+            logger.debug("upload_array: not connected: driver=%s, connected=%s",
                       self._driver is not None, self._connected)
             raise RuntimeError("No controller connected")
 
@@ -350,7 +356,7 @@ class GalilController:
                 pass
 
         # Fallback: use MG in safe chunks with adaptive sizing
-        log.debug("upload_array: using MG fallback method for %s[%d:%d]", name, first, last)
+        logger.debug("upload_array: using MG fallback method for %s[%d:%d]", name, first, last)
         out: List[float] = []
         i = first
         chunk_size = 1  # Start with 1 element at a time
@@ -364,8 +370,8 @@ class GalilController:
                 resp = self.cmd(cmd).strip()
 
                 if resp == "?":
-                    log.warning("upload_array: got '?' response — array %s not available", name)
-                    raise ControllerNotReady(f"Array {name} not available")
+                    logger.warning("upload_array: got '?' response — array %s not available", name)
+                    raise ControllerNotReadyError(f"Array {name} not available")
 
                 parts = resp.replace("\r", " ").replace("\n", " ").split()
                 out.extend(float(p) for p in parts)
@@ -384,7 +390,7 @@ class GalilController:
                     # Reduce chunk size and retry
                     if chunk_size > 1:
                         chunk_size = max(1, chunk_size // 2)
-                        log.debug("upload_array: reducing chunk size to %d due to error", chunk_size)
+                        logger.debug("upload_array: reducing chunk size to %d due to error", chunk_size)
                         continue
                     else:
                         # Even 1 element failed, this is a real error
@@ -393,7 +399,7 @@ class GalilController:
                     raise e
 
         result = out[: (last - first + 1)]
-        log.debug("upload_array: returning %d values from %s", len(result), name)
+        logger.debug("upload_array: returning %d values from %s", len(result), name)
         return result
 
     #used to get the array from GUI to controller
@@ -464,18 +470,18 @@ class GalilController:
         self.ensure_connected()
         end = (time.monotonic() + timeout_s)
         last_err: Optional[Exception] = None
-        log.info("Waiting for controller ready...")
+        logger.info("Waiting for controller ready...")
         while time.monotonic() < end:
             try:
                 _ = self._parse_float_str(self.cmd("MG _TPA"))
-                log.info("Ready: controller responding")
+                logger.info("Ready: controller responding")
                 return
 
             except Exception as e:
                 last_err = e
-                log.debug("Controller not ready: %s", e)
+                logger.debug("Controller not ready: %s", e)
             time.sleep(poll_s)
-        raise ControllerNotReady(f"Controller not ready within {timeout_s}s: {last_err}")
+        raise ControllerNotReadyError(f"Controller not ready within {timeout_s}s: {last_err}")
 
     def test_basic_connectivity(self) -> bool:
         """Test if controller responds to basic commands without requiring arrays."""
@@ -484,7 +490,7 @@ class GalilController:
             _ = self._parse_float_str(self.cmd("MG _TPA"))
             return True
         except Exception as e:
-            log.debug("Basic connectivity test failed: %s", e)
+            logger.debug("Basic connectivity test failed: %s", e)
             return False
 
     def _parse_float_str(self, s: str) -> float:
@@ -520,7 +526,7 @@ class GalilController:
 
     def _validate_index(self, idx: int) -> None:
         if idx < 0 or idx >= self._max_edges:
-            raise IndexOutOfRange(f"index {idx} out of range (0..{self._max_edges-1})")
+            raise IndexOutOfRangeError(f"index {idx} out of range (0..{self._max_edges-1})")
 
     def read_array_elem(self, var_name: str, idx: int) -> float:
         self.ensure_connected()
@@ -529,24 +535,24 @@ class GalilController:
         try:
             resp = self.cmd(cmd)
             if resp.strip() == "?":
-                log.warning("read_array_elem: '?' response for %s", cmd)
-                raise ControllerNotReady(f"Array {var_name} not available")
+                logger.warning("read_array_elem: '?' response for %s", cmd)
+                raise ControllerNotReadyError(f"Array {var_name} not available")
             return self._parse_float_str(resp)
         except RuntimeError as e:
             # Check if this is a "Bad function or array" error
             if "Bad function or array" in str(e) or "57" in str(e):
-                raise ControllerNotReady(f"Array {var_name} is not declared on the controller")
+                raise ControllerNotReadyError(f"Array {var_name} is not declared on the controller")
             else:
                 raise e
 
     def read_array_slice(self, var_name: str, start: int, count: int) -> List[float]:
         self.ensure_connected()
         if start < 0 or count <= 0:
-            raise IndexOutOfRange("start/count must be non-negative and count>0")
+            raise IndexOutOfRangeError("start/count must be non-negative and count>0")
         if start + count > self._max_edges:
-            raise IndexOutOfRange(f"slice {start}+{count} exceeds max {self._max_edges}")
+            raise IndexOutOfRangeError(f"slice {start}+{count} exceeds max {self._max_edges}")
         out: List[float] = []
-        log.debug("Reading slice %s[%d:%d]", var_name, start, start + count)
+        logger.debug("Reading slice %s[%d:%d]", var_name, start, start + count)
         for i in range(start, start + count):
             out.append(self.read_array_elem(var_name, i))
         return out
@@ -565,18 +571,18 @@ class GalilController:
         for i in range(0, limit):
             try:
                 val = self.read_array_elem(var_name, i)
-            except ControllerNotReady:
+            except ControllerNotReadyError:
                 break
             if abs(val) < 1e-9:
                 zeros += 1
                 if zeros >= zero_run and i > 0:
-                    log.debug("discover_length: hit %d zeros at index %d", zero_run, i)
+                    logger.debug("discover_length: hit %d zeros at index %d", zero_run, i)
                     break
             else:
                 last_nonzero = i
                 zeros = 0
         length = max(0, last_nonzero + 1)
-        log.debug("discover_length(%s) -> %d", var_name, length)
+        logger.debug("discover_length(%s) -> %d", var_name, length)
         return length
 
     def get_edges_window(self, var_name: str, start: int, count: int) -> List[float]:
@@ -593,26 +599,26 @@ class GalilController:
 
     def diagnose_controller_state(self) -> None:
         #"""Diagnose controller state and available arrays."""
-        log.info("=== Controller Diagnostics ===")
+        logger.info("=== Controller Diagnostics ===")
 
         try:
             if not self.is_connected():
-                log.info("diagnose: not connected")
+                logger.info("diagnose: not connected")
                 return
 
             # Check basic controller status
             try:
                 resp = self.cmd("MG _TPA")
-                log.info("diagnose: TPA = %s", resp.strip())
+                logger.info("diagnose: TPA = %s", resp.strip())
             except Exception as e:
-                log.warning("diagnose: failed to get TPA: %s", e)
+                logger.warning("diagnose: failed to get TPA: %s", e)
 
             # Check if DMC program is running
             try:
                 resp = self.cmd("MG _XQ")
-                log.info("diagnose: program execution status = %s", resp.strip())
+                logger.info("diagnose: program execution status = %s", resp.strip())
             except Exception as e:
-                log.warning("diagnose: failed to get execution status: %s", e)
+                logger.warning("diagnose: failed to get execution status: %s", e)
 
             # Try to probe some common array patterns
             test_arrays = ["EdgeB", "EdgeC", "EDGEB", "EDGEC", "edgeb", "edgec"]
@@ -620,16 +626,16 @@ class GalilController:
                 try:
                     resp = self.cmd(f"MG {array_name}[0]").strip()
                     if resp != "?":
-                        log.info("diagnose: found array %s[0] = %s", array_name, resp)
+                        logger.info("diagnose: found array %s[0] = %s", array_name, resp)
                     else:
-                        log.debug("diagnose: array %s not available", array_name)
+                        logger.debug("diagnose: array %s not available", array_name)
                 except Exception as e:
-                    log.warning("diagnose: error checking %s: %s", array_name, e)
+                    logger.warning("diagnose: error checking %s: %s", array_name, e)
 
-            log.info("=== End Diagnostics ===")
+            logger.info("=== End Diagnostics ===")
 
         except Exception as e:
-            log.error("diagnose: diagnostics failed: %s", e)
+            logger.error("diagnose: diagnostics failed: %s", e)
     def get_array_len(self, name: str) -> int:
         #"""Return the DM-defined length of array `name` (MG name[-1])."""
         if not self._driver or not self._connected:

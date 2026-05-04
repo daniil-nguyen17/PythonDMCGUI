@@ -424,3 +424,25 @@ class TestStartStop:
         loop_started.wait(timeout=2.0)
         reader.stop()
         assert reader._mg_thread is None
+
+    def test_start_not_blocked_on_linux(self):
+        """start() on linux platform does NOT early-return -- it creates _mg_thread."""
+        reader, loop_started, _ = self._make_reader_with_mock_loop()
+
+        # Patch _sys.platform inside the mg_reader module (it imports sys as _sys)
+        import dmccodegui.hmi.mg_reader as mg_mod
+        with patch.object(mg_mod._sys, "platform", "linux"):
+            reader.start("192.168.1.100")
+
+        assert loop_started.wait(timeout=2.0), (
+            "Loop did not start on Linux -- platform guard is blocking"
+        )
+        assert reader._mg_thread is not None, (
+            "start() must create _mg_thread on Linux (no platform guard)"
+        )
+        assert reader._mg_thread.is_alive()
+
+        # Cleanup
+        if reader._mg_stop_event:
+            reader._mg_stop_event.set()
+        reader._mg_thread.join(timeout=2.0)

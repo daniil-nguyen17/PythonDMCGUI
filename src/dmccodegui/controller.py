@@ -36,31 +36,34 @@ class GalilDriverProtocol:
     """
 
     def GOpen(self, address: str) -> None:  # noqa: N802 (Galil API name)
+        """Open connection to a Galil controller at *address*."""
         ...
 
     def GClose(self) -> None:  # noqa: N802
+        """Close the controller connection."""
         ...
 
     def GCommand(self, cmd: str) -> str:  # noqa: N802
+        """Send *cmd* to the controller and return the response string."""
         ...
 
 
 class ControllerNotReadyError(Exception):
-    pass
+    """Raised when the controller is not ready to respond to array or status reads."""
 
 # Backward-compat aliases — external code may catch these names
 ControllerNotReady = ControllerNotReadyError
 
 
 class IndexOutOfRangeError(Exception):
-    pass
+    """Raised when an array index exceeds the declared max edges limit."""
 
 # Backward-compat alias
 IndexOutOfRange = IndexOutOfRangeError
 
 
 class ParseError(Exception):
-    pass
+    """Raised when a controller response cannot be parsed as a float."""
 
 
 
@@ -80,6 +83,15 @@ FLOAT_CHARS = set("0123456789+-.eE")
 
 
 class GalilController:
+    """High-level interface to a Galil DMC controller.
+
+    Wraps the gclib handle with connection management, command dispatch,
+    array upload/download, and edge-array APIs. All public methods are safe
+    to call from the jobs worker thread; they must NOT be called from the
+    Kivy main thread during active polling (TCP contention).
+
+    Inject a mock GalilDriverProtocol in tests to avoid requiring gclib.
+    """
 
     def __init__(self, driver: Optional[GalilDriverProtocol] = None) -> None:
         self._driver = driver
@@ -91,6 +103,11 @@ class GalilController:
 
     #logging
     def set_logger(self, fn: Optional[callable]) -> None:
+        """Register a callable for user-visible log messages from the controller.
+
+        Args:
+            fn: Callable(message: str) that receives log output, or None to disable.
+        """
         self._logger = fn
 
     # Populates and discovers a list of connected addresses
@@ -136,6 +153,18 @@ class GalilController:
 
     # Establishes connection to controller
     def connect(self, address: str) -> bool:
+        """Open a gclib handle to the controller at *address*.
+
+        Strips any existing flags from *address* (e.g. "-d") before appending
+        PRIMARY_FLAGS. Sends ``CW2,1`` after connect to put the controller in
+        third-party device mode so MG output does not stall program execution.
+
+        Args:
+            address: Controller IP/hostname, optionally with gclib flags.
+
+        Returns:
+            True on success; False if gclib is unavailable or GOpen fails.
+        """
         if self._driver is None:
             if not GCLIB_AVAILABLE:
                 logger.error("Failed to connect: gclib not installed")
@@ -176,6 +205,11 @@ class GalilController:
 
     #disconnects from controller
     def disconnect(self) -> None:
+        """Close the gclib handle and reset connected state.
+
+        Safe to call when already disconnected. After disconnect, the next
+        call to connect() creates a fresh driver handle.
+        """
         if self._driver is None:
             return
         try:
@@ -225,6 +259,7 @@ class GalilController:
 
     # used to check if connected in active paths
     def is_connected(self) -> bool:
+        """Return True if the controller handle is currently open."""
         return self._connected
 
     def read_status(self) -> Dict[str, Any]:
@@ -263,6 +298,22 @@ class GalilController:
 
     # Used to input commands to the controller, ESTOP uses this
     def cmd(self, command: str) -> str:
+        """Send a DMC command and return the response string.
+
+        Status-polling commands (MG _TP*, MG hmi*, etc.) are not logged to
+        avoid flooding the log at 10 Hz. All other commands are logged at DEBUG.
+        On error, attempts ``TC1`` to retrieve the controller error code before
+        raising RuntimeError.
+
+        Args:
+            command: DMC command string (e.g. ``"MG _TPA"`` or ``"ST ABCD"``).
+
+        Returns:
+            Raw response string from the controller.
+
+        Raises:
+            RuntimeError: If the controller is not connected or the command fails.
+        """
         if not self._driver or not self._connected:
             # Surface a clear message to UI when called while disconnected
             if self._logger:
@@ -330,10 +381,23 @@ class GalilController:
 
     #used to get the array from controller to the GUI
     def upload_array(self, name: str, first: int, last: int) -> List[float]:
-        # """Read controller array [first..last] as floats.
+        """Read controller array *name*[first..last] as a list of floats.
 
-        # Prefers gclib GArrayUpload when available; falls back to chunked MG reads.
-        # """
+        Prefers gclib GArrayUpload when available; falls back to chunked MG reads
+        with adaptive chunk-size reduction on parse errors.
+
+        Args:
+            name: Controller array variable name (e.g. ``"EdgeB"``).
+            first: First index to read (inclusive).
+            last: Last index to read (inclusive).
+
+        Returns:
+            List of floats with at most (last - first + 1) elements.
+
+        Raises:
+            RuntimeError: If not connected.
+            ControllerNotReadyError: If the array is not declared on the controller.
+        """
         logger.debug("upload_array called: name=%s, first=%d, last=%d", name, first, last)
 
         if first > last:
@@ -404,12 +468,23 @@ class GalilController:
 
     #used to get the array from GUI to controller
     def download_array(self, name: str, first: int, values: Sequence[float]) -> int:
-        # """
-        # Write Python values → controller array starting at index `first`.
+        """Write Python values into controller array *name* starting at index *first*.
 
-        # Prefers gclib GArrayDownload when available; falls back to chunked assignments.
-        # Returns the number of elements written.
-        # """
+        Attempts GArrayDownload (three calling conventions) before falling back to
+        chunked ``name[idx]=value`` assignments via GCommand. Each chunk is kept
+        under 300 characters to fit within DMC parser limits.
+
+        Args:
+            name: Controller array variable name (e.g. ``"deltaC"``).
+            first: Starting index for the write.
+            values: Sequence of floats to write.
+
+        Returns:
+            Number of elements written.
+
+        Raises:
+            RuntimeError: If not connected.
+        """
         if not values:
             return 0
         if not self._driver or not self._connected:
@@ -494,6 +569,20 @@ class GalilController:
             return False
 
     def _parse_float_str(self, s: str) -> float:
+        """Parse the first numeric token from a controller response string.
+
+        Tries direct float() conversion first, then splits on commas/spaces and
+        validates each token against FLOAT_CHARS before converting.
+
+        Args:
+            s: Raw response string from GCommand (may have trailing whitespace or commas).
+
+        Returns:
+            Parsed float value.
+
+        Raises:
+            ParseError: If the string is empty or contains no parsable numeric token.
+        """
         t = s.strip()
         if not t:
             raise ParseError(f"Empty string: '{s}'")
@@ -518,9 +607,15 @@ class GalilController:
 
     # ===================== Robust Edge array APIs =====================
     def set_max_edges(self, n: int) -> None:
+        """Set the maximum array index the edge APIs will read (clamped to >=1).
+
+        Args:
+            n: Upper bound on array size. Values below 1 are clamped to 1.
+        """
         self._max_edges = max(1, n)
 
     def ensure_connected(self) -> None:
+        """Raise CommError if the controller handle is not currently open."""
         if not self._connected or not self._driver:
             raise CommError("Not connected")
 
@@ -529,6 +624,20 @@ class GalilController:
             raise IndexOutOfRangeError(f"index {idx} out of range (0..{self._max_edges-1})")
 
     def read_array_elem(self, var_name: str, idx: int) -> float:
+        """Read a single element from a controller array.
+
+        Args:
+            var_name: Array variable name on the controller (e.g. ``"EdgeB"``).
+            idx: Element index (validated against _max_edges).
+
+        Returns:
+            Float value of the element.
+
+        Raises:
+            CommError: If not connected.
+            IndexOutOfRangeError: If idx is out of bounds.
+            ControllerNotReadyError: If the array is not declared or returns ``?``.
+        """
         self.ensure_connected()
         self._validate_index(idx)
         cmd = f"MG {var_name}[{idx}]"
@@ -546,6 +655,20 @@ class GalilController:
                 raise e
 
     def read_array_slice(self, var_name: str, start: int, count: int) -> List[float]:
+        """Read a contiguous slice of a controller array.
+
+        Args:
+            var_name: Array variable name.
+            start: First index to read.
+            count: Number of elements.
+
+        Returns:
+            List of floats with exactly *count* elements.
+
+        Raises:
+            CommError: If not connected.
+            IndexOutOfRangeError: If slice exceeds _max_edges.
+        """
         self.ensure_connected()
         if start < 0 or count <= 0:
             raise IndexOutOfRangeError("start/count must be non-negative and count>0")
@@ -558,12 +681,41 @@ class GalilController:
         return out
 
     def read_edge_b(self, idx: int) -> float:
+        """Read EdgeB[idx] (B-axis segment boundary position in counts).
+
+        Args:
+            idx: Segment index.
+
+        Returns:
+            Float value of EdgeB[idx].
+        """
         return self.read_array_elem("EdgeB", idx)
 
     def read_edge_c(self, idx: int) -> float:
+        """Read EdgeC[idx] (C-axis stone height at the corresponding segment boundary).
+
+        Args:
+            idx: Segment index.
+
+        Returns:
+            Float value of EdgeC[idx].
+        """
         return self.read_array_elem("EdgeC", idx)
 
     def discover_length(self, var_name: str, probe_max: Optional[int] = None, zero_run: int = 5) -> int:
+        """Probe an array to discover how many elements contain non-zero data.
+
+        Reads indices sequentially until *zero_run* consecutive near-zero values
+        are found, then returns last_nonzero + 1. Stops at min(_max_edges, probe_max).
+
+        Args:
+            var_name: Array name to probe.
+            probe_max: Optional upper bound (defaults to _max_edges).
+            zero_run: Number of consecutive near-zero values that signals end-of-data.
+
+        Returns:
+            Estimated number of populated elements (0 if all zeros).
+        """
         self.ensure_connected()
         limit = min(self._max_edges, probe_max or self._max_edges)
         last_nonzero = -1
@@ -586,10 +738,29 @@ class GalilController:
         return length
 
     def get_edges_window(self, var_name: str, start: int, count: int) -> List[float]:
+        """Wait for controller ready, then return a slice of an edge array.
+
+        Args:
+            var_name: Edge array name (e.g. ``"EdgeB"``).
+            start: First index.
+            count: Number of elements to read.
+
+        Returns:
+            List of float values.
+        """
         self.wait_for_ready()
         return self.read_array_slice(var_name, start, count)
 
     def get_edges_default_window(self, var_name: str = "EdgeB", preferred: int = 10) -> List[float]:
+        """Wait for ready, discover array length, and return up to *preferred* elements.
+
+        Args:
+            var_name: Edge array name (defaults to ``"EdgeB"``).
+            preferred: Maximum number of elements to return.
+
+        Returns:
+            List of floats, empty if array has no non-zero data.
+        """
         self.wait_for_ready()
         n = self.discover_length(var_name)
         if n == 0:
@@ -598,7 +769,12 @@ class GalilController:
         return self.read_array_slice(var_name, 0, count)
 
     def diagnose_controller_state(self) -> None:
-        #"""Diagnose controller state and available arrays."""
+        """Log a diagnostic snapshot of controller state and available arrays.
+
+        Queries _TPA, _XQ, and common array names (EdgeB, EdgeC, etc.) via MG
+        and writes results to the module logger at INFO/DEBUG level. Used during
+        development and troubleshooting; not called in normal operation.
+        """
         logger.info("=== Controller Diagnostics ===")
 
         try:
@@ -637,7 +813,17 @@ class GalilController:
         except Exception as e:
             logger.error("diagnose: diagnostics failed: %s", e)
     def get_array_len(self, name: str) -> int:
-        #"""Return the DM-defined length of array `name` (MG name[-1])."""
+        """Return the DM-defined length of array *name* using ``MG name[-1]``.
+
+        Args:
+            name: Controller array variable name.
+
+        Returns:
+            Integer length as declared by the DM (Dimension) command.
+
+        Raises:
+            RuntimeError: If not connected or the response cannot be parsed.
+        """
         if not self._driver or not self._connected:
             raise RuntimeError("No controller connected")
         raw = self._driver.GCommand(f"MG {name}[-1]").strip()
@@ -648,7 +834,20 @@ class GalilController:
             raise RuntimeError(f"Failed to read length of {name}: {raw!r}") from e
 
     def upload_array_auto(self, name: str) -> List[float]:
-        #"""Upload the entire array without knowing its size in advance."""
+        """Upload the entire array without knowing its size in advance.
+
+        Queries the array length via get_array_len, then reads all elements.
+        Prefers GArrayUpload(-1,-1) if the driver wrapper supports it.
+
+        Args:
+            name: Controller array variable name.
+
+        Returns:
+            List of floats containing all declared array elements.
+
+        Raises:
+            RuntimeError: If not connected.
+        """
         if not self._driver or not self._connected:
             raise RuntimeError("No controller connected")
 
@@ -673,7 +872,21 @@ class GalilController:
         return self.upload_array(name, 0, n - 1)  # your working method
 
     def download_array_full(self, name: str, values: Sequence[float]) -> int:
-        #"""Write `values` into name[0..len(values)-1] without passing indices."""
+        """Write *values* into name[0..len(values)-1] without passing explicit indices.
+
+        Convenience wrapper over download_array. Tries GArrayDownload first
+        (three calling conventions), then falls back to chunked GCommand writes.
+
+        Args:
+            name: Controller array variable name.
+            values: Sequence of floats to write starting at index 0.
+
+        Returns:
+            Number of elements written.
+
+        Raises:
+            RuntimeError: If not connected.
+        """
         if not self._driver or not self._connected:
             raise RuntimeError("No controller connected")
         if not values:

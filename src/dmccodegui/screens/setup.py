@@ -29,6 +29,16 @@ from ..utils import jobs
 
 
 class SetupScreen(Screen):
+    """First screen the operator sees — controller connection and address management.
+
+    Discovers available Galil controller addresses, handles connect/disconnect,
+    syncs connection status from MachineState, and provides a teach-point trigger.
+    All controller I/O runs on the background jobs thread; UI updates are posted
+    back to the Kivy main thread via Clock.schedule_once.
+
+    KV file: ui/setup.kv
+    """
+
     # Injected by main.py after the ScreenManager is built
     controller: GalilController = ObjectProperty(None)  # type: ignore
     state: MachineState = ObjectProperty(None)          # type: ignore

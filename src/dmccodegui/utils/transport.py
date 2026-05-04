@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Define CommError here to avoid circular imports
 class CommError(Exception):
-    pass
+    """Raised by GalilTransport when a command fails or the transport is not connected."""
 
 
 class GalilTransport:
@@ -33,12 +33,21 @@ class GalilTransport:
         self._connected: bool = False
 
     def open(self, address: str) -> None:
+        """Open a connection to the Galil controller at *address*.
+
+        Calls GalilDriverProtocol.GOpen and marks the transport as connected.
+        Raises any exception thrown by the underlying driver (e.g. gclib error).
+
+        Args:
+            address: Controller address string (e.g. "192.168.1.100 --direct").
+        """
         drv = self._ensure_driver()
         # "-d" instructs gclib to disable acceleration (optional, preserve user's prior behavior if present)
         drv.GOpen(address)
         self._connected = True
 
     def close(self) -> None:
+        """Close the controller connection. Safe to call when already closed."""
         if not self._driver:
             return
         try:
@@ -47,9 +56,27 @@ class GalilTransport:
             self._connected = False
 
     def is_connected(self) -> bool:
+        """Return True if the transport is in the connected state."""
         return self._connected
 
     def command(self, cmd: str, *, retries: int = 2, backoff_s: float = 0.1, timeout_s: Optional[float] = None) -> str:
+        """Send *cmd* to the controller and return the response string.
+
+        Retries up to *retries* times with *backoff_s* delay between attempts.
+        Stops early if *timeout_s* seconds have elapsed across all attempts.
+
+        Args:
+            cmd: DMC command string (e.g. ``"MG _TPA"``).
+            retries: Maximum number of retry attempts after the first failure.
+            backoff_s: Seconds to wait between attempts.
+            timeout_s: Overall time limit across all attempts. None = no limit.
+
+        Returns:
+            Raw response string from the controller.
+
+        Raises:
+            CommError: If not connected or all retry attempts are exhausted.
+        """
         if not self._connected or not self._driver:
             raise CommError("Not connected")
         deadline = (time.monotonic() + timeout_s) if timeout_s else None

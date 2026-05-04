@@ -10,6 +10,17 @@ ChangeListener = Callable[["MachineState"], None]
 
 @dataclass
 class MachineState:
+    """Observable application state shared across all screens.
+
+    Implements a minimal observer pattern: call subscribe(fn) to register a
+    listener and notify() to push the current state to all listeners.
+
+    State authority notes:
+    - dmc_state: authoritative from DR streaming (ZAA); never derived by Python.
+    - cycle_running: computed property — do not set directly.
+    - Position fields (pos): updated by DataRecordListener._apply_to_state().
+    - Auth fields: updated exclusively via set_auth() / lock_setup().
+    """
     connected: bool = False
     connected_address: str = ""
     running: bool = False
@@ -66,6 +77,14 @@ class MachineState:
         return self.dmc_state == STATE_GRINDING
 
     def subscribe(self, fn: ChangeListener) -> Callable[[], None]:
+        """Register *fn* as a state change listener.
+
+        Args:
+            fn: Callable(state) invoked on every notify() call.
+
+        Returns:
+            An unsubscribe callable that removes *fn* from the listener list.
+        """
         self._listeners.append(fn)
 
         def unsubscribe() -> None:
@@ -77,6 +96,7 @@ class MachineState:
         return unsubscribe
 
     def notify(self) -> None:
+        """Push current state to all registered listeners. Exceptions are suppressed."""
         for fn in list(self._listeners):
             try:
                 fn(self)
@@ -86,22 +106,40 @@ class MachineState:
 
     # Convenience updaters
     def set_connected(self, value: bool) -> None:
+        """Set connected state and notify all listeners.
+
+        Args:
+            value: True when the HMI has an active TCP handle to the controller.
+        """
         self.connected = value
         self.notify()
 
     def update_status(self, pos: Dict[str, float], interlocks_ok: bool, speed: float) -> None:
+        """Bulk-update position, interlocks, and speed, then notify.
+
+        Args:
+            pos: Dict of axis letter -> position in counts (e.g. {"A": 1234.0}).
+            interlocks_ok: True when all controller hardware interlocks are satisfied.
+            speed: Current motion speed reading (axis A, in counts/sec).
+        """
         self.pos.update(pos)
         self.interlocks_ok = interlocks_ok
         self.speed = speed
         self.notify()
 
     def log(self, message: str) -> None:
+        """Append *message* to the message log (capped at 200 entries) and notify.
+
+        Args:
+            message: Human-readable log line from the controller or HMI.
+        """
         self.messages.append(message)
         if len(self.messages) > 200:
             self.messages[:] = self.messages[-200:]
         self.notify()
 
     def clear_messages(self) -> None:
+        """Clear all log messages and notify listeners."""
         self.messages.clear()
         self.notify()
 

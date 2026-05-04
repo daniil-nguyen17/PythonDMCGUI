@@ -25,6 +25,13 @@ class JobThread:
         self._thread.start()
 
     def stop(self, timeout: float | None = 2.0) -> None:
+        """Signal the worker thread to stop and join within *timeout* seconds.
+
+        Enqueues a no-op to unblock the thread if it is waiting on the queue.
+
+        Args:
+            timeout: Seconds to wait for the thread to finish. None = block indefinitely.
+        """
         self._stop_event.set()
         # put a no-op to unblock
         self._queue.put((lambda: None, (), {}))
@@ -36,6 +43,15 @@ class JobThread:
         return self._cancel_event
 
     def submit(self, fn: JobFn, *args: Any, **kwargs: Any) -> None:
+        """Enqueue *fn* with positional and keyword arguments for FIFO execution.
+
+        Thread-safe. Returns immediately; fn runs on the worker thread.
+
+        Args:
+            fn: Callable to execute on the worker thread.
+            *args: Positional arguments forwarded to fn.
+            **kwargs: Keyword arguments forwarded to fn.
+        """
         self._queue.put((fn, args, kwargs))
 
     def submit_urgent(self, fn: JobFn, *args: Any, **kwargs: Any) -> None:
@@ -78,6 +94,12 @@ class JobThread:
         return cancel
 
     def _run(self) -> None:
+        """Worker thread main loop.
+
+        Processes urgent jobs first (preempts any queued normal job), then
+        drains normal jobs one at a time. After each normal job, checks the
+        urgent queue again. All exceptions are swallowed to keep the thread alive.
+        """
         while not self._stop_event.is_set():
             # Check urgent queue first — preempts normal jobs
             try:
@@ -117,6 +139,7 @@ _global_jobs: Optional[JobThread] = None
 
 
 def get_jobs() -> JobThread:
+    """Return the process-wide singleton JobThread, creating it on first call."""
     global _global_jobs
     if _global_jobs is None:
         _global_jobs = JobThread()
@@ -124,6 +147,7 @@ def get_jobs() -> JobThread:
 
 
 def submit(fn: JobFn, *args: Any, **kwargs: Any) -> None:
+    """Module-level convenience: submit a normal job to the global JobThread."""
     get_jobs().submit(fn, *args, **kwargs)
 
 
@@ -133,10 +157,19 @@ def submit_urgent(fn: JobFn, *args: Any, **kwargs: Any) -> None:
 
 
 def schedule(interval_s: float, fn: JobFn, *args: Any, **kwargs: Any) -> Callable[[], None]:
+    """Module-level convenience: schedule a periodic job on the global JobThread.
+
+    Returns a cancel callable that stops the periodic execution.
+    """
     return get_jobs().schedule(interval_s, fn, *args, **kwargs)
 
 
 def shutdown() -> None:
+    """Stop the global JobThread and release it.
+
+    Safe to call even if the thread was never started. After shutdown,
+    the next call to get_jobs() will create a fresh thread.
+    """
     global _global_jobs
     if _global_jobs is not None:
         _global_jobs.stop()

@@ -391,6 +391,15 @@ def _resolve_dotted_path(dotted: str):
 
 
 class DMCApp(App):
+    """Root Kivy application for the Binh An HMI.
+
+    Owns the controller, MachineState, AuthManager, DataRecordListener, and
+    MgReader singletons for the application lifetime. Orchestrates startup
+    flow (machine type detection → PIN login), idle auto-lock, E-STOP, and
+    clean shutdown. All controller I/O runs on the background jobs thread;
+    UI mutations are posted back via Clock.schedule_once.
+    """
+
     title = f'Binh An HMI v{__version__}'
     # Top-of-app banner text for alerts/logs
     banner_text = StringProperty("")
@@ -412,6 +421,19 @@ class DMCApp(App):
         mc.init(settings_path)
 
     def build(self):
+        """Build the widget tree, load KV files, wire up all screens and callbacks.
+
+        Execution order:
+          1. Load machine-specific KV (if already configured).
+          2. Load shared KV files (theme, overlays, status bar, tab bar, etc.).
+          3. Instantiate machine screens from the registry, inject controller/state.
+          4. Wire TabBar, StatusBar, PIN overlay, idle timer, and badge callbacks.
+          5. Detect pre-existing controller connection and start DR streaming.
+          6. Trigger startup flow (machine type picker → PIN) via Clock.schedule_once.
+
+        Returns:
+            The root RootLayout widget.
+        """
         if Window:
             Window.bind(on_cursor_enter=lambda *args: Window.show())
 
@@ -1220,6 +1242,12 @@ class DMCApp(App):
             Clock.schedule_once(lambda *_: self.state.log(msg))
 
     def on_stop(self):
+        """Kivy lifecycle: clean up all resources when the app exits.
+
+        Teardown order: cancel timers → stop DR/MG readers → call each
+        screen's cleanup() → shutdown jobs thread → disconnect controller.
+        No ST/AB/MO sent — controller keeps running after HMI exits.
+        """
         # Cancel timers and poller first — no more commands queued
         if self._poll_cancel:
             self._poll_cancel()
@@ -1262,6 +1290,11 @@ class DMCApp(App):
             pass
 
     def disconnect_and_refresh(self) -> None:
+        """Disconnect from the controller and refresh the setup screen address list.
+
+        Stops DR streaming and MgReader, disconnects the TCP handle on the jobs
+        thread, then navigates to the setup screen and resets auth state.
+        """
         self._stop_dr()
         self._stop_mg_reader()
         def do_disc():
@@ -1356,6 +1389,7 @@ class DMCApp(App):
 
 
 def main() -> None:
+    """Entry point: create and run the DMCApp Kivy application."""
     DMCApp().run()
 
 

@@ -121,6 +121,12 @@ class CompVisualization(Widget):
         pass
 
     def _redraw(self, *args) -> None:
+        """Redraw all bars and dot overlays on the Kivy canvas.after layer.
+
+        Auto-scales the Y axis to the maximum absolute value in *_values*.
+        Positive values draw above the zero line in accent color; negative
+        values draw below in red. Called on any pos/size/value change.
+        """
         self.canvas.after.clear()
         values = self._values
         n = len(values)

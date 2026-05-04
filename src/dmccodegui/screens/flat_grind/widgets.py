@@ -137,15 +137,19 @@ class _BaseBarChart(Widget):
     # ------------------------------------------------------------------
 
     def on_offsets(self, *args) -> None:
+        """Kivy callback: redraw bars when the offsets list changes."""
         self._draw()
 
     def on_selected_index(self, *args) -> None:
+        """Kivy callback: redraw bars when the selected index changes."""
         self._draw()
 
     def on_size(self, *args) -> None:
+        """Kivy callback: redraw bars when the widget size changes."""
         self._draw()
 
     def on_pos(self, *args) -> None:
+        """Kivy callback: redraw bars when the widget position changes."""
         self._draw()
 
     # ------------------------------------------------------------------
@@ -238,9 +242,16 @@ class DeltaCBarChart(_BaseBarChart):
     _TOP_LABEL_HEIGHT: int = 16  # px reserved at top for index range labels
 
     def on_array_size(self, *args) -> None:
+        """Kivy callback: redraw bars when the array_size property changes."""
         self._draw()
 
     def _draw(self) -> None:
+        """Redraw all bars, baseline, and segment labels on the Kivy canvas.
+
+        Calculates bar heights from offsets relative to max_offset, draws
+        the zero baseline, then renders segment number labels at the bottom
+        and index range labels (e.g. "0-9") above each bar group.
+        """
         self.canvas.clear()
         offsets = list(self.offsets)
         n = len(offsets)

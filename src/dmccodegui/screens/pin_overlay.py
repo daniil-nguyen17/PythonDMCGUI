@@ -31,6 +31,7 @@ class PINOverlay(ModalView):
     on_success = ObjectProperty(None, allownone=True)
 
     def on_kv_post(self, *_) -> None:
+        """Initialize PIN digit buffer after KV rules are applied."""
         self._pin_digits: str = ""
 
     # ------------------------------------------------------------------

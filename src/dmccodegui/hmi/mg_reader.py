@@ -197,7 +197,9 @@ class MgReader:
         handle = None
         try:
             handle = gclib.py()
-            connection_string = f"{address} --direct --subscribe MG --timeout 500"
+            # Linux gclib only allows one --direct handle; use non-direct for MG
+            _direct = " --direct" if _sys.platform == "win32" else ""
+            connection_string = f"{address}{_direct} --subscribe MG --timeout 500"
             handle.GOpen(connection_string)
             handle.GTimeout(500)
             logger.info("connected: %s", connection_string)
@@ -243,7 +245,13 @@ class MgReader:
             The connection flags are appended internally.
 
         If already running, this is a no-op.
+
+        Disabled on Linux — gclib on Linux does not support ``--subscribe MG``
+        or multiple direct handles. MG messages are not available on Pi.
         """
+        if _sys.platform != "win32":
+            logger.info("MgReader disabled on Linux (gclib MG subscription not supported)")
+            return
         if self._mg_thread is not None:
             return
 

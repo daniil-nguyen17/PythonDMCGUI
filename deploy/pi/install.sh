@@ -234,10 +234,30 @@ fi
 # STEP 9: pip install requirements-pi.txt
 # ---------------------------------------------------------------------------
 
-log "Installing Python dependencies (this may take 20-40 minutes on 64-bit Pi OS) ..."
-"$VENV_DIR/bin/pip" install --upgrade pip 2>&1 | tee -a "$LOG_FILE"
-"$VENV_DIR/bin/pip" install -r "$INSTALL_DIR/deploy/pi/requirements-pi.txt" \
-    2>&1 | tee -a "$LOG_FILE"
+# Check if core packages are already installed (skip pip on re-installs without internet)
+if "$VENV_DIR/bin/python3" -c "import kivy, matplotlib, gclib" 2>/dev/null; then
+    log "Python dependencies already installed — skipping pip (re-install mode)"
+    log "  To force reinstall: delete $VENV_DIR and re-run"
+else
+    log "Installing Python dependencies (this may take 20-40 minutes on 64-bit Pi OS) ..."
+
+    # Bundle the gclib wheel locally if available (avoids galil.com download)
+    GCLIB_WHL=$(find "$SCRIPT_DIR/vendor" -maxdepth 1 -name 'gclib*.whl' 2>/dev/null | head -1)
+    if [[ -n "$GCLIB_WHL" ]]; then
+        log "  Found local gclib wheel: $GCLIB_WHL"
+        # Create a temp requirements file that uses the local wheel instead of the URL
+        sed "s|gclib @.*|gclib @ file://${GCLIB_WHL}|" \
+            "$INSTALL_DIR/deploy/pi/requirements-pi.txt" > /tmp/requirements-pi-local.txt
+        PIP_REQ="/tmp/requirements-pi-local.txt"
+    else
+        PIP_REQ="$INSTALL_DIR/deploy/pi/requirements-pi.txt"
+    fi
+
+    "$VENV_DIR/bin/pip" install --upgrade pip 2>&1 | tee -a "$LOG_FILE" || true
+    "$VENV_DIR/bin/pip" install -r "$PIP_REQ" \
+        2>&1 | tee -a "$LOG_FILE"
+    rm -f /tmp/requirements-pi-local.txt
+fi
 
 # ---------------------------------------------------------------------------
 # STEP 10: Desktop shortcuts

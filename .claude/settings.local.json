@@ -72,7 +72,10 @@
       "Bash(python -c \"from src.dmccodegui.screens.flat_grind.run import FlatGrindRunScreen; print\\('Flat grind import OK'\\)\")",
       "Bash(git commit -m ' *)",
       "Bash(node __TRACKED_VAR__/.claude/get-shit-done/bin/gsd-tools.cjs roadmap update-plan-progress 29)",
-      "Bash(node __TRACKED_VAR__/.claude/get-shit-done/bin/gsd-tools.cjs requirements mark-complete FIX-02 PI-06)"
+      "Bash(node __TRACKED_VAR__/.claude/get-shit-done/bin/gsd-tools.cjs requirements mark-complete FIX-02 PI-06)",
+      "Bash(node __TRACKED_VAR__/.claude/get-shit-done/bin/gsd-tools.cjs commit 'docs: start milestone v4.1 Security, Polish & Code Health' --files .planning/PROJECT.md .planning/STATE.md)",
+      "Bash(node __TRACKED_VAR__/.claude/get-shit-done/bin/gsd-tools.cjs commit 'docs: v4.1 research — stack, features, architecture, pitfalls, summary' --files .planning/research/STACK.md .planning/research/FEATURES.md .planning/research/ARCHITECTURE.md .planning/research/PITFALLS.md .planning/research/SUMMARY.md)",
+      "Bash(node __TRACKED_VAR__/.claude/get-shit-done/bin/gsd-tools.cjs commit 'docs: define milestone v4.1 requirements' --files .planning/REQUIREMENTS.md)"
     ]
   }
 }

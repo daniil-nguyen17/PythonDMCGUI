@@ -894,7 +894,14 @@ class SerrationRunScreen(BaseRunScreen):
     # -----------------------------------------------------------------------
 
     def _start_mg_reader(self) -> None:
-        """Open a second gclib handle subscribed to MG on a background thread."""
+        """Open a second gclib handle subscribed to MG on a background thread.
+
+        Skipped on Linux — the app-wide MgReader (main.py) already handles MG
+        messages via a single shared handle. Opening a third gclib handle on
+        Linux causes 'ethernet handle already in use' from the controller.
+        """
+        if sys.platform != "win32":
+            return  # app-wide MgReader handles MG on Linux
         if self._mg_thread is not None:
             return
         if not self.controller or not self.controller.is_connected():

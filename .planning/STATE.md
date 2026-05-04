@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Security, Polish & Code Health
 status: unknown
-stopped_at: Phase 31 context gathered
-last_updated: "2026-05-04T05:28:19.155Z"
-last_activity: 2026-05-04 — Phase 30 Plans 01-03 complete (lint tooling + naming consistency + docstring coverage)
+stopped_at: Completed 31-02-PLAN.md
+last_updated: "2026-05-04T05:56:58.730Z"
+last_activity: 2026-05-04 — Phase 31 Plan 02 complete (display preset cleanup + spacing token standardization)
 progress:
   total_phases: 28
   completed_phases: 7
-  total_plans: 15
-  completed_plans: 15
+  total_plans: 18
+  completed_plans: 17
 ---
 
 # Project State
@@ -20,26 +20,26 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-28)
 
 **Core value:** An operator walks up, taps their PIN, runs parts while watching a live A/B position plot, and goes home — zero friction, zero confusion, zero access to things they shouldn't touch.
-**Current focus:** v4.1 — Phase 30: Codebase Audit
+**Current focus:** v4.1 — Phase 31: Bug Fixes and UI Polish
 
 ## Current Position
 
 ```
 Milestone : v4.1 Security, Polish & Code Health
-Phase     : 30 of 35 (Codebase Audit)
-Plan      : 03 of 03 complete
-Status    : Phase complete
-Progress  : [████░░░░░░] 25%
+Phase     : 31 of 35 (Bug Fixes and UI Polish)
+Plan      : 02 of 03 complete
+Status    : In progress
+Progress  : [█████████░] 94%
 ```
 
-Last activity: 2026-05-04 — Phase 30 Plans 01-03 complete (lint tooling + naming consistency + docstring coverage)
+Last activity: 2026-05-04 — Phase 31 Plan 02 complete (display preset cleanup + spacing token standardization)
 
 ## v4.1 Phase Map
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 30 | Codebase Audit | AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04 | Complete (3/3 plans) |
-| 31 | Bug Fixes and UI Polish | FIX-03, FIX-04, FIX-05, UI-01, UI-02 | Not started |
+| 31 | Bug Fixes and UI Polish | FIX-03, FIX-04, FIX-05, UI-01, UI-02 | In progress (2/3 plans) |
 | 32 | Per-Machine Parameters | PARAM-01, PARAM-02 | Not started |
 | 33 | Licensing Core | LIC-01, LIC-02, LIC-03, LIC-04 | Not started |
 | 34 | Pi Cython Protection | PROT-01, PROT-03 | Not started |
@@ -71,6 +71,8 @@ Decisions affecting v4.1 work:
 - [Phase 30 Plan 03]: Use ast.iter_child_nodes (not ast.walk) to avoid flagging inner closures as requiring docstrings
 - [Phase 30 Plan 03]: Kivy on_* callbacks treated as public — require docstrings regardless of _ prefix convention
 - [Phase 30 Plan 03]: Non-obvious private threshold set at >15 body lines (not >10) to avoid over-flagging trivial helpers
+- [Phase 31 Plan 02]: Kept _classify_resolution() signature for API stability despite always returning '15inch'
+- [Phase 31 Plan 02]: Spacing token scale locked at 4/8/12/16/24dp for all shared KV padding/spacing
 
 ### Open Questions (from research)
 
@@ -90,7 +92,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-04T05:28:19.152Z
-Stopped at: Phase 31 context gathered
-Resume file: .planning/phases/31-bug-fixes-and-ui-polish/31-CONTEXT.md
-Next action: Phase 30 complete — begin Phase 31 (Bug Fixes and UI Polish)
+Last session: 2026-05-04T05:55:39Z
+Stopped at: Completed 31-02-PLAN.md
+Resume file: .planning/phases/31-bug-fixes-and-ui-polish/31-02-SUMMARY.md
+Next action: Execute Plan 31-03 (wave 2)

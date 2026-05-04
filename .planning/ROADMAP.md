@@ -513,7 +513,7 @@ Plans:
 | 28. Logging Infrastructure | v4.0 | 3/3 | Complete | 2026-04-22 |
 | 29. Integration Testing and Field Validation | v4.0 | 2/2 | Complete | 2026-04-28 |
 | 30. Codebase Audit | v4.1 | 3/3 | Complete | 2026-05-04 |
-| 31. Bug Fixes and UI Polish | v4.1 | 0/3 | Not started | - |
+| 31. Bug Fixes and UI Polish | 2/3 | In Progress|  | - |
 | 32. Per-Machine Parameters | v4.1 | 0/TBD | Not started | - |
 | 33. Licensing Core | v4.1 | 0/TBD | Not started | - |
 | 34. Pi Cython Protection | v4.1 | 0/TBD | Not started | - |

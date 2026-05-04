@@ -20,8 +20,8 @@
 
 ### UI Polish
 
-- [ ] **UI-01**: Touch targets verified at minimum 44dp across all screens on 15" and 7" display presets
-- [ ] **UI-02**: Layout consistency pass — alignment, spacing, and card sizing uniform across Run, Setup, Parameters, and Profiles screens
+- [x] **UI-01**: Touch targets verified at minimum 44dp across all screens on 15" and 7" display presets
+- [x] **UI-02**: Layout consistency pass — alignment, spacing, and card sizing uniform across Run, Setup, Parameters, and Profiles screens
 
 ### Per-Machine Parameters
 
@@ -106,8 +106,8 @@
 | FIX-03 | Phase 31 | Pending |
 | FIX-04 | Phase 31 | Pending |
 | FIX-05 | Phase 31 | Pending |
-| UI-01 | Phase 31 | Pending |
-| UI-02 | Phase 31 | Pending |
+| UI-01 | Phase 31 | Complete |
+| UI-02 | Phase 31 | Complete |
 | PARAM-01 | Phase 32 | Pending |
 | PARAM-02 | Phase 32 | Pending |
 | LIC-01 | Phase 33 | Pending |

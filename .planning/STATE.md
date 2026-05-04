@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Security, Polish & Code Health
 status: unknown
-stopped_at: Phase 30 context gathered
-last_updated: "2026-05-04T04:03:13.448Z"
+stopped_at: Completed 30-01-PLAN.md
+last_updated: "2026-05-04T04:36:12.572Z"
 last_activity: 2026-04-28 — v4.1 roadmap created (Phases 30-35), 18 requirements mapped
 progress:
   total_phases: 28
   completed_phases: 6
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 15
+  completed_plans: 13
 ---
 
 # Project State
@@ -63,6 +63,9 @@ Decisions affecting v4.1 work:
 - ARM .so files are Python-version-locked — pin Python version in install.sh before Phase 34
 - License check inserts into main.py pre-Kivy block (after setup_logging(), before _detect_preset())
 - Online activation/revocation server is out of scope — air-gapped factory, offline JSON license only
+- [Phase 30]: N rules excluded from ruff select — naming convention changes deferred to Plan 02
+- [Phase 30]: Vulture allowlist auto-generated from KV file parsing, not hand-maintained
+- [Phase 30]: Kivy deferred imports use targeted noqa E402 rather than blanket file-level ignore
 
 ### Open Questions (from research)
 
@@ -82,7 +85,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-04T04:03:13.432Z
-Stopped at: Phase 30 context gathered
-Resume file: .planning/phases/30-codebase-audit/30-CONTEXT.md
+Last session: 2026-05-04T04:36:12.570Z
+Stopped at: Completed 30-01-PLAN.md
+Resume file: None
 Next action: `/gsd:plan-phase 30` — Codebase Audit

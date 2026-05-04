@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Security, Polish & Code Health
 status: unknown
-stopped_at: Completed 31-02-PLAN.md
-last_updated: "2026-05-04T05:56:58.730Z"
-last_activity: 2026-05-04 — Phase 31 Plan 02 complete (display preset cleanup + spacing token standardization)
+stopped_at: Completed 31-01-PLAN.md
+last_updated: "2026-05-04T05:58:31.836Z"
+last_activity: 2026-05-04 — Phase 31 Plan 01 complete (GL backend log + MG reader Linux guard removal + install.sh verify)
 progress:
   total_phases: 28
   completed_phases: 7
@@ -32,7 +32,7 @@ Status    : In progress
 Progress  : [█████████░] 94%
 ```
 
-Last activity: 2026-05-04 — Phase 31 Plan 02 complete (display preset cleanup + spacing token standardization)
+Last activity: 2026-05-04 — Phase 31 Plan 01 complete (GL backend log + MG reader Linux guard removal + install.sh verify)
 
 ## v4.1 Phase Map
 
@@ -73,6 +73,8 @@ Decisions affecting v4.1 work:
 - [Phase 30 Plan 03]: Non-obvious private threshold set at >15 body lines (not >10) to avoid over-flagging trivial helpers
 - [Phase 31 Plan 02]: Kept _classify_resolution() signature for API stability despite always returning '15inch'
 - [Phase 31 Plan 02]: Spacing token scale locked at 4/8/12/16/24dp for all shared KV padding/spacing
+- [Phase 31]: GL backend log runs on ALL platforms (not just Windows) — logs 'default (platform gl)' on Linux
+- [Phase 31]: Platform guard fully removed from start() — _loop already handles --direct flag per-platform
 
 ### Open Questions (from research)
 
@@ -92,7 +94,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-04T05:55:39Z
-Stopped at: Completed 31-02-PLAN.md
-Resume file: .planning/phases/31-bug-fixes-and-ui-polish/31-02-SUMMARY.md
-Next action: Execute Plan 31-03 (wave 2)
+Last session: 2026-05-04T05:58:31.833Z
+Stopped at: Completed 31-01-PLAN.md
+Resume file: None
+Next action: Execute Plan 31-03 (wave 2 — remaining UI polish)

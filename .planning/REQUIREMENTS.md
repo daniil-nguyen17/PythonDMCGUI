@@ -14,9 +14,9 @@
 
 ### Bug Fixes
 
-- [ ] **FIX-03**: Windows app uses ANGLE (DirectX) backend instead of OpenGL to prevent AMD GPU driver crashes during sustained plot redraws
-- [ ] **FIX-04**: MG reader handles use `--direct --subscribe MG` on all platforms — controller log receives messages on both Windows and Pi
-- [ ] **FIX-05**: Pi install.sh rsync excludes `venv/` directory to prevent destroying existing venv on re-installs
+- [x] **FIX-03**: Windows app uses ANGLE (DirectX) backend instead of OpenGL to prevent AMD GPU driver crashes during sustained plot redraws
+- [x] **FIX-04**: MG reader handles use `--direct --subscribe MG` on all platforms — controller log receives messages on both Windows and Pi
+- [x] **FIX-05**: Pi install.sh rsync excludes `venv/` directory to prevent destroying existing venv on re-installs
 
 ### UI Polish
 
@@ -103,9 +103,9 @@
 | AUDIT-02 | Phase 30 | Complete |
 | AUDIT-03 | Phase 30 | Complete |
 | AUDIT-04 | Phase 30 | Complete |
-| FIX-03 | Phase 31 | Pending |
-| FIX-04 | Phase 31 | Pending |
-| FIX-05 | Phase 31 | Pending |
+| FIX-03 | Phase 31 | Complete |
+| FIX-04 | Phase 31 | Complete |
+| FIX-05 | Phase 31 | Complete |
 | UI-01 | Phase 31 | Complete |
 | UI-02 | Phase 31 | Complete |
 | PARAM-01 | Phase 32 | Pending |

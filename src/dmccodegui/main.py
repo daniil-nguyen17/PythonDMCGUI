@@ -238,6 +238,7 @@ os.environ["KIVY_MOUSE"] = "mouse,multitouch_on_demand"
 # Linux (Pi) uses native EGL/GLES2 — no change needed.
 if sys.platform == "win32":
     os.environ.setdefault("KIVY_GL_BACKEND", "angle_sdl2")
+_log.info("GL backend: %s", os.environ.get("KIVY_GL_BACKEND", "default (platform gl)"))
 from typing import cast  # noqa: E402
 
 from kivy.config import Config  # noqa: E402

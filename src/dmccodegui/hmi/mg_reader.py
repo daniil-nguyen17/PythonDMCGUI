@@ -246,12 +246,8 @@ class MgReader:
 
         If already running, this is a no-op.
 
-        Disabled on Linux — gclib on Linux does not support ``--subscribe MG``
-        or multiple direct handles. MG messages are not available on Pi.
+        On Linux, the connection omits ``--direct`` (handled in ``_loop``).
         """
-        if _sys.platform != "win32":
-            logger.info("MgReader disabled on Linux (gclib MG subscription not supported)")
-            return
         if self._mg_thread is not None:
             return
 

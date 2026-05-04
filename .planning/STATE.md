@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Security, Polish & Code Health
 status: unknown
-stopped_at: Completed 30-01-PLAN.md
-last_updated: "2026-05-04T04:36:12.572Z"
-last_activity: 2026-04-28 — v4.1 roadmap created (Phases 30-35), 18 requirements mapped
+stopped_at: Completed 30-02-PLAN.md
+last_updated: "2026-05-04T04:44:40.639Z"
+last_activity: 2026-05-04 — Phase 30 Plans 01-02 complete (lint tooling + naming consistency)
 progress:
   total_phases: 28
   completed_phases: 6
   total_plans: 15
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 # Project State
@@ -27,12 +27,12 @@ See: .planning/PROJECT.md (updated 2026-04-28)
 ```
 Milestone : v4.1 Security, Polish & Code Health
 Phase     : 30 of 35 (Codebase Audit)
-Plan      : —
-Status    : Ready to plan
-Progress  : [░░░░░░░░░░] 0%
+Plan      : 02 of 03 complete
+Status    : In progress
+Progress  : [██░░░░░░░░] 20%
 ```
 
-Last activity: 2026-04-28 — v4.1 roadmap created (Phases 30-35), 18 requirements mapped
+Last activity: 2026-05-04 — Phase 30 Plans 01-02 complete (lint tooling + naming consistency)
 
 ## v4.1 Phase Map
 
@@ -66,6 +66,8 @@ Decisions affecting v4.1 work:
 - [Phase 30]: N rules excluded from ruff select — naming convention changes deferred to Plan 02
 - [Phase 30]: Vulture allowlist auto-generated from KV file parsing, not hand-maintained
 - [Phase 30]: Kivy deferred imports use targeted noqa E402 rather than blanket file-level ignore
+- [Phase 30 Plan 02]: Exception class aliases retained (ControllerNotReady = ControllerNotReadyError) for backward-compat; internal code uses Error-suffixed primary name
+- [Phase 30 Plan 02]: N-rules applied across all 5 affected files, not just controller.py — ruff revealed violations in main.py, base.py, convex/run.py, flat_grind/run.py
 
 ### Open Questions (from research)
 
@@ -85,7 +87,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-04T04:36:12.570Z
-Stopped at: Completed 30-01-PLAN.md
+Last session: 2026-05-04T05:30:00.000Z
+Stopped at: Completed 30-02-PLAN.md
 Resume file: None
-Next action: `/gsd:plan-phase 30` — Codebase Audit
+Next action: Execute 30-03-PLAN.md — remaining audit tasks

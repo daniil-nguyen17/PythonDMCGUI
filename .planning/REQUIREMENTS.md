@@ -10,7 +10,7 @@
 - [x] **AUDIT-01**: All dead code identified by ruff + vulture is removed (with Kivy `_REGISTRY` allowlist to prevent false positives)
 - [x] **AUDIT-02**: All unused imports removed and import ordering standardized across the codebase
 - [ ] **AUDIT-03**: Docstrings updated on all public classes and functions to reflect current behavior
-- [ ] **AUDIT-04**: Naming conventions consistent across modules (no mixed `log`/`logger`, no stale variable names)
+- [x] **AUDIT-04**: Naming conventions consistent across modules (no mixed `log`/`logger`, no stale variable names)
 
 ### Bug Fixes
 
@@ -102,7 +102,7 @@
 | AUDIT-01 | Phase 30 | Complete |
 | AUDIT-02 | Phase 30 | Complete |
 | AUDIT-03 | Phase 30 | Pending |
-| AUDIT-04 | Phase 30 | Pending |
+| AUDIT-04 | Phase 30 | Complete |
 | FIX-03 | Phase 31 | Pending |
 | FIX-04 | Phase 31 | Pending |
 | FIX-05 | Phase 31 | Pending |

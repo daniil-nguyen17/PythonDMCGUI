@@ -5,8 +5,8 @@
     orientation: 'horizontal'
     size_hint_y: None
     height: '64dp'
-    padding: '6dp', '2dp'
-    spacing: '6dp'
+    padding: '8dp', '4dp'
+    spacing: '8dp'
     canvas.before:
         Color:
             rgba: theme.bg_panel
@@ -18,7 +18,7 @@
     BoxLayout:
         size_hint_x: None
         width: '260dp'
-        spacing: '6dp'
+        spacing: '8dp'
         canvas:
             Color:
                 rgba: root.connection_color
@@ -32,7 +32,7 @@
             halign: 'left'
             valign: 'middle'
             text_size: self.size
-            padding_x: '14dp'
+            padding_x: '16dp'
 
     # User / role area (tap to switch user)
     Button:

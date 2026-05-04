@@ -108,24 +108,6 @@ def _setup_excepthook() -> None:
 # Density values are initial estimates pending hardware validation on each
 # display size. Kept as named constants here for easy tuning.
 _DISPLAY_PRESETS: dict[str, dict] = {
-    "7inch": {
-        "density": "0.65",
-        "width": 800,
-        "height": 480,
-        "fullscreen_mode": "auto",
-        "borderless": "0",
-        "maximized": "0",
-        "resizable": "0",
-    },
-    "10inch": {
-        "density": "0.75",
-        "width": 1024,
-        "height": 600,
-        "fullscreen_mode": "auto",
-        "borderless": "0",
-        "maximized": "0",
-        "resizable": "0",
-    },
     "15inch": {
         "density": "1",
         "width": 1920,
@@ -139,31 +121,18 @@ _DISPLAY_PRESETS: dict[str, dict] = {
 
 
 def _classify_resolution(width: int, height: int) -> str:
-    """Classify a display resolution into a preset name.
+    """Return the display preset name.
 
-    Uses the short dimension (min of width/height) to handle portrait vs
-    landscape orientations uniformly.
-
-    Thresholds (inclusive):
-      short <= 480  → '7inch'
-      short <= 600  → '10inch'
-      else          → '15inch'
-
-    Ambiguous resolutions round DOWN to the larger preset (bigger fonts)
-    because the <= thresholds include each preset's native short dimension.
+    All deployments target 15.6-inch 1920x1080 displays.
+    Smaller presets (7-inch, 10-inch) were removed in Phase 31.
 
     Args:
-        width: Display width in pixels.
-        height: Display height in pixels.
+        width: Display width in pixels (unused, kept for API stability).
+        height: Display height in pixels (unused, kept for API stability).
 
     Returns:
-        One of '7inch', '10inch', '15inch'.
+        Always '15inch'.
     """
-    short = min(width, height)
-    if short <= 480:
-        return "7inch"
-    if short <= 600:
-        return "10inch"
     return "15inch"
 
 
@@ -201,11 +170,13 @@ def _detect_preset(settings_path: str) -> str:
       2. screeninfo.get_monitors() auto-detection via _classify_resolution().
       3. Any screeninfo failure → fall back to '15inch' (safe desktop default).
 
+    All paths return '15inch' since smaller presets were removed in Phase 31.
+
     Args:
         settings_path: Absolute path to settings.json. May not exist.
 
     Returns:
-        One of '7inch', '10inch', '15inch'.
+        Always '15inch'.
     """
     _valid_presets = set(_DISPLAY_PRESETS.keys())
 

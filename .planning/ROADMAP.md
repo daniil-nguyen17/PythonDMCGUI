@@ -428,11 +428,7 @@ Plans:
   3. Re-running install.sh on a Pi that already has a venv does not destroy the existing venv â€” rsync excludes the venv/ directory and the pip install step uses the existing environment
   4. Every interactive element on all screens measures at least 44dp on both a 15" desktop display and a 7" Pi touchscreen â€” verified against the display preset definitions
   5. Alignment, spacing, and card sizing are visually uniform when switching between Run, Setup, Parameters, and Profiles screens â€” no elements jump position or change size between screens
-**Plans**: 3 plans
-Plans:
-- [ ] 30-01-PLAN.md — Ruff/vulture tooling setup + import auto-fix across all 44 source files
-- [ ] 30-02-PLAN.md — Dead code resolution + naming consistency (controller.py logger rename)
-- [ ] 30-03-PLAN.md — Google-style docstrings on all public classes and functions
+**Plans**: TBD
 
 ### Phase 32: Per-Machine Parameters
 **Goal**: All three machine types have complete, correct parameter definitions in machine_config.py and parameter read failures surface as warnings in the log rather than silent exceptions
@@ -444,9 +440,9 @@ Plans:
   3. The Convex parameter definitions match the machine's actual DMC variable names â€” a developer can verify by comparing _CONVEX_PARAM_DEFS against the DMC source file
 **Plans**: 3 plans
 Plans:
-- [ ] 30-01-PLAN.md — Ruff/vulture tooling setup + import auto-fix across all 44 source files
-- [ ] 30-02-PLAN.md — Dead code resolution + naming consistency (controller.py logger rename)
-- [ ] 30-03-PLAN.md — Google-style docstrings on all public classes and functions
+- [ ] 30-01-PLAN.md ï¿½ Ruff/vulture tooling setup + import auto-fix across all 44 source files
+- [ ] 30-02-PLAN.md ï¿½ Dead code resolution + naming consistency (controller.py logger rename)
+- [ ] 30-03-PLAN.md ï¿½ Google-style docstrings on all public classes and functions
 
 ### Phase 33: Licensing Core
 **Goal**: Every deployed machine requires a valid hardware-bound license file at startup â€” the license is verified before Kivy loads, unlicensed machines exit cleanly with a user-facing message, and a developer CLI tool generates license files from hardware fingerprints
@@ -459,9 +455,9 @@ Plans:
   4. The hardware fingerprint is stable across reboots on both Pi (CPU serial from /proc/cpuinfo) and Windows (BIOS UUID) â€” the same fingerprint hash is produced on every run of the same machine
 **Plans**: 3 plans
 Plans:
-- [ ] 30-01-PLAN.md — Ruff/vulture tooling setup + import auto-fix across all 44 source files
-- [ ] 30-02-PLAN.md — Dead code resolution + naming consistency (controller.py logger rename)
-- [ ] 30-03-PLAN.md — Google-style docstrings on all public classes and functions
+- [ ] 30-01-PLAN.md ï¿½ Ruff/vulture tooling setup + import auto-fix across all 44 source files
+- [ ] 30-02-PLAN.md ï¿½ Dead code resolution + naming consistency (controller.py logger rename)
+- [ ] 30-03-PLAN.md ï¿½ Google-style docstrings on all public classes and functions
 
 ### Phase 34: Pi Cython Protection
 **Goal**: Business-logic Python modules on Pi deployments are compiled to native .so files and the source .py files are removed â€” an operator or competitor opening the install directory sees only compiled bytecode, with controller.py deliberately kept as plain Python
@@ -474,9 +470,9 @@ Plans:
   4. Re-running install.sh on an already-compiled Pi deployment does not break the app â€” the build script handles existing .so files cleanly
 **Plans**: 3 plans
 Plans:
-- [ ] 30-01-PLAN.md — Ruff/vulture tooling setup + import auto-fix across all 44 source files
-- [ ] 30-02-PLAN.md — Dead code resolution + naming consistency (controller.py logger rename)
-- [ ] 30-03-PLAN.md — Google-style docstrings on all public classes and functions
+- [ ] 30-01-PLAN.md ï¿½ Ruff/vulture tooling setup + import auto-fix across all 44 source files
+- [ ] 30-02-PLAN.md ï¿½ Dead code resolution + naming consistency (controller.py logger rename)
+- [ ] 30-03-PLAN.md ï¿½ Google-style docstrings on all public classes and functions
 
 ### Phase 35: Windows PyArmor Protection
 **Goal**: The Windows PyInstaller bundle obfuscates business-logic bytecode via PyArmor before packaging â€” an operator extracting the bundle sees obfuscated .pyc files, and controller.py is excluded from obfuscation to preserve the gclib ctypes boundary
@@ -489,9 +485,9 @@ Plans:
   4. controller.py in the bundle is not obfuscated â€” it remains readable Python to preserve the gclib ctypes boundary and avoid silent communication failures
 **Plans**: 3 plans
 Plans:
-- [ ] 30-01-PLAN.md — Ruff/vulture tooling setup + import auto-fix across all 44 source files
-- [ ] 30-02-PLAN.md — Dead code resolution + naming consistency (controller.py logger rename)
-- [ ] 30-03-PLAN.md — Google-style docstrings on all public classes and functions
+- [ ] 30-01-PLAN.md ï¿½ Ruff/vulture tooling setup + import auto-fix across all 44 source files
+- [ ] 30-02-PLAN.md ï¿½ Dead code resolution + naming consistency (controller.py logger rename)
+- [ ] 30-03-PLAN.md ï¿½ Google-style docstrings on all public classes and functions
 
 ---
 

@@ -236,6 +236,9 @@ class FlatGrindRunScreen(BaseRunScreen):
         # All reads run in ONE job so no response collisions with user commands
         self._do_page_load_read()
 
+        # Sync auto_wear dial from controller (reads autoWear variable)
+        self._read_auto_wear()
+
         # Start plot redraw clock (lightweight — just redraws existing buffer)
         self._plot_clock_event = Clock.schedule_interval(self._tick_plot, 1.0 / PLOT_UPDATE_HZ)
 
@@ -377,7 +380,6 @@ class FlatGrindRunScreen(BaseRunScreen):
                 self._stop_pos_poll()
                 self._stop_elapsed()
                 self._read_start_pt_c()
-                self._apply_auto_wear()
 
             elif dmc_state == STATE_HOMING:
                 # Homing is active motion — disable motion buttons
@@ -640,8 +642,7 @@ class FlatGrindRunScreen(BaseRunScreen):
                     self._stop_pos_poll()
                     self._stop_elapsed()
                     self._read_start_pt_c()
-                    self._apply_auto_wear()
-            Clock.schedule_once(_apply)
+                Clock.schedule_once(_apply)
 
         jobs.submit(_do)
 
@@ -880,35 +881,50 @@ class FlatGrindRunScreen(BaseRunScreen):
         """Set stone_increment when a toggle button is selected."""
         self.stone_increment = value
 
-    def _apply_auto_wear(self) -> None:
-        """Apply auto wear compensation to cTouch after grind completes.
+    def _sync_auto_wear_to_controller(self) -> None:
+        """Write the autoWear variable to the controller when dial changes.
 
-        If auto_wear > 0, sends cTouch=cTouch+{auto_wear} to the controller.
-        Called automatically at grind end.
+        The DMC program reads autoWear and applies it after each grind cycle
+        internally. The HMI only sets the value — does NOT directly modify
+        cTouch at grind end to avoid interfering with the DMC program.
         """
-        if self.auto_wear <= 0:
-            return
         if not self.controller or not self.controller.is_connected():
             return
 
         ctrl = self.controller
-        wear = self.auto_wear
+        wear = int(self.auto_wear)
 
         def _do():
             try:
-                ctrl.cmd(f"cTouch=cTouch+{wear}")
-                # Read back to update display
-                raw = ctrl.cmd("MG cTouch").strip()
-                val = float(raw)
-                Clock.schedule_once(
-                    lambda *_, v=val: setattr(self, 'start_pt_c', f"Stone Pos: {v:.2f}")
-                )
-                logger.info("Auto wear applied: +%s to cTouch (now %.2f)", wear, val)
+                ctrl.cmd(f"autoWear={wear}")
+                logger.debug("autoWear synced to controller: %d", wear)
             except Exception as e:
-                logger.warning("Auto wear failed: %s", e)
+                logger.warning("Failed to sync autoWear: %s", e)
 
         from ...utils import jobs
         jobs.submit(_do)
+
+    def _read_auto_wear(self) -> None:
+        """Read autoWear from controller to sync the dial on screen entry."""
+        if not self.controller or not self.controller.is_connected():
+            return
+
+        ctrl = self.controller
+
+        def _do():
+            try:
+                raw = ctrl.cmd("MG autoWear").strip()
+                val = int(float(raw))
+                Clock.schedule_once(lambda *_, v=val: setattr(self, 'auto_wear', v))
+            except Exception:
+                pass  # Variable may not exist yet — leave dial at 0
+
+        from ...utils import jobs
+        jobs.submit(_do)
+
+    def on_auto_wear(self, _instance, _value):
+        """Kivy property callback — sync to controller whenever dial changes."""
+        self._sync_auto_wear_to_controller()
 
     # -----------------------------------------------------------------------
     # Delta-C (Knife Grind Adjustment) — Flat/Convex machines

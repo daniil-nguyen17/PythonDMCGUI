@@ -41,6 +41,11 @@ _FLAT_PARAM_DEFS: List[Dict] = [
     {"label": "Knife Thickness", "var": "knfThk", "unit": "mm", "group": "Geometry", "min": 0.1, "max": 50.0},
     {"label": "Edge Thickness", "var": "edgeThk", "unit": "mm", "group": "Geometry", "min": 0.01, "max": 10.0},
     {"label": "C Abs Heel", "var": "cAbsHeel", "unit": "cts", "group": "Geometry", "min": -9999999.0, "max": 9999999.0},
+    # Start points (per-profile, set by teaching or profile import)
+    {"label": "Start Pt A", "var": "startPtA", "unit": "cts", "group": "Start Points", "min": -9999999.0, "max": 9999999.0},
+    {"label": "Start Pt B", "var": "startPtB", "unit": "cts", "group": "Start Points", "min": -9999999.0, "max": 9999999.0},
+    {"label": "Start Pt C", "var": "startPtC", "unit": "cts", "group": "Start Points", "min": -9999999.0, "max": 9999999.0},
+    {"label": "Start Pt D", "var": "startPtD", "unit": "cts", "group": "Start Points", "min": -9999999.0, "max": 9999999.0},
     # Feedrates group
     {"label": "Feed Rate A", "var": "fdA", "unit": "mm/s", "group": "Feedrates", "min": 0.1, "max": 500.0},
     {"label": "Feed Rate B", "var": "fdB", "unit": "mm/s", "group": "Feedrates", "min": 0.1, "max": 500.0},
@@ -91,7 +96,8 @@ _CONVEX_PARAM_DEFS: List[Dict] = [
 ]
 
 # Serration Grind param_defs — subset of Flat, D-axis and fdB removed, serration-specific added.
-_SERRATION_EXCLUDE = {"fdD", "pitchD", "ratioD", "ctsRevD", "fdB"}
+# Also exclude startPtD (3-axis machine) and cAbsHeel (flat grind only)
+_SERRATION_EXCLUDE = {"fdD", "pitchD", "ratioD", "ctsRevD", "fdB", "startPtD", "cAbsHeel"}
 _SERRATION_PARAM_DEFS: List[Dict] = [
     d.copy() for d in _FLAT_PARAM_DEFS if d["var"] not in _SERRATION_EXCLUDE
 ]
@@ -146,6 +152,31 @@ _SERRATION_PARAM_DEFS.extend([
         "min": 0.1,
         "max": 500.0,
     },
+    # Serration grind parameters
+    {
+        "label": "Num Comp Points",
+        "var": "numComp",
+        "unit": "",
+        "group": "Geometry",
+        "min": 1.0,
+        "max": 200.0,
+    },
+    {
+        "label": "Serration Pitch",
+        "var": "spitch",
+        "unit": "mm",
+        "group": "Geometry",
+        "min": 0.01,
+        "max": 50.0,
+    },
+    {
+        "label": "Spark Dwell",
+        "var": "sparkDw",
+        "unit": "ms",
+        "group": "Geometry",
+        "min": 0.0,
+        "max": 10000.0,
+    },
     # Read-only CPM display (3-axis only)
     {"label": "Counts/mm A", "var": "cpmA", "unit": "cts/mm", "group": "Info",
      "min": 0, "max": 9999999, "readonly": True},
@@ -164,6 +195,7 @@ _REGISTRY: Dict[str, Dict] = {
         "axes": ["A", "B", "C", "D"],
         "has_bcomp": False,
         "param_defs": _FLAT_PARAM_DEFS,
+        "profile_arrays": ["deltaA", "deltaB", "deltaC", "deltaD"],
         "load_kv": "dmccodegui.screens.flat_grind.load_kv",
         "screen_classes": {
             "run":        "dmccodegui.screens.flat_grind.FlatGrindRunScreen",
@@ -175,6 +207,7 @@ _REGISTRY: Dict[str, Dict] = {
         "axes": ["A", "B", "C", "D"],
         "has_bcomp": False,
         "param_defs": _CONVEX_PARAM_DEFS,
+        "profile_arrays": ["deltaA", "deltaB", "deltaC", "deltaD"],
         "load_kv": "dmccodegui.screens.convex.load_kv",
         "screen_classes": {
             "run":        "dmccodegui.screens.convex.ConvexRunScreen",
@@ -186,6 +219,7 @@ _REGISTRY: Dict[str, Dict] = {
         "axes": ["A", "B", "C"],
         "has_bcomp": True,
         "param_defs": _SERRATION_PARAM_DEFS,
+        "profile_arrays": ["bComp", "cComp"],
         "load_kv": "dmccodegui.screens.serration.load_kv",
         "screen_classes": {
             "run":        "dmccodegui.screens.serration.SerrationRunScreen",
@@ -282,6 +316,19 @@ def get_param_defs(mtype: Optional[str] = None) -> List[Dict]:
     """
     resolved = _resolve_type(mtype)
     return _REGISTRY[resolved]["param_defs"]
+
+
+def get_profile_arrays(mtype: Optional[str] = None) -> List[str]:
+    """Return the array names to include in profile export/import.
+
+    Args:
+        mtype: Machine type string. Uses active type if None.
+
+    Returns:
+        List of array variable names (e.g. ["deltaA", ...] or ["bComp", "cComp"]).
+    """
+    resolved = _resolve_type(mtype)
+    return _REGISTRY[resolved].get("profile_arrays", [])
 
 
 def get_axis_list(mtype: Optional[str] = None) -> List[str]:

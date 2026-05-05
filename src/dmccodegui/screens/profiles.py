@@ -16,8 +16,8 @@ from typing import Any, Callable, Optional
 # Module-level constants
 # ---------------------------------------------------------------------------
 
-KNOWN_ARRAYS: list[str] = ["deltaA", "deltaB", "deltaC", "deltaD"]
-"""Array variable names that can be exported/imported in profiles."""
+KNOWN_ARRAYS: list[str] = ["deltaA", "deltaB", "deltaC", "deltaD", "bComp", "cComp"]
+"""Array variable names recognized during profile import (superset of all machine types)."""
 
 
 # ---------------------------------------------------------------------------
@@ -627,8 +627,9 @@ try:
                     except Exception:
                         pass
 
-                # Read arrays
-                for array_name in KNOWN_ARRAYS:
+                # Read arrays (machine-type-specific)
+                profile_arrays = mc.get_profile_arrays()
+                for array_name in profile_arrays:
                     try:
                         values = ctrl.upload_array_auto(array_name)
                         if values is not None:

@@ -34,7 +34,8 @@ from __future__ import annotations
 import os as _os
 
 from kivy.core.text import Label as CoreLabel
-from kivy.graphics import Color, Rectangle
+from kivy.graphics import Color, Ellipse, Rectangle
+from kivy.metrics import dp
 from kivy.properties import ListProperty, NumericProperty
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.image import Image
@@ -283,7 +284,8 @@ class DeltaCBarChart(_BaseBarChart):
             Color(0.4, 0.4, 0.4, 1)
             Rectangle(pos=(self.x, mid_y - 0.5), size=(self.width, 1))
 
-            # Bars
+            # Bars + dot indicators
+            dot_r = dp(4)
             for i, offset in enumerate(offsets):
                 if self.max_offset > 0:
                     raw_h = abs(offset) / self.max_offset * half_h
@@ -298,10 +300,44 @@ class DeltaCBarChart(_BaseBarChart):
                     Color(0.235, 0.510, 0.960, 1)
 
                 bar_x = self.x + i * bar_w
+                bar_center_x = bar_x + bar_w / 2.0
                 if offset >= 0:
                     Rectangle(pos=(bar_x + 1, mid_y), size=(bar_w - 2, bar_h))
+                    dot_y = mid_y + bar_h
                 else:
                     Rectangle(pos=(bar_x + 1, mid_y - bar_h), size=(bar_w - 2, bar_h))
+                    dot_y = mid_y - bar_h
+
+                # Dot indicator at bar tip
+                if is_selected:
+                    Color(1.0, 0.85, 0.2, 1)
+                elif offset > 0:
+                    Color(0.2, 0.8, 0.4, 1)
+                elif offset < 0:
+                    Color(0.9, 0.3, 0.3, 1)
+                else:
+                    Color(0.5, 0.5, 0.5, 0.6)
+                Ellipse(
+                    pos=(bar_center_x - dot_r, dot_y - dot_r),
+                    size=(dot_r * 2, dot_r * 2),
+                )
+
+            # Value label for selected bar
+            sel = int(self.selected_index)
+            if sel >= 0 and sel < n:
+                val_text = str(int(offsets[sel]))
+                Color(1.0, 1.0, 1.0, 1)
+                vlbl = CoreLabel(text=val_text, font_size=12, bold=True)
+                vlbl.refresh()
+                vtex = vlbl.texture
+                vx = self.x + sel * bar_w + (bar_w - vtex.width) / 2.0
+                # Position above or below the bar tip
+                if offsets[sel] >= 0:
+                    vy = mid_y + max(10.0, abs(offsets[sel]) / self.max_offset * half_h if self.max_offset > 0 else 0) + 2
+                else:
+                    vy = mid_y - max(10.0, abs(offsets[sel]) / self.max_offset * half_h if self.max_offset > 0 else 0) - vtex.height - 2
+                vx = max(self.x, min(vx, self.x + self.width - vtex.width))
+                Rectangle(texture=vtex, pos=(vx, vy), size=vtex.size)
 
             # Index range labels above each bar (only for selected bar)
             sel = int(self.selected_index)

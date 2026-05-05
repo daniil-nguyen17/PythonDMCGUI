@@ -41,15 +41,197 @@
                     radius: [4,]
 
         # -----------------------------------------------------------------------
+        # DELTA-C: Knife Grind Adjustment (full width, top)
+        # -----------------------------------------------------------------------
+        BoxLayout:
+            id: delta_c_panel
+            canvas.before:
+                Color:
+                    rgba: theme.bg_panel
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [8,]
+                Color:
+                    rgba: 1.0, 0.55, 0.0, 0.8
+                Line:
+                    rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                    width: 1.4
+            size_hint_y: 0.42
+            orientation: 'vertical'
+            padding: ['8dp', '4dp']
+            spacing: '4dp'
+
+            # Header + controls row
+            BoxLayout:
+                size_hint_y: None
+                height: '28dp'
+                spacing: '8dp'
+                padding: ['8dp', '0dp']
+
+                Label:
+                    text: 'CHỈNH SỬA ĐỘ DÀY KHI MÀI DAO'
+                    font_size: '14sp'
+                    color: theme.text_mid
+                    bold: True
+                    halign: 'left'
+                    text_size: self.size
+                    valign: 'middle'
+                    size_hint_x: 0.35
+
+                # Step size buttons (1ct / 2ct / 3ct)
+                Label:
+                    text: 'STEP:'
+                    font_size: '12sp'
+                    color: theme.text_mid
+                    size_hint_x: None
+                    width: '40dp'
+                    halign: 'right'
+                    text_size: self.size
+                    valign: 'middle'
+
+                Button:
+                    text: '1ct'
+                    size_hint_x: None
+                    width: '44dp'
+                    font_size: '12sp'
+                    bold: True
+                    background_normal: ''
+                    background_color: (0.024, 0.714, 0.831, 0.8) if root.delta_c_step == 1 else (0.1, 0.12, 0.16, 1)
+                    color: theme.text_main
+                    on_release: root.set_delta_c_step(1)
+
+                Button:
+                    text: '2ct'
+                    size_hint_x: None
+                    width: '44dp'
+                    font_size: '12sp'
+                    bold: True
+                    background_normal: ''
+                    background_color: (0.024, 0.714, 0.831, 0.8) if root.delta_c_step == 2 else (0.1, 0.12, 0.16, 1)
+                    color: theme.text_main
+                    on_release: root.set_delta_c_step(2)
+
+                Button:
+                    text: '3ct'
+                    size_hint_x: None
+                    width: '44dp'
+                    font_size: '12sp'
+                    bold: True
+                    background_normal: ''
+                    background_color: (0.024, 0.714, 0.831, 0.8) if root.delta_c_step == 3 else (0.1, 0.12, 0.16, 1)
+                    color: theme.text_main
+                    on_release: root.set_delta_c_step(3)
+
+                Widget:
+                    size_hint_x: 0.05
+
+                Label:
+                    text: 'SEG:'
+                    font_size: '12sp'
+                    color: theme.text_mid
+                    size_hint_x: None
+                    width: '35dp'
+                    halign: 'right'
+                    text_size: self.size
+                    valign: 'middle'
+
+                Button:
+                    text: '-'
+                    size_hint_x: None
+                    width: '44dp'
+                    font_size: '18sp'
+                    background_normal: ''
+                    background_color: 0.1, 0.12, 0.16, 1
+                    on_release: root.on_section_count_change(root.section_count - 1)
+
+                Label:
+                    id: section_count_label
+                    text: str(root.section_count)
+                    font_size: '16sp'
+                    color: theme.text_main
+                    bold: True
+                    size_hint_x: None
+                    width: '24dp'
+                    halign: 'center'
+                    text_size: self.size
+                    valign: 'middle'
+
+                Button:
+                    text: '+'
+                    size_hint_x: None
+                    width: '44dp'
+                    font_size: '18sp'
+                    background_normal: ''
+                    background_color: 0.1, 0.12, 0.16, 1
+                    on_release: root.on_section_count_change(root.section_count + 1)
+
+                Widget:
+                    size_hint_x: 0.05
+
+                Label:
+                    text: 'ĐÃ CHỌN: ' + root.selected_section_value + ' cts'
+                    font_size: '13sp'
+                    color: theme.text_main
+                    halign: 'right'
+                    text_size: self.size
+                    valign: 'middle'
+                    size_hint_x: 0.2
+
+                Button:
+                    text: 'XÓA'
+                    font_size: '13sp'
+                    bold: True
+                    background_normal: ''
+                    background_color: 0.25, 0.08, 0.08, 1
+                    color: 0.95, 0.35, 0.35, 1
+                    size_hint_x: None
+                    width: '56dp'
+                    on_release: root.on_clear_delta_c()
+
+                Button:
+                    text: 'LƯU'
+                    font_size: '13sp'
+                    bold: True
+                    background_normal: ''
+                    background_color: 0.118, 0.227, 0.373, 1
+                    color: 0.576, 0.773, 0.992, 1
+                    size_hint_x: None
+                    width: '56dp'
+                    on_release: root.on_apply_delta_c()
+
+            # Less grinding (subtract) — per-section arrows
+            BoxLayout:
+                id: adjust_down_row
+                size_hint_y: None
+                height: '44dp'
+                spacing: '4dp'
+
+            # Bar chart
+            DeltaCBarChart:
+                id: delta_c_chart
+                offsets: root.delta_c_offsets
+                array_size: root.delta_c_array_size
+                max_offset: 20
+                size_hint_y: 1
+
+            # More grinding (add) — per-section arrows
+            BoxLayout:
+                id: adjust_up_row
+                size_hint_y: None
+                height: '44dp'
+                spacing: '4dp'
+
+        # -----------------------------------------------------------------------
         # Main content: LEFT (50%) + RIGHT (50%)
         # -----------------------------------------------------------------------
         BoxLayout:
             orientation: 'horizontal'
             spacing: '8dp'
-            padding: ['8dp', '8dp', '8dp', '4dp']
+            padding: ['8dp', '4dp', '8dp', '4dp']
 
             # ===================================================================
-            # LEFT COLUMN (50%) — plot + adjustment panels
+            # LEFT COLUMN (50%) — plot + grind progress
             # ===================================================================
             BoxLayout:
                 size_hint_x: 0.5
@@ -70,8 +252,7 @@
                         Line:
                             rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
                             width: 1.4
-                    size_hint_y: None
-                    height: '400dp'
+                    size_hint_y: 1
                     padding: ['4dp', '4dp']
 
                     MatplotFigure:
@@ -82,193 +263,7 @@
                         do_scale: False
                         touch_mode: 'none'
 
-                # Delta-C: Knife Grind Adjustment (Flat/Convex only)
-                BoxLayout:
-                    id: delta_c_panel
-                    canvas.before:
-                        Color:
-                            rgba: theme.bg_panel
-                        RoundedRectangle:
-                            pos: self.pos
-                            size: self.size
-                            radius: [8,]
-                        Color:
-                            rgba: 1.0, 0.55, 0.0, 0.8
-                        Line:
-                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
-                            width: 1.4
-                    size_hint_y: 1
-                    orientation: 'vertical'
-                    padding: '8dp'
-                    spacing: '4dp'
-
-                    # Header: title + controls centered below
-                    BoxLayout:
-                        size_hint_y: None
-                        height: '28dp'
-                        spacing: '8dp'
-
-                        Label:
-                            text: 'CHỈNH SỬA ĐỘ DÀY KHI MÀI DAO'
-                            font_size: '16sp'
-                            color: theme.text_mid
-                            bold: True
-                            halign: 'center'
-                            text_size: self.size
-                            valign: 'middle'
-
-                    BoxLayout:
-                        size_hint_y: None
-                        height: '32dp'
-                        spacing: '8dp'
-                        padding: ['24dp', '0dp']
-
-                        # Step size buttons (1ct / 2ct / 3ct)
-                        Label:
-                            text: 'STEP:'
-                            font_size: '13sp'
-                            color: theme.text_mid
-                            size_hint_x: None
-                            width: '45dp'
-                            halign: 'right'
-                            text_size: self.size
-                            valign: 'middle'
-
-                        Button:
-                            text: '1ct'
-                            size_hint_x: None
-                            width: '48dp'
-                            font_size: '13sp'
-                            bold: True
-                            background_normal: ''
-                            background_color: (0.024, 0.714, 0.831, 0.8) if root.delta_c_step == 1 else (0.1, 0.12, 0.16, 1)
-                            color: theme.text_main
-                            on_release: root.set_delta_c_step(1)
-
-                        Button:
-                            text: '2ct'
-                            size_hint_x: None
-                            width: '48dp'
-                            font_size: '13sp'
-                            bold: True
-                            background_normal: ''
-                            background_color: (0.024, 0.714, 0.831, 0.8) if root.delta_c_step == 2 else (0.1, 0.12, 0.16, 1)
-                            color: theme.text_main
-                            on_release: root.set_delta_c_step(2)
-
-                        Button:
-                            text: '3ct'
-                            size_hint_x: None
-                            width: '48dp'
-                            font_size: '13sp'
-                            bold: True
-                            background_normal: ''
-                            background_color: (0.024, 0.714, 0.831, 0.8) if root.delta_c_step == 3 else (0.1, 0.12, 0.16, 1)
-                            color: theme.text_main
-                            on_release: root.set_delta_c_step(3)
-
-                        Widget:
-
-                        Label:
-                            text: 'SEGMENTS:'
-                            font_size: '14sp'
-                            color: theme.text_mid
-                            size_hint_x: None
-                            width: '100dp'
-                            halign: 'right'
-                            text_size: self.size
-                            valign: 'middle'
-
-                        Button:
-                            text: '-'
-                            size_hint_x: None
-                            width: '44dp'
-                            font_size: '20sp'
-                            background_normal: ''
-                            background_color: 0.1, 0.12, 0.16, 1
-                            on_release: root.on_section_count_change(root.section_count - 1)
-
-                        Label:
-                            id: section_count_label
-                            text: str(root.section_count)
-                            font_size: '19sp'
-                            color: theme.text_main
-                            bold: True
-                            size_hint_x: None
-                            width: '24dp'
-                            halign: 'center'
-                            text_size: self.size
-                            valign: 'middle'
-
-                        Button:
-                            text: '+'
-                            size_hint_x: None
-                            width: '44dp'
-                            font_size: '20sp'
-                            background_normal: ''
-                            background_color: 0.1, 0.12, 0.16, 1
-                            on_release: root.on_section_count_change(root.section_count + 1)
-
-                        Widget:
-
-                    # Less grinding (subtract) — per-section arrows (flipped up)
-                    BoxLayout:
-                        id: adjust_down_row
-                        size_hint_y: None
-                        height: '44dp'
-                        spacing: '4dp'
-
-                    # Bar chart
-                    DeltaCBarChart:
-                        id: delta_c_chart
-                        offsets: root.delta_c_offsets
-                        array_size: root.delta_c_array_size
-                        max_offset: 20
-                        size_hint_y: 1
-
-                    # More grinding (add) — per-section arrows (flipped down)
-                    BoxLayout:
-                        id: adjust_up_row
-                        size_hint_y: None
-                        height: '44dp'
-                        spacing: '4dp'
-
-                    # Controls row
-                    BoxLayout:
-                        size_hint_y: None
-                        height: '44dp'
-                        spacing: '8dp'
-
-                        Label:
-                            text: 'ĐÃ CHỌN: ' + root.selected_section_value + ' cts'
-                            font_size: '16sp'
-                            color: theme.text_main
-                            halign: 'left'
-                            text_size: self.size
-                            valign: 'middle'
-                            size_hint_x: 0.4
-
-                        Button:
-                            text: 'XÓA'
-                            font_size: '18sp'
-                            bold: True
-                            background_normal: ''
-                            background_color: 0.25, 0.08, 0.08, 1
-                            color: 0.95, 0.35, 0.35, 1
-                            size_hint_x: 0.25
-                            on_release: root.on_clear_delta_c()
-
-                        Button:
-                            text: 'LƯU LẠI'
-                            font_size: '18sp'
-                            bold: True
-                            background_normal: ''
-                            background_color: 0.118, 0.227, 0.373, 1
-                            color: 0.576, 0.773, 0.992, 1
-                            size_hint_x: 0.35
-                            on_release: root.on_apply_delta_c()
-
-                # GRIND PROGRESS (below delta-C)
+                # GRIND PROGRESS (below plot)
                 BoxLayout:
                     orientation: 'vertical'
                     size_hint_y: None
@@ -427,11 +422,11 @@
                 spacing: '8dp'
 
                 # ---------------------------------------------------------------
-                # CONTROLLER LOG
+                # CONTROLLER LOG (reduced height — deltaC moved to top)
                 # ---------------------------------------------------------------
                 BoxLayout:
                     orientation: 'vertical'
-                    size_hint_y: 0.55
+                    size_hint_y: 0.4
                     padding: ['8dp', '4dp']
                     spacing: '4dp'
                     canvas.before:

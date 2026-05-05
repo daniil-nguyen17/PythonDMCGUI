@@ -127,8 +127,8 @@ class FlatGrindRunScreen(BaseRunScreen):
     is_serration = BooleanProperty(False)
 
     # Knife Grind Adjustment properties (Delta-C — Flat/Convex)
-    section_count = NumericProperty(1)
-    delta_c_offsets = ListProperty([0.0])        # one offset per section
+    section_count = NumericProperty(20)
+    delta_c_offsets = ListProperty([0.0] * 20)   # one offset per section
     selected_section_value = StringProperty("0") # display value for the selected bar
     delta_c_step = NumericProperty(1)            # adjustment increment (1, 2, or 3 cts)
     delta_c_array_size = NumericProperty(100)    # actual size read from controller (dynamic)
@@ -936,7 +936,7 @@ class FlatGrindRunScreen(BaseRunScreen):
         Preserves existing offset values; pads with 0.0 for new sections;
         truncates when count decreases.
         """
-        clamped = max(1, min(10, int(value)))
+        clamped = max(1, min(20, int(value)))
         self.section_count = clamped
         old = list(self.delta_c_offsets)
         self.delta_c_offsets = (old + [0.0] * clamped)[:clamped]

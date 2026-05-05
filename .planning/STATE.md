@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Security, Polish & Code Health
-status: unknown
-stopped_at: Completed 31-01-PLAN.md
-last_updated: "2026-05-04T05:58:31.836Z"
-last_activity: 2026-05-04 — Phase 31 Plan 01 complete (GL backend log + MG reader Linux guard removal + install.sh verify)
+status: phase_complete
+stopped_at: Completed 31-03-PLAN.md
+last_updated: "2026-05-04T06:15:00.000Z"
+last_activity: 2026-05-04 — Phase 31 complete (all 3 plans done — bugs fixed + UI polish + spacing tokens + touch targets)
 progress:
   total_phases: 28
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 18
-  completed_plans: 17
+  completed_plans: 18
 ---
 
 # Project State
@@ -27,19 +27,19 @@ See: .planning/PROJECT.md (updated 2026-04-28)
 ```
 Milestone : v4.1 Security, Polish & Code Health
 Phase     : 31 of 35 (Bug Fixes and UI Polish)
-Plan      : 02 of 03 complete
-Status    : In progress
-Progress  : [█████████░] 94%
+Plan      : 03 of 03 complete
+Status    : Phase complete
+Progress  : [██████████] 100%
 ```
 
-Last activity: 2026-05-04 — Phase 31 Plan 01 complete (GL backend log + MG reader Linux guard removal + install.sh verify)
+Last activity: 2026-05-04 — Phase 31 complete (3/3 plans — field bugs fixed, UI spacing tokens standardized, touch targets remediated)
 
 ## v4.1 Phase Map
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 30 | Codebase Audit | AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04 | Complete (3/3 plans) |
-| 31 | Bug Fixes and UI Polish | FIX-03, FIX-04, FIX-05, UI-01, UI-02 | In progress (2/3 plans) |
+| 31 | Bug Fixes and UI Polish | FIX-03, FIX-04, FIX-05, UI-01, UI-02 | Complete (3/3 plans) |
 | 32 | Per-Machine Parameters | PARAM-01, PARAM-02 | Not started |
 | 33 | Licensing Core | LIC-01, LIC-02, LIC-03, LIC-04 | Not started |
 | 34 | Pi Cython Protection | PROT-01, PROT-03 | Not started |
@@ -75,6 +75,8 @@ Decisions affecting v4.1 work:
 - [Phase 31 Plan 02]: Spacing token scale locked at 4/8/12/16/24dp for all shared KV padding/spacing
 - [Phase 31]: GL backend log runs on ALL platforms (not just Windows) — logs 'default (platform gl)' on Linux
 - [Phase 31]: Platform guard fully removed from start() — _loop already handles --direct flag per-platform
+- [Phase 31 Plan 03]: Delta-C panel height increased to accommodate 44dp buttons; bComp size_hint_x: 0.2 kept (verified > 44dp via parent width)
+- [Phase 31 Plan 03]: Token-scale enforcement complete project-wide — all 21 KV files use only 4/8/12/16/24dp for padding/spacing
 
 ### Open Questions (from research)
 
@@ -94,7 +96,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-04T05:58:31.833Z
-Stopped at: Completed 31-01-PLAN.md
+Last session: 2026-05-04T06:15:00.000Z
+Stopped at: Completed 31-03-PLAN.md (Phase 31 fully complete)
 Resume file: None
-Next action: Execute Plan 31-03 (wave 2 — remaining UI polish)
+Next action: Begin Phase 32 planning (Per-Machine Parameters)

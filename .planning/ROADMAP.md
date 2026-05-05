@@ -85,7 +85,7 @@ Full details: `.planning/milestones/v4.0-ROADMAP.md`
 **Milestone Goal:** Harden the deployed HMI with per-machine licensing and code protection, clean up the codebase (dead code, consistency, documentation), fix field-testing bugs, polish the UI, and complete per-machine parameter page definitions.
 
 - [x] **Phase 30: Codebase Audit** — Dead code removal, import cleanup, docstrings, naming consistency (AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04) (completed 2026-05-04)
-- [ ] **Phase 31: Bug Fixes and UI Polish** — ANGLE GPU workaround, MG reader flags, install.sh hardening, touch target audit, layout consistency (FIX-03, FIX-04, FIX-05, UI-01, UI-02)
+- [x] **Phase 31: Bug Fixes and UI Polish** — ANGLE GPU workaround, MG reader flags, install.sh hardening, touch target audit, layout consistency (FIX-03, FIX-04, FIX-05, UI-01, UI-02) (completed 2026-05-04)
 - [ ] **Phase 32: Per-Machine Parameters** — Complete Convex param defs, parameter read failure logging (PARAM-01, PARAM-02)
 - [ ] **Phase 33: Licensing Core** — Hardware fingerprint module, Ed25519 validator, keygen CLI, startup enforcement (LIC-01, LIC-02, LIC-03, LIC-04)
 - [ ] **Phase 34: Pi Cython Protection** — Compile business-logic modules to .so, remove source .py files, controller.py excluded (PROT-01, PROT-03)
@@ -428,11 +428,11 @@ Plans:
   3. Re-running install.sh on a Pi that already has a venv does not destroy the existing venv — rsync excludes the venv/ directory and the pip install step uses the existing environment
   4. Every interactive element on all screens measures at least 44dp on both a 15" desktop display and a 7" Pi touchscreen — verified against the display preset definitions
   5. Alignment, spacing, and card sizing are visually uniform when switching between Run, Setup, Parameters, and Profiles screens — no elements jump position or change size between screens
-**Plans**: 3 plans
+**Plans**: 3/3 plans complete
 Plans:
-- [ ] 31-01-PLAN.md — Bug fixes: ANGLE GL backend log, MG reader Linux guard removal, install.sh venv verify
-- [ ] 31-02-PLAN.md — Remove 7"/10" display presets, standardize shared KV spacing tokens
-- [ ] 31-03-PLAN.md — Machine-specific KV spacing tokens, touch target remediation, visual checkpoint
+- [x] 31-01-PLAN.md — Bug fixes: ANGLE GL backend log, MG reader Linux guard removal, install.sh venv verify
+- [x] 31-02-PLAN.md — Remove 7"/10" display presets, standardize shared KV spacing tokens
+- [x] 31-03-PLAN.md — Machine-specific KV spacing tokens, touch target remediation, visual checkpoint
 
 ### Phase 32: Per-Machine Parameters
 **Goal**: All three machine types have complete, correct parameter definitions in machine_config.py and parameter read failures surface as warnings in the log rather than silent exceptions
@@ -513,7 +513,7 @@ Plans:
 | 28. Logging Infrastructure | v4.0 | 3/3 | Complete | 2026-04-22 |
 | 29. Integration Testing and Field Validation | v4.0 | 2/2 | Complete | 2026-04-28 |
 | 30. Codebase Audit | v4.1 | 3/3 | Complete | 2026-05-04 |
-| 31. Bug Fixes and UI Polish | 2/3 | In Progress|  | - |
+| 31. Bug Fixes and UI Polish | v4.1 | 3/3 | Complete | 2026-05-04 |
 | 32. Per-Machine Parameters | v4.1 | 0/TBD | Not started | - |
 | 33. Licensing Core | v4.1 | 0/TBD | Not started | - |
 | 34. Pi Cython Protection | v4.1 | 0/TBD | Not started | - |

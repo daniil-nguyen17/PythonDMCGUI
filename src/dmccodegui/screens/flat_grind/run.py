@@ -140,6 +140,9 @@ class FlatGrindRunScreen(BaseRunScreen):
     # Stone Compensation readback — persistent label in Stone Compensation card (Phase 15)
     start_pt_c = StringProperty("---")
 
+    # Stone increment amount (mm) — controlled by toggle buttons (0.02/0.03/0.04)
+    stone_increment = NumericProperty(0.03)
+
     # Disconnect banner (empty string = no banner visible)
     disconnect_banner = StringProperty("")
 
@@ -694,13 +697,13 @@ class FlatGrindRunScreen(BaseRunScreen):
         jobs.submit_urgent(do_stop)
 
     def on_shutdown(self) -> None:
-        """Shutdown: enter setup → home → wait for homing complete → BV.
+        """Shutdown: BV → wait 5s → enter setup → home.
 
         Sequence:
-          1. hmiSetp=0 — enter setup mode (DMC goes to #SULOOP)
-          2. hmiHome=0 — trigger homing (DMC runs #HOME from #SULOOP)
-          3. Poll hmiState until it returns to 3 (SETUP) — homing done
-          4. BV — save all variables to NV memory
+          1. BV — save all variables to NV memory first
+          2. Wait 5s for BV to complete
+          3. hmiSetp=0 — enter setup mode (DMC goes to #SULOOP)
+          4. hmiHome=0 — trigger homing (DMC runs #HOME from #SULOOP)
         """
         if not self.controller or not self.controller.is_connected():
             return
@@ -710,9 +713,7 @@ class FlatGrindRunScreen(BaseRunScreen):
         from dmccodegui.hmi.dmc_vars import (
             HMI_HOME,
             HMI_SETP,
-            HMI_STATE_VAR,
             HMI_TRIGGER_FIRE,
-            STATE_SETUP,
         )
 
         self.motion_active = True  # Disable buttons during shutdown
@@ -721,33 +722,7 @@ class FlatGrindRunScreen(BaseRunScreen):
             import time as _t
             ctrl = self.controller
             try:
-                # Step 1: Enter setup mode
-                ctrl.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}")
-                logger.info("hmiSetp fired — entering setup")
-                _t.sleep(0.5)
-
-                # Step 2: Trigger homing
-                ctrl.cmd(f"{HMI_HOME}={HMI_TRIGGER_FIRE}")
-                logger.info("hmiHome fired — homing axes")
-
-                # Step 3: Wait for homing to complete (poll hmiState)
-                # hmiState goes 4 (HOMING) during home, returns to 3 (SETUP) when done
-                for _ in range(120):  # max 60 seconds (120 × 0.5s)
-                    _t.sleep(4)
-                    try:
-                        raw = ctrl.cmd(f"MG {HMI_STATE_VAR}").strip()
-                        state = int(float(raw))
-                        if state == STATE_SETUP:
-                            logger.info("homing complete — state back to SETUP")
-                            break
-                    except Exception:
-                        pass
-                else:
-                    logger.warning("homing timeout — proceeding with BV anyway")
-
-                # Step 4: Save all variables to NV
-                # BV can take several seconds — wait then retry once
-                _t.sleep(5.0)
+                # Step 1: Save all variables to NV first
                 try:
                     ctrl.cmd("BV")
                 except Exception:
@@ -755,6 +730,18 @@ class FlatGrindRunScreen(BaseRunScreen):
                     _t.sleep(3.0)
                     ctrl.cmd("BV")
                 logger.info("BV done — all variables saved")
+
+                # Step 2: Wait for BV to fully complete
+                _t.sleep(5.0)
+
+                # Step 3: Enter setup mode
+                ctrl.cmd(f"{HMI_SETP}={HMI_TRIGGER_FIRE}")
+                logger.info("hmiSetp fired — entering setup")
+                _t.sleep(0.5)
+
+                # Step 4: Trigger homing
+                ctrl.cmd(f"{HMI_HOME}={HMI_TRIGGER_FIRE}")
+                logger.info("hmiHome fired — homing axes")
 
                 Clock.schedule_once(lambda *_: setattr(self, 'motion_active', False))
 
@@ -819,92 +806,74 @@ class FlatGrindRunScreen(BaseRunScreen):
         self._start_pos_poll()
 
     def on_more_stone(self) -> None:
-        """Send hmiMore=0 then read startPtC after delay to update persistent label.
+        """Increment cTouch directly on the controller by stone_increment mm.
 
-        Fires the HMI_MORE trigger, then retries readback up to 3 times (1s apart)
-        to give the DMC subroutine time to finish updating startPtC.
+        Sends cTouch=cTouch+{increment} as a direct command — no DMC subroutine,
+        no BV. Reads back cTouch to update the persistent label.
         """
         if not self.controller or not self.controller.is_connected():
             return
 
         ctrl = self.controller
+        increment = self.stone_increment
 
         def _fire():
-            import time as _time
             try:
-                before_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
-                before = int(float(before_raw))
-                logger.debug("More stone — startPtC BEFORE: %s", before)
-            except Exception as e:
-                logger.debug("More stone — failed to read startPtC before: %s", e)
-
-            try:
-                ctrl.cmd(f"{HMI_MORE}={HMI_TRIGGER_FIRE}")
+                ctrl.cmd(f"cTouch=cTouch+{increment}")
             except Exception as e:
                 msg = f"More stone failed: {e}"
                 Clock.schedule_once(lambda *_, m=msg: self._alert(m))
                 return
 
-            # Wait for DMC subroutine to finish, then retry readback
-            for attempt in range(3):
-                _time.sleep(1.0)
-                try:
-                    after_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
-                    after = int(float(after_raw))
-                    logger.debug("More stone — startPtC AFTER: %s", after)
-                    Clock.schedule_once(
-                        lambda *_, v=after: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
-                    )
-                    break
-                except Exception as e:
-                    logger.warning("More stone — readback attempt %d failed: %s", attempt + 1, e)
+            # Read back to update display
+            try:
+                raw = ctrl.cmd("MG cTouch").strip()
+                val = float(raw)
+                Clock.schedule_once(
+                    lambda *_, v=val: setattr(self, 'start_pt_c', f"Stone Pos: {v:.2f}")
+                )
+            except Exception as e:
+                logger.warning("More stone — readback failed: %s", e)
 
         from ...utils.jobs import submit_urgent
         submit_urgent(_fire)
 
     def on_less_stone(self) -> None:
-        """Send hmiLess=0 then read startPtC after delay to update persistent label.
+        """Decrement cTouch directly on the controller by stone_increment mm.
 
-        Mirror of on_more_stone but fires HMI_LESS. Retries readback up to 3 times
-        (1s apart) to give the DMC subroutine time to finish updating startPtC.
+        Sends cTouch=cTouch-{increment} as a direct command — no DMC subroutine,
+        no BV. Reads back cTouch to update the persistent label.
         """
         if not self.controller or not self.controller.is_connected():
             return
 
         ctrl = self.controller
+        increment = self.stone_increment
 
         def _fire():
-            import time as _time
             try:
-                before_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
-                before = int(float(before_raw))
-                logger.debug("Less stone — startPtC BEFORE: %s", before)
-            except Exception as e:
-                logger.debug("Less stone — failed to read startPtC before: %s", e)
-
-            try:
-                ctrl.cmd(f"{HMI_LESS}={HMI_TRIGGER_FIRE}")
+                ctrl.cmd(f"cTouch=cTouch-{increment}")
             except Exception as e:
                 msg = f"Less stone failed: {e}"
                 Clock.schedule_once(lambda *_, m=msg: self._alert(m))
                 return
 
-            # Wait for DMC subroutine to finish, then retry readback
-            for attempt in range(3):
-                _time.sleep(1.0)
-                try:
-                    after_raw = ctrl.cmd(f"MG {STARTPT_C}").strip()
-                    after = int(float(after_raw))
-                    logger.debug("Less stone — startPtC AFTER: %s", after)
-                    Clock.schedule_once(
-                        lambda *_, v=after: setattr(self, 'start_pt_c', f"Stone Pos: {v:,}")
-                    )
-                    break
-                except Exception as e:
-                    logger.warning("Less stone — readback attempt %d failed: %s", attempt + 1, e)
+            # Read back to update display
+            try:
+                raw = ctrl.cmd("MG cTouch").strip()
+                val = float(raw)
+                Clock.schedule_once(
+                    lambda *_, v=val: setattr(self, 'start_pt_c', f"Stone Pos: {v:.2f}")
+                )
+            except Exception as e:
+                logger.warning("Less stone — readback failed: %s", e)
 
         from ...utils.jobs import submit_urgent
         submit_urgent(_fire)
+
+    def on_stone_toggle(self, value: float) -> None:
+        """Set stone_increment when a toggle button is selected."""
+        self.stone_increment = value
 
     # -----------------------------------------------------------------------
     # Delta-C (Knife Grind Adjustment) — Flat/Convex machines

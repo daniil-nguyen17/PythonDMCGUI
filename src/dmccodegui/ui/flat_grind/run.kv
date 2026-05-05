@@ -520,29 +520,68 @@
                             text_size: self.size
                             size_hint_x: 0.5
 
-                    Button:
-                        id: less_stone_btn
-                        text: 'BỚT ĐÁ'
-                        font_size: '18sp'
-                        bold: True
+                    BoxLayout:
+                        orientation: 'horizontal'
                         size_hint_y: 1
-                        background_normal: ''
-                        background_color: 0.15, 0.08, 0.02, 1
-                        color: 0.984, 0.573, 0.235, 1
-                        disabled: root.motion_active
-                        on_release: root.on_less_stone()
+                        spacing: '4dp'
 
-                    Button:
-                        id: more_stone_btn
-                        text: 'BÙ ĐÁ'
-                        font_size: '18sp'
-                        bold: True
-                        size_hint_y: 1
-                        background_normal: ''
-                        background_color: 0.02, 0.12, 0.06, 1
-                        color: 0.133, 0.773, 0.369, 1
-                        disabled: root.motion_active
-                        on_release: root.on_more_stone()
+                        # Increment toggle buttons (mutually exclusive)
+                        BoxLayout:
+                            orientation: 'vertical'
+                            size_hint_x: 0.25
+                            spacing: '4dp'
+                            ToggleButton:
+                                group: 'stone_inc'
+                                text: '0.02'
+                                font_size: '14sp'
+                                bold: True
+                                background_normal: ''
+                                background_color: (0.2, 0.2, 0.5, 1) if self.state == 'down' else (0.15, 0.15, 0.15, 1)
+                                color: 1, 1, 1, 1
+                                on_state: if self.state == 'down': root.on_stone_toggle(0.02)
+                            ToggleButton:
+                                group: 'stone_inc'
+                                text: '0.03'
+                                state: 'down'
+                                font_size: '14sp'
+                                bold: True
+                                background_normal: ''
+                                background_color: (0.2, 0.2, 0.5, 1) if self.state == 'down' else (0.15, 0.15, 0.15, 1)
+                                color: 1, 1, 1, 1
+                                on_state: if self.state == 'down': root.on_stone_toggle(0.03)
+                            ToggleButton:
+                                group: 'stone_inc'
+                                text: '0.04'
+                                font_size: '14sp'
+                                bold: True
+                                background_normal: ''
+                                background_color: (0.2, 0.2, 0.5, 1) if self.state == 'down' else (0.15, 0.15, 0.15, 1)
+                                color: 1, 1, 1, 1
+                                on_state: if self.state == 'down': root.on_stone_toggle(0.04)
+
+                        Button:
+                            id: less_stone_btn
+                            text: 'BỚT ĐÁ'
+                            font_size: '18sp'
+                            bold: True
+                            size_hint_x: 0.375
+                            background_normal: ''
+                            background_color: 0.15, 0.08, 0.02, 1
+                            color: 0.984, 0.573, 0.235, 1
+                            disabled: root.motion_active
+                            on_release: root.on_less_stone()
+
+                        Button:
+                            id: more_stone_btn
+                            text: 'BÙ ĐÁ'
+                            font_size: '18sp'
+                            bold: True
+                            size_hint_x: 0.375
+                            background_normal: ''
+                            background_color: 0.02, 0.12, 0.06, 1
+                            color: 0.133, 0.773, 0.369, 1
+                            disabled: root.motion_active
+                            on_release: root.on_more_stone()
 
                 # (Grind progress moved to left column)
 

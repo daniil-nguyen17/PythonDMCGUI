@@ -161,7 +161,7 @@
                 font_size: '16sp'
                 bold: True
                 size_hint_x: None
-                width: '60dp'
+                width: '50dp'
                 on_release: root.set_step(10.0)
 
             ToggleButton:
@@ -171,7 +171,7 @@
                 font_size: '16sp'
                 bold: True
                 size_hint_x: None
-                width: '60dp'
+                width: '50dp'
                 on_release: root.set_step(5.0)
 
             ToggleButton:
@@ -181,8 +181,28 @@
                 font_size: '16sp'
                 bold: True
                 size_hint_x: None
-                width: '60dp'
+                width: '50dp'
                 on_release: root.set_step(1.0)
+
+            ToggleButton:
+                id: step_05
+                text: '0.5'
+                group: 'step_sel'
+                font_size: '16sp'
+                bold: True
+                size_hint_x: None
+                width: '50dp'
+                on_release: root.set_step(0.5)
+
+            ToggleButton:
+                id: step_01
+                text: '0.1'
+                group: 'step_sel'
+                font_size: '16sp'
+                bold: True
+                size_hint_x: None
+                width: '50dp'
+                on_release: root.set_step(0.1)
 
             Label:
                 text: 'MM'

@@ -92,6 +92,9 @@ class SerrationRunScreen(BaseRunScreen):
     # Stone increment amount (mm) — controlled by toggle buttons (0.02/0.03/0.04)
     stone_increment = NumericProperty(0.03)
 
+    # Auto Wear — applied to startPtB after every grind completes (0 = disabled)
+    auto_wear = NumericProperty(0)
+
     # Disconnect banner (empty string = no banner)
     disconnect_banner = StringProperty("")
 
@@ -299,6 +302,7 @@ class SerrationRunScreen(BaseRunScreen):
                     self._stop_pos_poll()
                     self._stop_elapsed()
                     self._read_start_pt_c()
+                    self._apply_auto_wear()
 
             Clock.schedule_once(_apply)
 
@@ -813,6 +817,36 @@ class SerrationRunScreen(BaseRunScreen):
     def on_stone_toggle(self, value: float) -> None:
         """Set stone_increment when a toggle button is selected."""
         self.stone_increment = value
+
+    def _apply_auto_wear(self) -> None:
+        """Apply auto wear compensation to startPtB after grind completes.
+
+        If auto_wear > 0, sends startPtB=startPtB+{auto_wear} to the controller.
+        Called automatically at grind end.
+        """
+        if self.auto_wear <= 0:
+            return
+        if not self.controller or not self.controller.is_connected():
+            return
+
+        ctrl = self.controller
+        wear = self.auto_wear
+
+        def _do():
+            try:
+                ctrl.cmd(f"{STARTPT_B}={STARTPT_B}+{wear}")
+                # Read back to update display
+                raw = ctrl.cmd(f"MG {STARTPT_B}").strip()
+                val = float(raw)
+                Clock.schedule_once(
+                    lambda *_, v=val: setattr(self, 'start_pt_c', f"Stone Pos: {v:.2f}")
+                )
+                logger.info("Auto wear applied: +%s to startPtB (now %.2f)", wear, val)
+            except Exception as e:
+                logger.warning("Auto wear failed: %s", e)
+
+        from ...utils import jobs
+        jobs.submit(_do)
 
     # -----------------------------------------------------------------------
     # Stone Compensation

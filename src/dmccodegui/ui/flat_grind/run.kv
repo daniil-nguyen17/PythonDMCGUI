@@ -4,6 +4,7 @@
 #:import ARROW_UP_IMG dmccodegui.screens.flat_grind.widgets.ARROW_UP_IMG
 #:import ARROW_DOWN_IMG dmccodegui.screens.flat_grind.widgets.ARROW_DOWN_IMG
 #:import run_module dmccodegui.screens.flat_grind.run
+#:import CircularSlider dmccodegui.screens.circular_slider.CircularSlider
 #:import kivy_matplotlib_widget kivy_matplotlib_widget
 
 <FlatGrindRunScreen>:
@@ -473,115 +474,162 @@
                             height: max(self.texture_size[1], mg_log_scroll.height)
 
                 # ---------------------------------------------------------------
-                # STONE COMPENSATION
+                # STONE COMPENSATION + AUTO WEAR
                 # ---------------------------------------------------------------
                 BoxLayout:
-                    orientation: 'vertical'
+                    orientation: 'horizontal'
                     size_hint_y: 0.45
-                    padding: ['12dp', '8dp']
-                    spacing: '4dp'
-                    canvas.before:
-                        Color:
-                            rgba: theme.bg_panel
-                        RoundedRectangle:
-                            pos: self.pos
-                            size: self.size
-                            radius: [8,]
-                        Color:
-                            rgba: 0.9, 0.9, 0.2, 0.8
-                        Line:
-                            rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
-                            width: 1.4
+                    spacing: '8dp'
 
+                    # LEFT HALF — Stone Comp (manual more/less)
                     BoxLayout:
-                        orientation: 'horizontal'
-                        size_hint_y: None
-                        height: '32dp'
-                        spacing: '8dp'
+                        orientation: 'vertical'
+                        size_hint_x: 0.5
+                        padding: ['12dp', '8dp']
+                        spacing: '4dp'
+                        canvas.before:
+                            Color:
+                                rgba: theme.bg_panel
+                            RoundedRectangle:
+                                pos: self.pos
+                                size: self.size
+                                radius: [8,]
+                            Color:
+                                rgba: 0.9, 0.9, 0.2, 0.8
+                            Line:
+                                rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                                width: 1.4
+
+                        BoxLayout:
+                            orientation: 'horizontal'
+                            size_hint_y: None
+                            height: '32dp'
+                            spacing: '8dp'
+
+                            Label:
+                                text: 'BÙ / BỚT ĐÁ'
+                                font_size: '14sp'
+                                bold: True
+                                color: theme.text_mid
+                                halign: 'left'
+                                valign: 'middle'
+                                text_size: self.size
+                                size_hint_x: 0.5
+
+                            Label:
+                                id: start_pt_c_label
+                                text: root.start_pt_c
+                                font_size: '20sp'
+                                bold: True
+                                color: theme.text_main
+                                halign: 'right'
+                                valign: 'middle'
+                                text_size: self.size
+                                size_hint_x: 0.5
+
+                        BoxLayout:
+                            orientation: 'horizontal'
+                            size_hint_y: 1
+                            spacing: '4dp'
+
+                            # Increment toggle buttons (mutually exclusive)
+                            BoxLayout:
+                                orientation: 'vertical'
+                                size_hint_x: 0.3
+                                spacing: '4dp'
+                                ToggleButton:
+                                    group: 'stone_inc'
+                                    text: '0.02'
+                                    font_size: '13sp'
+                                    bold: True
+                                    background_normal: ''
+                                    background_color: (0.2, 0.2, 0.5, 1) if self.state == 'down' else (0.15, 0.15, 0.15, 1)
+                                    color: 1, 1, 1, 1
+                                    on_state: if self.state == 'down': root.on_stone_toggle(0.02)
+                                ToggleButton:
+                                    group: 'stone_inc'
+                                    text: '0.03'
+                                    state: 'down'
+                                    font_size: '13sp'
+                                    bold: True
+                                    background_normal: ''
+                                    background_color: (0.2, 0.2, 0.5, 1) if self.state == 'down' else (0.15, 0.15, 0.15, 1)
+                                    color: 1, 1, 1, 1
+                                    on_state: if self.state == 'down': root.on_stone_toggle(0.03)
+                                ToggleButton:
+                                    group: 'stone_inc'
+                                    text: '0.04'
+                                    font_size: '13sp'
+                                    bold: True
+                                    background_normal: ''
+                                    background_color: (0.2, 0.2, 0.5, 1) if self.state == 'down' else (0.15, 0.15, 0.15, 1)
+                                    color: 1, 1, 1, 1
+                                    on_state: if self.state == 'down': root.on_stone_toggle(0.04)
+
+                            Button:
+                                id: less_stone_btn
+                                text: 'BỚT ĐÁ'
+                                font_size: '16sp'
+                                bold: True
+                                size_hint_x: 0.35
+                                background_normal: ''
+                                background_color: 0.15, 0.08, 0.02, 1
+                                color: 0.984, 0.573, 0.235, 1
+                                disabled: root.motion_active
+                                on_release: root.on_less_stone()
+
+                            Button:
+                                id: more_stone_btn
+                                text: 'BÙ ĐÁ'
+                                font_size: '16sp'
+                                bold: True
+                                size_hint_x: 0.35
+                                background_normal: ''
+                                background_color: 0.02, 0.12, 0.06, 1
+                                color: 0.133, 0.773, 0.369, 1
+                                disabled: root.motion_active
+                                on_release: root.on_more_stone()
+
+                    # RIGHT HALF — Auto Wear (circular slider)
+                    BoxLayout:
+                        orientation: 'vertical'
+                        size_hint_x: 0.5
+                        padding: ['8dp', '8dp']
+                        canvas.before:
+                            Color:
+                                rgba: theme.bg_panel
+                            RoundedRectangle:
+                                pos: self.pos
+                                size: self.size
+                                radius: [8,]
+                            Color:
+                                rgba: 0.2, 0.7, 0.9, 0.8
+                            Line:
+                                rounded_rectangle: (self.x, self.y, self.width, self.height, 8)
+                                width: 1.4
 
                         Label:
-                            text: 'BÙ ĐÁ - BỚT ĐÁ BẰNG TAY'
-                            font_size: '16sp'
+                            text: 'Auto Wear'
+                            font_size: '14sp'
                             bold: True
                             color: theme.text_mid
-                            halign: 'left'
-                            valign: 'middle'
-                            text_size: self.size
-                            size_hint_x: 0.5
+                            size_hint_y: None
+                            height: '24dp'
+
+                        CircularSlider:
+                            id: auto_wear_dial
+                            min_val: 0
+                            max_val: 50
+                            value: root.auto_wear
+                            on_value_change: root.auto_wear = args[1]
 
                         Label:
-                            id: start_pt_c_label
-                            text: root.start_pt_c
+                            text: str(int(root.auto_wear))
                             font_size: '24sp'
                             bold: True
-                            color: theme.text_main
-                            halign: 'right'
-                            valign: 'middle'
-                            text_size: self.size
-                            size_hint_x: 0.5
-
-                    BoxLayout:
-                        orientation: 'horizontal'
-                        size_hint_y: 1
-                        spacing: '4dp'
-
-                        # Increment toggle buttons (mutually exclusive)
-                        BoxLayout:
-                            orientation: 'vertical'
-                            size_hint_x: 0.25
-                            spacing: '4dp'
-                            ToggleButton:
-                                group: 'stone_inc'
-                                text: '0.02'
-                                font_size: '14sp'
-                                bold: True
-                                background_normal: ''
-                                background_color: (0.2, 0.2, 0.5, 1) if self.state == 'down' else (0.15, 0.15, 0.15, 1)
-                                color: 1, 1, 1, 1
-                                on_state: if self.state == 'down': root.on_stone_toggle(0.02)
-                            ToggleButton:
-                                group: 'stone_inc'
-                                text: '0.03'
-                                state: 'down'
-                                font_size: '14sp'
-                                bold: True
-                                background_normal: ''
-                                background_color: (0.2, 0.2, 0.5, 1) if self.state == 'down' else (0.15, 0.15, 0.15, 1)
-                                color: 1, 1, 1, 1
-                                on_state: if self.state == 'down': root.on_stone_toggle(0.03)
-                            ToggleButton:
-                                group: 'stone_inc'
-                                text: '0.04'
-                                font_size: '14sp'
-                                bold: True
-                                background_normal: ''
-                                background_color: (0.2, 0.2, 0.5, 1) if self.state == 'down' else (0.15, 0.15, 0.15, 1)
-                                color: 1, 1, 1, 1
-                                on_state: if self.state == 'down': root.on_stone_toggle(0.04)
-
-                        Button:
-                            id: less_stone_btn
-                            text: 'BỚT ĐÁ'
-                            font_size: '18sp'
-                            bold: True
-                            size_hint_x: 0.375
-                            background_normal: ''
-                            background_color: 0.15, 0.08, 0.02, 1
-                            color: 0.984, 0.573, 0.235, 1
-                            disabled: root.motion_active
-                            on_release: root.on_less_stone()
-
-                        Button:
-                            id: more_stone_btn
-                            text: 'BÙ ĐÁ'
-                            font_size: '18sp'
-                            bold: True
-                            size_hint_x: 0.375
-                            background_normal: ''
-                            background_color: 0.02, 0.12, 0.06, 1
-                            color: 0.133, 0.773, 0.369, 1
-                            disabled: root.motion_active
-                            on_release: root.on_more_stone()
+                            color: 0.2, 0.7, 0.9, 1
+                            size_hint_y: None
+                            height: '28dp'
 
                 # (Grind progress moved to left column)
 

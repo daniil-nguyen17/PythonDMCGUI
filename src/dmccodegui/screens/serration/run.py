@@ -861,8 +861,8 @@ class SerrationRunScreen(BaseRunScreen):
         from ...utils import jobs
         jobs.submit(_do)
 
-    def on_auto_wear(self, _instance, _value):
-        """Kivy property callback — sync to controller whenever dial changes."""
+    def on_auto_wear_release(self) -> None:
+        """Called when user releases the Auto Wear dial — sync to controller."""
         self._sync_auto_wear_to_controller()
 
     # -----------------------------------------------------------------------

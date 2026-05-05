@@ -622,6 +622,7 @@
                             max_val: 50
                             value: root.auto_wear
                             on_value_change: root.auto_wear = args[1]
+                            on_release: root.on_auto_wear_release()
 
                         Label:
                             text: str(int(root.auto_wear))

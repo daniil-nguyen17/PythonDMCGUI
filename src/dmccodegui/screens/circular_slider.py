@@ -144,12 +144,17 @@ class CircularSlider(Widget):
         return False
 
     def on_touch_up(self, touch):
-        """Release touch tracking."""
+        """Release touch tracking and dispatch on_release event."""
         if touch.grab_current is self:
             touch.ungrab(self)
             self._touching = False
+            self.dispatch('on_release', self.value)
             return True
         return False
+
+    def on_release(self, *_args):
+        """Event dispatched when user lifts finger — use this to send commands."""
+        pass
 
     def _update_value_from_touch(self, touch):
         """Convert touch position to a value on the arc."""
@@ -205,5 +210,6 @@ class CircularSlider(Widget):
         pass
 
 
-# Register the custom event type
+# Register custom event types
 CircularSlider.register_event_type('on_value_change')
+CircularSlider.register_event_type('on_release')

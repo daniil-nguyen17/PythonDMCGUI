@@ -40,6 +40,7 @@ _FLAT_PARAM_DEFS: List[Dict] = [
     # Geometry group
     {"label": "Knife Thickness", "var": "knfThk", "unit": "mm", "group": "Geometry", "min": 0.1, "max": 50.0},
     {"label": "Edge Thickness", "var": "edgeThk", "unit": "mm", "group": "Geometry", "min": 0.01, "max": 10.0},
+    {"label": "C Abs Heel", "var": "cAbsHeel", "unit": "cts", "group": "Geometry", "min": -9999999.0, "max": 9999999.0},
     # Feedrates group
     {"label": "Feed Rate A", "var": "fdA", "unit": "mm/s", "group": "Feedrates", "min": 0.1, "max": 500.0},
     {"label": "Feed Rate B", "var": "fdB", "unit": "mm/s", "group": "Feedrates", "min": 0.1, "max": 500.0},
